@@ -32,13 +32,12 @@ public class MessagingHost
 
 	public void RegisterValueCallback<T>(string id, Action<T> callback) where T : unmanaged
 	{
-		RendererCommandInitializer.InitType<ValueCommand<T>>();
+		//RendererCommandInitializer.InitValueType(typeof(T));
 		_valueCallbackMap[id] = callback;
 	}
 
 	public void RegisterStringCallback(string id, Action<string> callback)
 	{
-		RendererCommandInitializer.InitType<StringCommand>();
 		_stringCallbackMap[id] = callback;
 	}
 
@@ -59,7 +58,7 @@ public class MessagingHost
 		_primary.WarningHandler = WarnHandler;
 		_primary.Connect(QueueName + "InterprocessLib", isAuthority, QueueCapacity);
 
-		//RendererCommandInitializer.InitTypes();
+		RendererCommandInitializer.InitTypes();
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -112,16 +111,22 @@ public class MessagingHost
 				typedMethod.Invoke(this, new object[] { command });
 			}
 		}
-		switch (command)
+		else
 		{
-			case StringCommand stringCommand:
-				HandleStringCommand(stringCommand);
-				break;
-			case IdentifiableCommand identifiableCommand:
-				HandleIdentifiableCommand(identifiableCommand);
-				break;
-			default:
-				break;
+			switch (command)
+			{
+				//case InitValueTypeCommand initValueType:
+				//	RendererCommandInitializer.InitValueType(AccessTools.TypeByName(initValueType.TypeName), tellOtherProcess: false);
+				//	break;
+				case StringCommand stringCommand:
+					HandleStringCommand(stringCommand);
+					break;
+				case IdentifiableCommand identifiableCommand:
+					HandleIdentifiableCommand(identifiableCommand);
+					break;
+				default:
+					break;
+			}
 		}
 	}
 
@@ -137,10 +142,15 @@ public class MessagingHost
 
 	public void SendCommand(RendererCommand command)
 	{
+		//var type = command.GetType();
+		//if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(ValueCommand<>))
+		//{
+		//	RendererCommandInitializer.InitValueType(type.GetGenericArguments()[0]);
+		//}
 		_primary.SendCommand(command);
 	}
 
-	public void Debug(string msg)
+	internal void Debug(string msg)
 	{
 		OnDebug?.Invoke(msg);
 	}
@@ -148,21 +158,27 @@ public class MessagingHost
 
 public static class RendererCommandInitializer
 {
-	private static MethodInfo _initTypeInnerMethod = AccessTools.Method(typeof(RendererCommandInitializer), "InitTypeInner", []);
+	//private static MethodInfo _initTypeInnerMethod = AccessTools.Method(typeof(RendererCommandInitializer), "InitTypeInner", []);
 	private static HashSet<Type> _initializedTypes = new();
+	private static HashSet<Type> _initializedValueTypes = new();
+	public static bool IsValueTypeInitialized(Type type)
+	{
+		return _initializedValueTypes.Contains(type);
+	}
 	public static bool IsTypeInitialized(Type type)
 	{
 		return _initializedTypes.Contains(type);
 	}
-	public static bool IsTypeInitialized<T>()
-	{
-		return _initializedTypes.Contains(typeof(T));
-	}
 	internal static void InitTypes()
 	{
-		Assembly.GetExecutingAssembly().GetTypes().Where(t => !t.ContainsGenericParameters && t.IsSubclassOf(typeof(RendererCommand))).Do(InitType);
+		//Assembly.GetExecutingAssembly().GetTypes().Where(t => !t.ContainsGenericParameters && t.IsSubclassOf(typeof(RendererCommand))).Do(InitType);
+		InitType(typeof(Command));
+		InitType(typeof(StringCommand));
+		//InitType(typeof(InitValueTypeCommand));
+		foreach (var valueType in _valueTypes)
+			InitValueType(valueType);
 	}
-	private static void InitType(Type type)
+	public static void InitType(Type type)
 	{
 		if (IsTypeInitialized(type))
 			return;
@@ -173,54 +189,78 @@ public static class RendererCommandInitializer
 		if (type.ContainsGenericParameters)
 			throw new Exception($"Type {type.Name} is not a concrete type!");
 
-		_initTypeInnerMethod.MakeGenericMethod(type).Invoke(null, []);
+		InitTypeInner(type);
 	}
-	public static void InitType<T>()
+	internal static void InitValueType(Type type, bool tellOtherProcess=true)
 	{
-		var type = typeof(T);
-		if (IsTypeInitialized(type))
+		if (IsValueTypeInitialized(type))
 			return;
 
-		if (!type.IsSubclassOf(typeof(RendererCommand)))
-			throw new Exception($"Type {type.Name} is not a RendererCommand!");
+		if (!type.IsValueType)
+			throw new Exception($"Type {type.Name} is not a Value Type!");
 
-		if (type.ContainsGenericParameters)
-			throw new Exception($"Type {type.Name} is not a concrete type!");
+		//var initValueTypeCmd = new InitValueTypeCommand();
+		//initValueTypeCmd.TypeName = type.Name;
+		//MessagingHost.Instance!.SendCommand(initValueTypeCmd);
 
-		InitTypeInner<T>();
+		var genType = typeof(ValueCommand<>).MakeGenericType(type);
+
+		InitTypeInner(genType);
 	}
-	private static void InitTypeInner<T>()
+	private static void InitTypeInner(Type type)
 	{
-		MessagingHost.Instance!.Debug($"Initializing: {typeof(T).Name} {(typeof(T).IsGenericType ? typeof(T).GetGenericArguments()[0] : "")}");
+		MessagingHost.Instance!.Debug($"Initializing: {type.Name} {(type.IsGenericType ? type.GetGenericArguments()[0] : "")}");
 
+		var types = (List<Type>)AccessTools.Field(typeof(RendererCommand), "types").GetValue(null)!;
 		var typeToIndex = (Dictionary<Type, int>)AccessTools.Field(typeof(RendererCommand), "typeToIndex").GetValue(null)!;
 		var poolBorrowers = (List<Func<IMemoryPackerEntityPool, RendererCommand>>)AccessTools.Field(typeof(RendererCommand), "poolBorrowers").GetValue(null)!;
 		var poolReturners = (List<Action<IMemoryPackerEntityPool, RendererCommand>>)AccessTools.Field(typeof(RendererCommand), "poolReturners").GetValue(null)!;
 
-		if (typeToIndex.ContainsKey(typeof(T))) return;
+		if (typeToIndex.ContainsKey(type)) return;
 
-		typeToIndex.Add(typeof(T), typeToIndex.Count);
+		typeToIndex.Add(type, typeToIndex.Count);
+
+		types.Add(type);
 
 		MethodInfo method = typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetMethod("Allocate", BindingFlags.Static | BindingFlags.NonPublic)!;
 		MethodInfo method2 = typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetMethod("Return", BindingFlags.Static | BindingFlags.NonPublic)!;
 
-		MethodInfo methodInfo = method.MakeGenericMethod(typeof(T));
-		MethodInfo methodInfo2 = method2.MakeGenericMethod(typeof(T));
+		MethodInfo methodInfo = method.MakeGenericMethod(type);
+		MethodInfo methodInfo2 = method2.MakeGenericMethod(type);
 		Func<IMemoryPackerEntityPool, RendererCommand> item = (Func<IMemoryPackerEntityPool, RendererCommand>)methodInfo.CreateDelegate(typeof(Func<IMemoryPackerEntityPool, RendererCommand>));
 		Action<IMemoryPackerEntityPool, RendererCommand> item2 = (Action<IMemoryPackerEntityPool, RendererCommand>)methodInfo2.CreateDelegate(typeof(Action<IMemoryPackerEntityPool, RendererCommand>));
 
 		poolBorrowers.Add(item);
 		poolReturners.Add(item2);
 
-		_initializedTypes.Add(typeof(T));
+		_initializedTypes.Add(type);
 	}
+
+	private static Type[] _valueTypes =
+	{
+		typeof(bool),
+		typeof(byte),
+		typeof(ushort),
+		typeof(uint),
+		typeof(ulong),
+		typeof(sbyte),
+		typeof(short),
+		typeof(int),
+		typeof(long),
+		typeof(float),
+		typeof(double),
+		typeof(decimal),
+		typeof(char),
+		typeof(DateTime),
+		typeof(TimeSpan)
+	};
 }
 
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
 // Causes errors in RendererCommandInitializer
 
-public class IdentifiableCommand : RendererCommand
+public abstract class IdentifiableCommand : RendererCommand
 {
 	public string Id = "";
 
@@ -268,3 +308,23 @@ public class StringCommand : IdentifiableCommand
 		unpacker.Read(ref String);
 	}
 }
+
+public class Command : IdentifiableCommand
+{
+	// owo
+}
+
+//internal class InitValueTypeCommand : RendererCommand
+//{
+//	public string TypeName = "";
+
+//	public override void Pack(ref MemoryPacker packer)
+//	{
+//		packer.Write(TypeName);
+//	}
+
+//	public override void Unpack(ref MemoryUnpacker unpacker)
+//	{
+//		unpacker.Read(ref TypeName);
+//	}
+//}

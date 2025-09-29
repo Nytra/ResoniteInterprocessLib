@@ -17,6 +17,7 @@ public class Plugin : BasePlugin
 {
 	internal static new ManualLogSource? Log;
 	internal static ConfigEntry<bool>? TestBool;
+	internal static ConfigEntry<float>? TestFloat;
 	public static MessagingHost? MessagingHost;
 
 	public override void Load()
@@ -49,7 +50,7 @@ public class Plugin : BasePlugin
 
 			// ...
 
-			Test.Test2();
+			Tests.Test();
 		};
 
 		TestBool = Config.Bind("General", "TestBool", false);
@@ -61,6 +62,7 @@ public class Plugin : BasePlugin
 			command.Value = TestBool.Value;
 			MessagingHost!.SendCommand(command);
 		};
+		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
 
 	void FailHandler(Exception ex)
@@ -84,13 +86,25 @@ public class Plugin : BasePlugin
 	}
 }
 
-class Test
+class Tests
 {
-	public static void Test2()
+	public static void Test()
 	{
-		Plugin.MessagingHost!.RegisterValueCallback<bool>("TestBool", (val) =>
+		Plugin.MessagingHost!.RegisterValueCallback<float>("TestFloat", (val) =>
 		{
-			Plugin.Log!.LogInfo($"Test2 in FrooxEngine got TestBool: {val}");
+			Plugin.Log!.LogInfo($"Test: Got TestFloat: {val}");
+			Plugin.TestFloat!.Value = val;
+			var send = new Command();
+			send.Id = "TestCommand";
+			Plugin.MessagingHost!.SendCommand(send);
+		});
+		Plugin.MessagingHost!.RegisterStringCallback("TestString", (str) => 
+		{
+			Plugin.Log!.LogInfo($"Test: Got TestString: {str}");
+		});
+		Plugin.MessagingHost!.RegisterCallback("TestCallback", () =>
+		{
+			Plugin.Log!.LogInfo($"Test: Got TestCallback.");
 		});
 	}
 }

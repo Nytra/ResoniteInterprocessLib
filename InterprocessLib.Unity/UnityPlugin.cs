@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using InterprocessLib.Shared;
 using Renderite.Unity;
+using UnityEngine;
 
 namespace InterprocessLib.Unity;
 
@@ -23,6 +24,8 @@ public class Plugin : BaseUnityPlugin
 		if (_initialized) return;
 
 		if (RenderingManager.Instance is null) return;
+
+		if (PackerMemoryPool.Instance is null) return;
 
 		var getConnectionParametersMethod = AccessTools.Method(typeof(RenderingManager), "GetConnectionParameters");
 
@@ -73,10 +76,26 @@ class Tests
 		{
 			Plugin.Log!.LogInfo($"Unity got TestBool: {val}");
 
-			var response = new ValueCommand<bool>();
-			response.Id = "TestBool";
-			response.Value = val;
+			var response = new ValueCommand<float>();
+			response.Id = "TestFloat";
+			response.Value = Time.frameCount;
 			Plugin.MessagingHost!.SendCommand(response);
+		});
+		Plugin.MessagingHost!.RegisterCallback("TestCommand", () => 
+		{
+			Plugin.Log!.LogInfo($"Unity got TestCommand");
+
+			var response = new Command();
+			response.Id = "TestCallback";
+			Plugin.MessagingHost!.SendCommand(response);
+
+			//Task.Run(async () => 
+			//{ 
+			//	await Task.Delay(5000);
+			//	var response = new Command();
+			//	response.Id = "TestCallback";
+			//	Plugin.MessagingHost?.SendCommand(response);
+			//});
 		});
 	}
 }
