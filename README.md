@@ -1,9 +1,10 @@
 # InterprocessLib
-[![Thunderstore Badge](https://modding.resonite.net/assets/available-on-thunderstore.svg)](https://thunderstore.io/c/resonite/)
 
-A library for [Resonite](https://resonite.com/) that allows BepisLoader plugins to send data to BepInEx renderer plugins and vice versa.
+A library for [Resonite](https://resonite.com/) that allows mods to send data to the renderer and back.
 
-Technically the library itself doesn't depend on BepisLoader or BepInEx, so it could be used in other environments.
+The library itself only depends on `Renderite.Shared.dll`, meaning you could drop it into other modding environments quite easily.
+
+BepisLoader and BepInEx projects are included because nothing else supports renderer modding at this time.
 
 ## Installation (Manual)
 1. Install [BepisLoader](https://github.com/ResoniteModding/BepisLoader) for Resonite.
