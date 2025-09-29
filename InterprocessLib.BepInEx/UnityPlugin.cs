@@ -1,14 +1,13 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
-using InterprocessLib.Shared;
 using Renderite.Unity;
 using UnityEngine;
 using Renderite.Shared;
 
-namespace InterprocessLib.Unity;
+namespace InterprocessLib.BepInEx;
 
-[BepInPlugin("Nytra.InterprocessLib.Unity", "InterprocessLib.Unity", "1.0.0")]
+[BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.0")]
 public class Plugin : BaseUnityPlugin
 {
 	internal static ManualLogSource? Log;

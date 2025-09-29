@@ -1,7 +1,7 @@
 ﻿using Renderite.Shared;
 using System.Reflection;
 
-namespace InterprocessLib.Shared;
+namespace InterprocessLib;
 
 public class MessagingHost
 {

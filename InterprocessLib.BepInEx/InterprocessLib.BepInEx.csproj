@@ -6,9 +6,9 @@
     <TargetFramework>net472</TargetFramework>
 	<LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib</PackageId>
-    <Product>InterprocessLib</Product>
-    <RootNamespace>InterprocessLib.Unity</RootNamespace>
+    <PackageId>Nytra.InterprocessLib.BepInEx</PackageId>
+    <Product>InterprocessLib.BepInEx</Product>
+    <RootNamespace>InterprocessLib.BepInEx</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
@@ -24,41 +24,27 @@
       https://nuget-modding.resonite.net/v3/index.json;
     </RestoreAdditionalProjectSources>
   </PropertyGroup>
-
-  <!-- Local game references -->
-  <ItemGroup Condition="Exists('$(GamePath)')">
-    <Reference Include="FrooxEngine">
-      <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Elements.Core">
-      <HintPath>$(GamePath)Elements.Core.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Renderite.Shared">
-      <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  </ItemGroup>
-  
   
   <ItemGroup>
-    <Reference Include="0Harmony">
-      <HintPath>G:\SteamLibrary\steamapps\common\Resonite\Renderer\BepInEx\core\0Harmony.dll</HintPath>
+	<Reference Include="0Harmony">
+      <HintPath>$(GamePath)Renderer\BepInEx\core\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="BepInEx">
-      <HintPath>G:\SteamLibrary\steamapps\common\Resonite\Renderer\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(GamePath)Renderer\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="Renderite.Unity">
-      <HintPath>G:\SteamLibrary\steamapps\common\Resonite\Renderer\Renderite.Renderer_Data\Managed\Renderite.Unity.dll</HintPath>
+      <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Unity.dll</HintPath>
+    </Reference>
+	<Reference Include="Renderite.Shared">
+      <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Shared.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>G:\SteamLibrary\steamapps\common\Resonite\Renderer\Renderite.Renderer_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>G:\SteamLibrary\steamapps\common\Resonite\Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
-	<Compile Include="../InterprocessLib/Shared.cs" Exclude="../InterprocessLib/obj/**" />
+	<Compile Include="../InterprocessLib/Core.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->

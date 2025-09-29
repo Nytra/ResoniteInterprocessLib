@@ -6,10 +6,9 @@ using BepInExResoniteShim;
 using Elements.Core;
 using FrooxEngine;
 using HarmonyLib;
-using InterprocessLib.Shared;
 using Renderite.Shared;
 
-namespace InterprocessLib;
+namespace InterprocessLib.BepisLoader;
 
 [ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
