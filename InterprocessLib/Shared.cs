@@ -1,5 +1,4 @@
-﻿using HarmonyLib;
-using Renderite.Shared;
+﻿using Renderite.Shared;
 using System.Reflection;
 
 namespace InterprocessLib.Shared;
@@ -12,7 +11,7 @@ public class MessagingHost
 
 	public long QueueCapacity { get; private set; }
 
-	private static MethodInfo _handleValueCommandMethod = AccessTools.Method(typeof(MessagingHost), nameof(HandleValueCommand));
+	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	public event RenderCommandHandler? OnCommandReceieved;
 
@@ -107,7 +106,7 @@ public class MessagingHost
 			if (cmdType.GetGenericTypeDefinition() == typeof(ValueCommand<>))
 			{
 				var valueType = cmdType.GetGenericArguments()[0];
-				var typedMethod = _handleValueCommandMethod.MakeGenericMethod(valueType);
+				var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
 				typedMethod.Invoke(this, new object[] { command });
 			}
 		}
@@ -158,7 +157,6 @@ public class MessagingHost
 
 public static class RendererCommandInitializer
 {
-	//private static MethodInfo _initTypeInnerMethod = AccessTools.Method(typeof(RendererCommandInitializer), "InitTypeInner", []);
 	private static HashSet<Type> _initializedTypes = new();
 	private static HashSet<Type> _initializedValueTypes = new();
 	public static bool IsValueTypeInitialized(Type type)
@@ -169,9 +167,10 @@ public static class RendererCommandInitializer
 	{
 		return _initializedTypes.Contains(type);
 	}
+
+	// Types need it initialize in the exact same order in both processes
 	internal static void InitTypes()
 	{
-		//Assembly.GetExecutingAssembly().GetTypes().Where(t => !t.ContainsGenericParameters && t.IsSubclassOf(typeof(RendererCommand))).Do(InitType);
 		InitType(typeof(Command));
 		InitType(typeof(StringCommand));
 		//InitType(typeof(InitValueTypeCommand));
@@ -206,15 +205,18 @@ public static class RendererCommandInitializer
 		var genType = typeof(ValueCommand<>).MakeGenericType(type);
 
 		InitTypeInner(genType);
+
+		_initializedValueTypes.Add(type);
 	}
 	private static void InitTypeInner(Type type)
 	{
 		MessagingHost.Instance!.Debug($"Initializing: {type.Name} {(type.IsGenericType ? type.GetGenericArguments()[0] : "")}");
-
-		var types = (List<Type>)AccessTools.Field(typeof(RendererCommand), "types").GetValue(null)!;
-		var typeToIndex = (Dictionary<Type, int>)AccessTools.Field(typeof(RendererCommand), "typeToIndex").GetValue(null)!;
-		var poolBorrowers = (List<Func<IMemoryPackerEntityPool, RendererCommand>>)AccessTools.Field(typeof(RendererCommand), "poolBorrowers").GetValue(null)!;
-		var poolReturners = (List<Action<IMemoryPackerEntityPool, RendererCommand>>)AccessTools.Field(typeof(RendererCommand), "poolReturners").GetValue(null)!;
+		
+		var theType = typeof(PolymorphicMemoryPackableEntity<RendererCommand>);
+		var types = (List<Type>)theType.GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+		var typeToIndex = (Dictionary<Type, int>)theType.GetField("typeToIndex", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+		var poolBorrowers = (List<Func<IMemoryPackerEntityPool, RendererCommand>>)theType.GetField("poolBorrowers", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+		var poolReturners = (List<Action<IMemoryPackerEntityPool, RendererCommand>>)theType.GetField("poolReturners", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
 		if (typeToIndex.ContainsKey(type)) return;
 
