@@ -4,6 +4,7 @@ using HarmonyLib;
 using InterprocessLib.Shared;
 using Renderite.Unity;
 using UnityEngine;
+using Renderite.Shared;
 
 namespace InterprocessLib.Unity;
 
@@ -37,14 +38,14 @@ public class Plugin : BaseUnityPlugin
 		}
 
 		MessagingHost = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		//MessagingHost.OnCommandReceieved += CommandHandler;
+		MessagingHost.OnCommandReceieved += CommandHandler;
 		MessagingHost.OnFailure += FailHandler;
 		MessagingHost.OnWarning += WarnHandler;
 		MessagingHost.OnDebug += DebugHandler;
 
-		Tests.Test();
-
 		_initialized = true;
+
+		Tests.Test();
 	}
 
 	void FailHandler(Exception ex)
@@ -62,10 +63,10 @@ public class Plugin : BaseUnityPlugin
 		Log!.LogDebug(msg);
 	}
 
-	//void CommandHandler(RendererCommand command, int messageSize)
-	//{
+	void CommandHandler(RendererCommand command, int messageSize)
+	{
 
-	//}
+	}
 }
 
 class Tests
@@ -88,14 +89,6 @@ class Tests
 			var response = new Command();
 			response.Id = "TestCallback";
 			Plugin.MessagingHost!.SendCommand(response);
-
-			//Task.Run(async () => 
-			//{ 
-			//	await Task.Delay(5000);
-			//	var response = new Command();
-			//	response.Id = "TestCallback";
-			//	Plugin.MessagingHost?.SendCommand(response);
-			//});
 		});
 	}
 }

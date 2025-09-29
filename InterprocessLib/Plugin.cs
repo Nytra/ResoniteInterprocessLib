@@ -43,12 +43,10 @@ public class Plugin : BasePlugin
 		{
 			var renderSystemMessagingHost = (RenderiteMessagingHost)AccessTools.Field(typeof(RenderSystem), "_messagingHost").GetValue(Engine.Current.RenderSystem)!;
 			MessagingHost = new MessagingHost(true, renderSystemMessagingHost.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-			//MessagingHost.OnCommandReceieved += CommandHandler;
+			MessagingHost.OnCommandReceieved += CommandHandler;
 			MessagingHost.OnFailure += FailHandler;
 			MessagingHost.OnWarning += WarnHandler;
 			MessagingHost.OnDebug += DebugHandler;
-
-			// ...
 
 			Tests.Test();
 		};
