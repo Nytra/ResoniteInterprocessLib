@@ -1,0 +1,15 @@
+<Project>
+  <Target Name="PackTS" DependsOnTargets="Build">
+    <CallTarget Targets="PackTS_Execute" Condition="'$(ThunderstorePackable)' == 'true' and '$(Configuration)' == 'Release'" />
+  </Target>
+
+  <Target Name="PackTS_Execute">
+    <PropertyGroup>
+      <BuildArgument Condition="'$(PublishTS)' != 'true'">build</BuildArgument>
+      <BuildArgument Condition="'$(PublishTS)' == 'true'">publish</BuildArgument>
+    </PropertyGroup>
+
+    <Exec Command="dotnet tool restore" WorkingDirectory="$(SolutionDir)" />
+    <Exec Command="dotnet tcli $(BuildArgument) --package-version $(Version)" WorkingDirectory="$(SolutionDir)" />
+  </Target>
+</Project>

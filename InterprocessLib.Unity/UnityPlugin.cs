@@ -1,0 +1,80 @@
+﻿using BepInEx;
+using BepInEx.Logging;
+using HarmonyLib;
+using InterprocessLib.Shared;
+using Renderite.Unity;
+
+namespace InterprocessLib.Unity;
+
+[BepInPlugin("Nytra.InterprocessLib.Unity", "InterprocessLib.Unity", "1.0.0")]
+public class Plugin : BaseUnityPlugin
+{
+	internal static ManualLogSource? Log;
+	private static bool _initialized;
+	public static MessagingHost? MessagingHost;
+
+	void Awake()
+	{
+		Log = base.Logger;
+	}
+
+	void Update()
+	{
+		if (_initialized) return;
+
+		if (RenderingManager.Instance is null) return;
+
+		var getConnectionParametersMethod = AccessTools.Method(typeof(RenderingManager), "GetConnectionParameters");
+
+		object[] parameters = { "", 0L };
+
+		if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
+		{
+			throw new Exception("Could not get connection parameters for mod IPC!");
+		}
+
+		MessagingHost = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
+		//MessagingHost.OnCommandReceieved += CommandHandler;
+		MessagingHost.OnFailure += FailHandler;
+		MessagingHost.OnWarning += WarnHandler;
+		MessagingHost.OnDebug += DebugHandler;
+
+		Tests.Test();
+
+		_initialized = true;
+	}
+
+	void FailHandler(Exception ex)
+	{
+		Log!.LogError("Exception in messaging system:\n" + ex);
+	}
+
+	void WarnHandler(string msg)
+	{
+		Log!.LogWarning(msg);
+	}
+
+	void DebugHandler(string msg)
+	{
+		Log!.LogDebug(msg);
+	}
+
+	//void CommandHandler(RendererCommand command, int messageSize)
+	//{
+
+	//}
+}
+
+class Tests
+{
+	public static void Test()
+	{
+		Plugin.MessagingHost!.RegisterValueCallback<bool>("TestBool", (val) =>
+		{
+			Plugin.Log!.LogInfo($"Unity got TestBool: {val}");
+
+			var response = new ValueCommand<bool>("TestBool", val);
+			Plugin.MessagingHost!.SendCommand(response);
+		});
+	}
+}
