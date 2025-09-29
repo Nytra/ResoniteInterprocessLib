@@ -85,7 +85,7 @@ class Tests
 		{
 			Plugin.Log!.LogInfo($"Unity got TestCommand");
 
-			var response = new Command();
+			var response = new IdentifiableCommand();
 			response.Id = "TestCallback";
 			Plugin.MessagingHost!.SendCommand(response);
 		});

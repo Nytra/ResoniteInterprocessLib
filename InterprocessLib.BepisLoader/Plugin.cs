@@ -91,7 +91,7 @@ class Tests
 		{
 			Plugin.Log!.LogInfo($"Test: Got TestFloat: {val}");
 			Plugin.TestFloat!.Value = val;
-			var send = new Command();
+			var send = new IdentifiableCommand();
 			send.Id = "TestCommand";
 			Plugin.MessagingHost!.SendCommand(send);
 		});
