@@ -2,7 +2,7 @@
 
 A library for [Resonite](https://resonite.com/) that allows mods to send data to the renderer and back.
 
-The library itself only depends on `Renderite.Shared.dll`, meaning you could drop it into other modding environments quite easily.
+The library itself only depends on `Renderite.Shared.dll`, meaning it could support other mod loader e.g. MonkeyLoader.
 
 BepisLoader and BepInEx projects are included because nothing else supports renderer modding at this time.
 
