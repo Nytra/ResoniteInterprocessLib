@@ -44,7 +44,6 @@ public class MessagingHost
 
 	public void RegisterCallback(string id, Action callback)
 	{
-		//RendererCommandInitializer.InitType<StringCommand>();
 		_callbackMap[id] = callback;
 	}
 
@@ -87,17 +86,17 @@ public class MessagingHost
 		}
 	}
 
-	//private void HandleIdentifiableCommand(IdentifiableCommand command)
-	//{
-	//	OnDebug?.Invoke($"Received identifiable command: {command.id}");
-	//	if (_callbackMap.TryGetValue(command.id, out Action? callback))
-	//	{
-	//		if (callback != null)
-	//		{
-	//			callback.Invoke();
-	//		}
-	//	}
-	//}
+	private void HandleIdentifiableCommand(IdentifiableCommand command)
+	{
+		OnDebug?.Invoke($"Received identifiable command: {command.Id}");
+		if (_callbackMap.TryGetValue(command.Id, out Action? callback))
+		{
+			if (callback != null)
+			{
+				callback.Invoke();
+			}
+		}
+	}
 
 	private void HandleCommand(RendererCommand command, int messageSize)
 	{
@@ -118,9 +117,9 @@ public class MessagingHost
 			case StringCommand stringCommand:
 				HandleStringCommand(stringCommand);
 				break;
-			//case IdentifiableCommand identifiableCommand:
-			//	HandleIdentifiableCommand(identifiableCommand);
-			//	break;
+			case IdentifiableCommand identifiableCommand:
+				HandleIdentifiableCommand(identifiableCommand);
+				break;
 			default:
 				break;
 		}
@@ -217,70 +216,55 @@ public static class RendererCommandInitializer
 	}
 }
 
-//public abstract class IdentifiableCommand : RendererCommand
-//{
-//	public string id = "";
+// IMPORTANT:
+// RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
+// Causes errors in RendererCommandInitializer
 
-//	public IdentifiableCommand(string id)
-//	{
-//		this.id = id;
-//	}
-
-//	public override void Pack(ref MemoryPacker packer)
-//	{
-//		packer.Write(id);
-//	}
-
-//	public override void Unpack(ref MemoryUnpacker unpacker)
-//	{
-//		unpacker.Read(ref id);
-//	}
-//}
-
-public class ValueCommand<T> : RendererCommand where T : unmanaged
+public class IdentifiableCommand : RendererCommand
 {
 	public string Id = "";
-	public T Value;
-
-	public ValueCommand(string id, T val)
-	{
-		Id = id;
-		Value = val;
-	}
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		packer.Write(Id);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Id);
+	}
+}
+
+public class ValueCommand<T> : IdentifiableCommand where T : unmanaged
+{
+	public T Value;
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
 		packer.Write(Value);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		unpacker.Read(ref Id);
+		base.Unpack(ref unpacker);
 		unpacker.Read(ref Value);
 	}
 }
 
-public class StringCommand : RendererCommand
+public class StringCommand : IdentifiableCommand
 {
-	public string Id = "";
 	public string String = "";
-
-	public StringCommand(string id, string str)
-	{
-		Id = id;
-		String = str;
-	}
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		packer.Write(Id);
+		base.Pack(ref packer);
 		packer.Write(String);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		unpacker.Read(ref Id);
+		base.Unpack(ref unpacker);
 		unpacker.Read(ref String);
 	}
 }

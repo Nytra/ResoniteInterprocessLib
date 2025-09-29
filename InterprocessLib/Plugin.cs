@@ -56,7 +56,9 @@ public class Plugin : BasePlugin
 		TestBool.SettingChanged += (sender, args) =>
 		{
 			Log.LogInfo($"TestBool changed in FrooxEngine: {TestBool.Value}");
-			var command = new ValueCommand<bool>("TestBool", TestBool.Value);
+			var command = new ValueCommand<bool>();
+			command.Id = "TestBool";
+			command.Value = TestBool.Value;
 			MessagingHost!.SendCommand(command);
 		};
 	}
@@ -80,8 +82,6 @@ public class Plugin : BasePlugin
 	{
 		
 	}
-
-	
 }
 
 class Test

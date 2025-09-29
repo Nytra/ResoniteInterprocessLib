@@ -73,7 +73,9 @@ class Tests
 		{
 			Plugin.Log!.LogInfo($"Unity got TestBool: {val}");
 
-			var response = new ValueCommand<bool>("TestBool", val);
+			var response = new ValueCommand<bool>();
+			response.Id = "TestBool";
+			response.Value = val;
 			Plugin.MessagingHost!.SendCommand(response);
 		});
 	}
