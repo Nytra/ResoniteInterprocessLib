@@ -56,8 +56,12 @@ public class MessagingHost
 		_primary.WarningHandler = WarnHandler;
 		_primary.Connect(QueueName + "InterprocessLib", isAuthority, QueueCapacity);
 
-		// Init static constructor
-		var cmd = new IdentifiableCommand();
+		var newTypes = new List<Type>();
+		newTypes.Add(typeof(IdentifiableCommand));
+		newTypes.Add(typeof(StringCommand));
+		foreach (var valueType in Utils._valueTypes)
+			newTypes.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
+		IdentifiableCommand.InitNewTypes(newTypes);
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -155,35 +159,13 @@ public class IdentifiableCommand : RendererCommand
 {
 	public string Id = "";
 
-	private static Type[] _valueTypes =
-	{
-		typeof(bool),
-		typeof(byte),
-		typeof(ushort),
-		typeof(uint),
-		typeof(ulong),
-		typeof(sbyte),
-		typeof(short),
-		typeof(int),
-		typeof(long),
-		typeof(float),
-		typeof(double),
-		typeof(decimal),
-		typeof(char),
-		typeof(DateTime),
-		typeof(TimeSpan)
-	};
-
-	static IdentifiableCommand()
+	public static void InitNewTypes(List<Type> extraTypes)
 	{
 		var list = new List<Type>();
 		var theType = typeof(PolymorphicMemoryPackableEntity<RendererCommand>);
 		var types = (List<Type>)theType.GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 		list.AddRange(types);
-		list.Add(typeof(IdentifiableCommand));
-		list.Add(typeof(StringCommand));
-		foreach (var valueType in _valueTypes)
-			list.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
+		list.AddRange(extraTypes);
 		InitTypes(list);
 	}
 
@@ -230,4 +212,26 @@ public class StringCommand : IdentifiableCommand
 		base.Unpack(ref unpacker);
 		unpacker.Read(ref String);
 	}
+}
+
+internal static class Utils
+{
+	public static Type[] _valueTypes =
+	{
+		typeof(bool),
+		typeof(byte),
+		typeof(ushort),
+		typeof(uint),
+		typeof(ulong),
+		typeof(sbyte),
+		typeof(short),
+		typeof(int),
+		typeof(long),
+		typeof(float),
+		typeof(double),
+		typeof(decimal),
+		typeof(char),
+		typeof(DateTime),
+		typeof(TimeSpan)
+	};
 }
