@@ -32,7 +32,7 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		Messenger.Init();
 
-		_messenger = new("Nytra");
+		_messenger = new("InterprocessLib");
 
 		_initialized = true;
 

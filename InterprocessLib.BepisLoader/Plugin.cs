@@ -47,7 +47,7 @@ internal class Plugin : BasePlugin
 
 			Messenger.Init();
 
-			_messenger = new Messenger("Nytra");
+			_messenger = new Messenger("InterprocessLib");
 
 			Test();
 		};
