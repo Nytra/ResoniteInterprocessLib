@@ -42,7 +42,6 @@
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
 	<Compile Include="../InterprocessLib/Core.cs" />
-	<Compile Include="../InterprocessLib.Unity/UnityInit.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->

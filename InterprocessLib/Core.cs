@@ -17,11 +17,11 @@ internal class MessagingHost
 
 	public static MessagingHost? Instance { get; private set; }
 
-	internal Action<Exception>? OnFailure;
+	internal Action<Exception>? _onFailure;
 
-	internal Action<string>? OnWarning;
+	internal Action<string>? _onWarning;
 
-	internal Action<string>? OnDebug;
+	internal Action<string>? _onDebug;
 
 	private Dictionary<string, object?> _valueCallbackMap = new();
 
@@ -67,7 +67,7 @@ internal class MessagingHost
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
-		OnDebug?.Invoke($"Received value command: {command.Id}:{command.Value}");
+		_onDebug?.Invoke($"Received value command: {command.Id}:{command.Value}");
 		if (_valueCallbackMap.TryGetValue(command.Id, out object? callback))
 		{
 			if (callback != null)
@@ -79,7 +79,7 @@ internal class MessagingHost
 
 	private void HandleStringCommand(StringCommand command)
 	{
-		OnDebug?.Invoke($"Received string command: {command.Id}:{command.String}");
+		_onDebug?.Invoke($"Received string command: {command.Id}:{command.String}");
 		if (_stringCallbackMap.TryGetValue(command.Id, out Action<string>? callback))
 		{
 			if (callback != null)
@@ -91,7 +91,7 @@ internal class MessagingHost
 
 	private void HandleIdentifiableCommand(IdentifiableCommand command)
 	{
-		OnDebug?.Invoke($"Received identifiable command: {command.Id}");
+		_onDebug?.Invoke($"Received identifiable command: {command.Id}");
 		if (_callbackMap.TryGetValue(command.Id, out Action? callback))
 		{
 			if (callback != null)
@@ -133,12 +133,12 @@ internal class MessagingHost
 
 	void FailHandler(Exception ex)
 	{
-		OnFailure?.Invoke(ex);
+		_onFailure?.Invoke(ex);
 	}
 
 	void WarnHandler(string msg)
 	{
-		OnWarning?.Invoke(msg);
+		_onWarning?.Invoke(msg);
 	}
 
 	public void SendCommand(RendererCommand command)
@@ -235,22 +235,22 @@ internal static class Utils
 /// Public class for sending and receiving messages
 /// It's a thin layer over the actual <see cref="MessagingHost"/>
 /// </summary>
-public static partial class Messaging
+public abstract class MessagingBase
 {
 #pragma warning disable CS8618
-	internal static readonly MessagingHost Host; // This will always be set by the static constructor
+	internal static MessagingHost _host; // This will always be set by the static constructor
 #pragma warning restore CS8618
 
 	public static event RenderCommandHandler? OnCommandReceived;
 
-	private static void ThrowNotReady()
+	protected static void ThrowNotReady()
 	{
 		throw new InvalidOperationException("Messaging is not ready to be used yet!");
 	}
 
-	private static void RunPostInit()
+	protected static void RunPostInit()
 	{
-		Host.OnCommandReceived += OnCommandReceived;
+		_host.OnCommandReceived += OnCommandReceived;
 	}
 
 	public static void Send<T>(string id, T value) where T : unmanaged
@@ -258,7 +258,7 @@ public static partial class Messaging
 		var command = new ValueCommand<T>();
 		command.Id = id;
 		command.Value = value;
-		Host.SendCommand(command);
+		_host.SendCommand(command);
 	}
 
 	public static void Send(string id, string str)
@@ -266,29 +266,29 @@ public static partial class Messaging
 		var command = new StringCommand();
 		command.Id = id;
 		command.String = str;
-		Host.SendCommand(command);
+		_host.SendCommand(command);
 	}
 
 	public static void Send(string id)
 	{
 		var command = new IdentifiableCommand();
 		command.Id = id;
-		Host.SendCommand(command);
+		_host.SendCommand(command);
 	}
 
 	public static void Receive<T>(string id, Action<T> callback) where T : unmanaged
 	{
-		Host.RegisterValueCallback(id, callback);
+		_host.RegisterValueCallback(id, callback);
 	}
 
 	public static void Receive(string id, Action<string> callback)
 	{
-		Host.RegisterStringCallback(id, callback);
+		_host.RegisterStringCallback(id, callback);
 	}
 
 	public static void Receive(string id, Action callback)
 	{
-		Host.RegisterCallback(id, callback);
+		_host.RegisterCallback(id, callback);
 	}
 
 	public static void RegisterNewCommandType<T>() where T : RendererCommand
@@ -298,6 +298,6 @@ public static partial class Messaging
 
 	public static void Send(RendererCommand command)
 	{
-		Host.SendCommand(command);
+		_host.SendCommand(command);
 	}
 }

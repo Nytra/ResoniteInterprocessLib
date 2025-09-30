@@ -4,17 +4,19 @@ using BepInEx.Logging;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
+using FrooxEngine;
 using Renderite.Shared;
+using System.Reflection;
 
 namespace InterprocessLib;
 
 [ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
-public class Plugin : BasePlugin
+internal class Plugin : BasePlugin
 {
-	internal static new ManualLogSource? Log;
-	internal static ConfigEntry<bool>? TestBool;
-	internal static ConfigEntry<float>? TestFloat;
+	public static new ManualLogSource? Log;
+	public static ConfigEntry<bool>? TestBool;
+	public static ConfigEntry<float>? TestFloat;
 
 	public override void Load()
 	{
@@ -37,10 +39,9 @@ public class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
+			Messaging.Init();
+
 			Messaging.OnCommandReceived += CommandHandler;
-			Messaging.Host.OnFailure = FailHandler;
-			Messaging.Host.OnWarning = WarnHandler;
-			Messaging.Host.OnDebug = DebugHandler;
 
 			Test();
 		};
@@ -55,27 +56,14 @@ public class Plugin : BasePlugin
 		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
 
-	void FailHandler(Exception ex)
-	{
-		Log!.LogError("Exception in messaging system:\n" + ex);
-	}
-
-	void WarnHandler(string msg)
-	{
-		Log!.LogWarning(msg);
-	}
 	
-	void DebugHandler(string msg)
-	{
-		Log!.LogDebug(msg);
-	}
 
 	void CommandHandler(RendererCommand command, int messageSize)
 	{
 		
 	}
 
-	public static void Test()
+	static void Test()
 	{
 		Messaging.Receive<int>("TestInt", (val) =>
 		{
@@ -95,7 +83,7 @@ public class Plugin : BasePlugin
 	}
 }
 
-public static partial class Messaging
+public class Messaging : MessagingBase
 {
 	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
@@ -115,5 +103,45 @@ public static partial class Messaging
 	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
 	{
 		Receive(configEntry.Definition.Key, callback);
+	}
+
+	static void FailHandler(Exception ex)
+	{
+		Plugin.Log!.LogError("Exception in messaging system:\n" + ex);
+	}
+
+	static void WarnHandler(string msg)
+	{
+		Plugin.Log!.LogWarning(msg);
+	}
+
+	static void DebugHandler(string msg)
+	{
+		Plugin.Log!.LogDebug(msg);
+	}
+
+	internal static void Init()
+	{
+		if (_host is not null) return;
+
+		if (Engine.Current?.RenderSystem is null)
+			ThrowNotReady();
+
+		var renderSystemMessagingHost = (RenderiteMessagingHost?)typeof(RenderSystem).GetField("_messagingHost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Engine.Current!.RenderSystem);
+
+		if (renderSystemMessagingHost is null)
+			throw new InvalidOperationException("Engine is not configured to use a renderer!");
+
+		_host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
+		_host._onFailure = FailHandler;
+		_host._onWarning = WarnHandler;
+		_host._onDebug = DebugHandler;
+		RunPostInit();
+	}
+
+	static Messaging()
+	{
+		if (_host is null)
+			Init();
 	}
 }
