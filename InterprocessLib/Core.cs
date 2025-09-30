@@ -1,9 +1,5 @@
 ﻿using Renderite.Shared;
 using System.Reflection;
-using System.Runtime.CompilerServices;
-
-//[assembly: InternalsVisibleTo("InterprocessLib.BepInEx")]
-//[assembly: InternalsVisibleTo("InterprocessLib.BepisLoader")]
 
 namespace InterprocessLib;
 
@@ -242,7 +238,9 @@ internal static class Utils
 
 public static partial class Messaging
 {
+#pragma warning disable CS8618
 	internal static MessagingHost Host;
+#pragma warning restore CS8618 
 
 	private static void ThrowNotReady()
 	{
@@ -285,5 +283,20 @@ public static partial class Messaging
 	public static void Receive(string id, Action callback)
 	{
 		Host.RegisterCallback(id, callback);
+	}
+
+	public static void RegisterNewCommandType<T>() where T : RendererCommand
+	{
+		IdentifiableCommand.InitNewTypes([typeof(T)]);
+	}
+
+	public static void Send(RendererCommand command)
+	{
+		Host.SendCommand(command);
+	}
+
+	public static void Receive(RenderCommandHandler callback)
+	{
+		Host.OnCommandReceieved += callback;
 	}
 }

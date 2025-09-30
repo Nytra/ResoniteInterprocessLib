@@ -99,8 +99,6 @@ public class Plugin : BasePlugin
 
 public static partial class Messaging
 {
-	//internal static MessagingHost Host;
-
 	static Messaging()
 	{
 		if (Engine.Current is null)
