@@ -39,19 +39,19 @@ internal class UnityPlugin : BaseUnityPlugin
 		Test();
 	}
 
-	static void Test()
+	void Test()
 	{
-		_messenger!.Receive<bool>("TestBool", (val) =>
+		_messenger!.Receive<bool>("Test", (val) =>
 		{
-			_messenger.Send("TestInt", Time.frameCount);
+			_messenger.Send("Test", Time.frameCount);
 		});
-		_messenger.Receive("TestString", (str) =>
+		_messenger.Receive("Test", (str) =>
 		{
-			_messenger.Send("TestString", (Application.productName ?? "") + UnityEngine.Random.value.ToString());
+			_messenger.Send("Test", str + UnityEngine.Random.value.ToString());
 		});
-		_messenger.Receive("TestCallback", () => 
+		_messenger.Receive("Test", () => 
 		{ 
-			_messenger.Send("TestCallback");
+			_messenger.Send("Test");
 		});
 	}
 

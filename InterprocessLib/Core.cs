@@ -18,6 +18,8 @@ public class MessagingHost
 		}
 	}
 
+	internal static List<Type> CommandTypes = new(); // It's a list to guarantee order
+
 	private MessagingManager _primary;
 
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
@@ -61,12 +63,12 @@ public class MessagingHost
 		_primary.WarningHandler = WarnHandler;
 		_primary.Connect(queueName + "InterprocessLib", isAuthority, queueCapacity);
 
-		var newTypes = new List<Type>();
-		newTypes.Add(typeof(IdentifiableCommand));
-		newTypes.Add(typeof(StringCommand));
+		CommandTypes.Add(typeof(IdentifiableCommand));
+		CommandTypes.Add(typeof(StringCommand));
 		foreach (var valueType in Utils.ValueTypes)
-			newTypes.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
-		IdentifiableCommand.InitNewTypes(newTypes);
+			CommandTypes.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
+
+		IdentifiableCommand.InitNewTypes();
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -109,12 +111,12 @@ public class MessagingHost
 	{
 		OnCommandReceived?.Invoke(command, messageSize);
 
-		var cmdType = command.GetType();
-		if (cmdType.IsGenericType)
+		var commandType = command.GetType();
+		if (commandType.IsGenericType)
 		{
-			if (cmdType.GetGenericTypeDefinition() == typeof(ValueCommand<>))
+			if (commandType.GetGenericTypeDefinition() == typeof(ValueCommand<>))
 			{
-				var valueType = cmdType.GetGenericArguments()[0];
+				var valueType = commandType.GetGenericArguments()[0];
 				var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
 				typedMethod.Invoke(this, new object[] { command });
 			}
@@ -124,10 +126,10 @@ public class MessagingHost
 			switch (command)
 			{
 				case StringCommand stringCommand:
-					HandleStringCommand(stringCommand);
+					HandleStringCommand((StringCommand)command);
 					break;
 				case IdentifiableCommand identifiableCommand:
-					HandleIdentifiableCommand(identifiableCommand);
+					HandleIdentifiableCommand((IdentifiableCommand)command);
 					break;
 				default:
 					break;
@@ -147,6 +149,21 @@ public class MessagingHost
 
 	public void SendCommand(RendererCommand command)
 	{
+		if (OnDebug is not null)
+		{
+			if (command is StringCommand stringCommand)
+			{
+				OnDebug.Invoke($"Sending StringCommand: {stringCommand.Owner}:{stringCommand.Id}:{stringCommand.String}");
+			}
+			else if (command is ValueCommand valueCommand)
+			{
+				OnDebug.Invoke($"Sending ValueCommand: {valueCommand.Owner}:{valueCommand.Id}:{valueCommand.UntypedValue}");
+			}
+			else if (command is IdentifiableCommand identifiableCommand)
+			{
+				OnDebug.Invoke($"Sending IdentifiableCommand: {identifiableCommand.Owner}:{identifiableCommand.Id}");
+			}
+		}
 		_primary.SendCommand(command);
 	}
 }
@@ -159,13 +176,13 @@ internal class IdentifiableCommand : RendererCommand
 	internal string Owner = "";
 	public string Id = "";
 
-	public static void InitNewTypes(List<Type> extraTypes)
+	public static void InitNewTypes()
 	{
 		var list = new List<Type>();
 		var theType = typeof(PolymorphicMemoryPackableEntity<RendererCommand>);
 		var types = (List<Type>)theType.GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 		list.AddRange(types);
-		list.AddRange(extraTypes);
+		list.AddRange(MessagingHost.CommandTypes);
 		InitTypes(list);
 	}
 
@@ -182,9 +199,15 @@ internal class IdentifiableCommand : RendererCommand
 	}
 }
 
-internal class ValueCommand<T> : IdentifiableCommand where T : unmanaged
+internal abstract class ValueCommand : IdentifiableCommand
+{
+	public abstract object UntypedValue { get; }
+}
+
+internal class ValueCommand<T> : ValueCommand where T : unmanaged
 {
 	public T Value;
+	public override object UntypedValue => Value;
 
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -309,15 +332,19 @@ public partial class Messenger
 		if (!IsInitialized)
 			PostInitActions!.Add(act);
 		else
-		{
-			act();
-		}
+			throw new InvalidOperationException("Already initialized!");
 	}
 
 	public void Send<T>(string id, T value) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Send(id, value));
+			return;
+		}
 
 		var command = new ValueCommand<T>();
 		command.Owner = _ownerId;
@@ -333,6 +360,12 @@ public partial class Messenger
 		if (str is null)
 			throw new ArgumentNullException(nameof(str));
 
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Send(id, str));
+			return;
+		}
+
 		var command = new StringCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
@@ -345,6 +378,12 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Send(id));
+			return;
+		}
+
 		var command = new IdentifiableCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
@@ -356,6 +395,12 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Receive(id, callback));
+			return;
+		}
+
 		_host.RegisterValueCallback(_ownerId, id, callback);
 	}
 
@@ -364,6 +409,12 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Receive(id, callback));
+			return;
+		}
+
 		_host.RegisterStringCallback(_ownerId, id, callback);
 	}
 
@@ -371,6 +422,12 @@ public partial class Messenger
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Receive(id, callback));
+			return;
+		}
 
 		_host.RegisterCallback(_ownerId, id, callback);
 	}

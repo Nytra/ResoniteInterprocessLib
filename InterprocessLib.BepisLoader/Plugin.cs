@@ -51,31 +51,29 @@ internal class Plugin : BasePlugin
 
 			Test();
 		};
+	}
 
+	private void Test()
+	{
 		TestBool = Config.Bind("General", nameof(TestBool), false);
 		TestInt = Config.Bind("General", nameof(TestInt), 0);
 		TestString = Config.Bind("General", nameof(TestString), "Hello!");
 		CallbackCount = Config.Bind("General", nameof(CallbackCount), 0);
-
-		TestBool.SettingChanged += (sender, args) =>
+		TestBool!.SettingChanged += (sender, args) =>
 		{
-			_messenger!.Send(TestBool);
+			_messenger!.Send("Test", TestBool.Value);
 		};
-	}
-
-	private static void Test()
-	{
-		_messenger!.Receive<int>(nameof(TestInt), (val) =>
+		_messenger!.Receive<int>("Test", (val) =>
 		{
 			TestInt!.Value = val;
-			_messenger.Send(nameof(TestString), Engine.VersionNumber ?? "");
+			_messenger.Send("Test", Engine.VersionNumber ?? "");
 		});
-		_messenger.Receive(nameof(TestString), (str) =>
+		_messenger.Receive("Test", (str) =>
 		{
 			TestString!.Value = str;
-			_messenger.Send("TestCallback");
+			_messenger.Send("Test");
 		});
-		_messenger.Receive("TestCallback", () =>
+		_messenger.Receive("Test", () =>
 		{
 			CallbackCount!.Value += 1;
 		});
