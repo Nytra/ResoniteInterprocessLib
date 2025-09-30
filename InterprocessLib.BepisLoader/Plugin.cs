@@ -14,11 +14,7 @@ namespace InterprocessLib;
 internal class Plugin : BasePlugin
 {
 	public static ManualLogSource? Logger;
-	public static ConfigEntry<bool>? TestBool;
-	public static ConfigEntry<int>? TestInt;
-	public static ConfigEntry<string>? TestString;
-	public static ConfigEntry<int>? CallbackCount;
-	private static Messenger? _messenger;
+	//private static Messenger? _messenger;
 
 	public override void Load()
 	{
@@ -47,36 +43,8 @@ internal class Plugin : BasePlugin
 
 			Messenger.Init();
 
-			_messenger = new Messenger("InterprocessLib");
-
-			Test();
+			//_messenger = new Messenger("InterprocessLib");
 		};
-	}
-
-	private void Test()
-	{
-		TestBool = Config.Bind("General", nameof(TestBool), false);
-		TestInt = Config.Bind("General", nameof(TestInt), 0);
-		TestString = Config.Bind("General", nameof(TestString), "Hello!");
-		CallbackCount = Config.Bind("General", nameof(CallbackCount), 0);
-		TestBool!.SettingChanged += (sender, args) =>
-		{
-			_messenger!.Send("Test", TestBool.Value);
-		};
-		_messenger!.Receive<int>("Test", (val) =>
-		{
-			TestInt!.Value = val;
-			_messenger.Send("Test", Engine.VersionNumber ?? "");
-		});
-		_messenger.Receive("Test", (str) =>
-		{
-			TestString!.Value = str;
-			_messenger.Send("Test");
-		});
-		_messenger.Receive("Test", () =>
-		{
-			CallbackCount!.Value += 1;
-		});
 	}
 
 	private static void FailHandler(Exception ex)

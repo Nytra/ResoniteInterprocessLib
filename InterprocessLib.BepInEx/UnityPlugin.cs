@@ -12,7 +12,7 @@ internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 	private static bool _initialized;
-	private static Messenger? _messenger;
+	//private static Messenger? _messenger;
 
 	void Awake()
 	{
@@ -32,27 +32,9 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		Messenger.Init();
 
-		_messenger = new("InterprocessLib");
+		//_messenger = new("InterprocessLib");
 
 		_initialized = true;
-
-		Test();
-	}
-
-	void Test()
-	{
-		_messenger!.Receive<bool>("Test", (val) =>
-		{
-			_messenger.Send("Test", Time.frameCount);
-		});
-		_messenger.Receive("Test", (str) =>
-		{
-			_messenger.Send("Test", str + UnityEngine.Random.value.ToString());
-		});
-		_messenger.Receive("Test", () => 
-		{ 
-			_messenger.Send("Test");
-		});
 	}
 
 	private static void FailHandler(Exception ex)
