@@ -15,13 +15,11 @@ internal class MessagingHost
 
 	public event RenderCommandHandler? OnCommandReceived;
 
-	public static MessagingHost? Instance { get; private set; }
+	public Action<Exception>? OnFailure;
 
-	internal Action<Exception>? _onFailure;
+	public Action<string>? OnWarning;
 
-	internal Action<string>? _onWarning;
-
-	internal Action<string>? _onDebug;
+	public Action<string>? OnDebug;
 
 	private Dictionary<string, object?> _valueCallbackMap = new();
 
@@ -46,8 +44,6 @@ internal class MessagingHost
 
 	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
 	{
-		Instance = this;
-
 		QueueName = queueName;
 		QueueCapacity = queueCapacity;
 
@@ -67,7 +63,7 @@ internal class MessagingHost
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
-		_onDebug?.Invoke($"Received value command: {command.Id}:{command.Value}");
+		OnDebug?.Invoke($"Received value command: {command.Id}:{command.Value}");
 		if (_valueCallbackMap.TryGetValue(command.Id, out object? callback))
 		{
 			if (callback != null)
@@ -79,7 +75,7 @@ internal class MessagingHost
 
 	private void HandleStringCommand(StringCommand command)
 	{
-		_onDebug?.Invoke($"Received string command: {command.Id}:{command.String}");
+		OnDebug?.Invoke($"Received string command: {command.Id}:{command.String}");
 		if (_stringCallbackMap.TryGetValue(command.Id, out Action<string>? callback))
 		{
 			if (callback != null)
@@ -91,7 +87,7 @@ internal class MessagingHost
 
 	private void HandleIdentifiableCommand(IdentifiableCommand command)
 	{
-		_onDebug?.Invoke($"Received identifiable command: {command.Id}");
+		OnDebug?.Invoke($"Received identifiable command: {command.Id}");
 		if (_callbackMap.TryGetValue(command.Id, out Action? callback))
 		{
 			if (callback != null)
@@ -133,12 +129,12 @@ internal class MessagingHost
 
 	void FailHandler(Exception ex)
 	{
-		_onFailure?.Invoke(ex);
+		OnFailure?.Invoke(ex);
 	}
 
 	void WarnHandler(string msg)
 	{
-		_onWarning?.Invoke(msg);
+		OnWarning?.Invoke(msg);
 	}
 
 	public void SendCommand(RendererCommand command)
@@ -231,24 +227,26 @@ internal static class Utils
 	};
 }
 
-/// <summary>
-/// Public class for sending and receiving messages
-/// It's a thin layer over the actual <see cref="MessagingHost"/>
-/// </summary>
-public abstract class MessagingBase
+public static partial class Messaging
 {
 #pragma warning disable CS8618
-	internal static MessagingHost _host; // This will always be set by the static constructor
+	private static MessagingHost _host; // This will always be set by the static constructor
 #pragma warning restore CS8618
 
 	public static event RenderCommandHandler? OnCommandReceived;
 
-	protected static void ThrowNotReady()
+	private static readonly Action<Exception>? OnFailure;
+
+	private static readonly Action<string>? OnWarning;
+
+	private static readonly Action<string>? OnDebug;
+
+	private static void ThrowNotReady()
 	{
 		throw new InvalidOperationException("Messaging is not ready to be used yet!");
 	}
 
-	protected static void RunPostInit()
+	private static void RunPostInit()
 	{
 		_host.OnCommandReceived += OnCommandReceived;
 	}

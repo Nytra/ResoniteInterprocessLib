@@ -26,8 +26,6 @@ internal class Plugin : BaseUnityPlugin
 
 		if (RenderingManager.Instance is null) return;
 
-		Messaging.Init();
-
 		Messaging.OnCommandReceived += CommandHandler;
 
 		_initialized = true;
@@ -57,7 +55,7 @@ internal class Plugin : BaseUnityPlugin
 	}
 }
 
-public class Messaging : MessagingBase
+public static partial class Messaging
 {
 	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
@@ -94,10 +92,8 @@ public class Messaging : MessagingBase
 		Plugin.Log!.LogDebug(msg);
 	}
 
-	internal static void Init()
+	static Messaging()
 	{
-		if (_host is not null) return;
-
 		if (RenderingManager.Instance is null)
 			ThrowNotReady();
 
@@ -111,15 +107,9 @@ public class Messaging : MessagingBase
 		}
 
 		_host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		_host._onFailure = FailHandler;
-		_host._onWarning = WarnHandler;
-		_host._onDebug = DebugHandler;
+		_host.OnFailure = FailHandler;
+		_host.OnWarning = WarnHandler;
+		_host.OnDebug = DebugHandler;
 		RunPostInit();
-	}
-
-	static Messaging()
-	{
-		if (_host is null)
-			Init();
 	}
 }

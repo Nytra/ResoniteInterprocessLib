@@ -39,8 +39,6 @@ internal class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
-			Messaging.Init();
-
 			Messaging.OnCommandReceived += CommandHandler;
 
 			Test();
@@ -55,8 +53,6 @@ internal class Plugin : BasePlugin
 
 		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
-
-	
 
 	void CommandHandler(RendererCommand command, int messageSize)
 	{
@@ -83,7 +79,7 @@ internal class Plugin : BasePlugin
 	}
 }
 
-public class Messaging : MessagingBase
+public static partial class Messaging
 {
 	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
@@ -105,25 +101,23 @@ public class Messaging : MessagingBase
 		Receive(configEntry.Definition.Key, callback);
 	}
 
-	static void FailHandler(Exception ex)
+	private static void FailHandler(Exception ex)
 	{
 		Plugin.Log!.LogError("Exception in messaging system:\n" + ex);
 	}
 
-	static void WarnHandler(string msg)
+	private static void WarnHandler(string msg)
 	{
 		Plugin.Log!.LogWarning(msg);
 	}
 
-	static void DebugHandler(string msg)
+	private static void DebugHandler(string msg)
 	{
 		Plugin.Log!.LogDebug(msg);
 	}
 
-	internal static void Init()
+	static Messaging()
 	{
-		if (_host is not null) return;
-
 		if (Engine.Current?.RenderSystem is null)
 			ThrowNotReady();
 
@@ -133,15 +127,9 @@ public class Messaging : MessagingBase
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
 		_host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-		_host._onFailure = FailHandler;
-		_host._onWarning = WarnHandler;
-		_host._onDebug = DebugHandler;
+		_host.OnFailure = FailHandler;
+		_host.OnWarning = WarnHandler;
+		_host.OnDebug = DebugHandler;
 		RunPostInit();
-	}
-
-	static Messaging()
-	{
-		if (_host is null)
-			Init();
 	}
 }
