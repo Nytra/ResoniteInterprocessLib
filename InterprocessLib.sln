@@ -9,10 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterprocessLib.BepInEx", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterprocessLib.BepisLoader", "InterprocessLib.BepisLoader\InterprocessLib.BepisLoader.csproj", "{2BD188AD-CC1E-D615-BEE5-C3B48ADF6F69}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterprocessLib.FrooxEngine", "InterprocessLib.FrooxEngine\InterprocessLib.FrooxEngine.csproj", "{A62AEE70-35E8-455E-9086-5FF8252C7095}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterprocessLib.Unity", "InterprocessLib.Unity\InterprocessLib.Unity.csproj", "{1774BEE3-2419-C311-9DA4-42F1CA4A83F5}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

@@ -53,7 +53,7 @@
       <Private>False</Private>
     </Reference>
 	<Compile Include="../InterprocessLib/Core.cs" />
-	<Compile Include="../InterprocessLib.FrooxEngine/Core.cs" />
+	<Compile Include="../InterprocessLib.FrooxEngine/Init.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->
