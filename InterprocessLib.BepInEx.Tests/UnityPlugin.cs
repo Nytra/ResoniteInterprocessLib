@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace InterprocessLib.Tests;
 
-[BepInPlugin("Nytra.InterprocessLibTest.BepInEx", "InterprocessLibTest.BepInEx", "1.0.0")]
+[BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.0")]
 internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
@@ -13,7 +13,7 @@ internal class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("InterprocessLib.BepInEx.Tests");
+		_messenger = new("InterprocessLib.Tests");
 		Test();
 	}
 

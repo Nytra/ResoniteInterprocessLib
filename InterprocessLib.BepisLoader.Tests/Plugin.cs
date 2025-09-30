@@ -37,7 +37,7 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.BepisLoader.Tests");
+		_messenger = new Messenger("InterprocessLib.Tests");
 		Test();
 	}
 

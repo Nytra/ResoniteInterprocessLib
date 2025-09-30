@@ -31,7 +31,7 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		Messenger.Init();
 
-		//_messenger = new("InterprocessLib.BepInEx");
+		//_messenger = new("InterprocessLib");
 
 		_initialized = true;
 	}
