@@ -3,17 +3,13 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-internal class MessagingHost
+internal class MessagingBackend
 {
 	private MessagingManager _primary;
 
-	public string QueueName { get; private set; }
+	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	public long QueueCapacity { get; private set; }
-
-	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
-
-	public event RenderCommandHandler? OnCommandReceived;
+	public RenderCommandHandler? OnCommandReceived;
 
 	public Action<Exception>? OnFailure;
 
@@ -42,16 +38,13 @@ internal class MessagingHost
 		_callbackMap[id] = callback;
 	}
 
-	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
+	public MessagingBackend(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
 	{
-		QueueName = queueName;
-		QueueCapacity = queueCapacity;
-
 		_primary = new MessagingManager(pool);
-		_primary.CommandHandler = HandleCommand;
+		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = FailHandler;
 		_primary.WarningHandler = WarnHandler;
-		_primary.Connect(QueueName + "InterprocessLib", isAuthority, QueueCapacity);
+		_primary.Connect(queueName + "InterprocessLib", isAuthority, queueCapacity);
 
 		var newTypes = new List<Type>();
 		newTypes.Add(typeof(IdentifiableCommand));
@@ -97,7 +90,7 @@ internal class MessagingHost
 		}
 	}
 
-	private void HandleCommand(RendererCommand command, int messageSize)
+	private void CommandHandler(RendererCommand command, int messageSize)
 	{
 		OnCommandReceived?.Invoke(command, messageSize);
 
@@ -230,25 +223,20 @@ internal static class Utils
 public static partial class Messaging
 {
 #pragma warning disable CS8618
-	private static MessagingHost _host; // This will always be set by the static constructor
+	private static MessagingBackend _backend; // This will always be set by the static constructor
 #pragma warning restore CS8618
 
 	public static event RenderCommandHandler? OnCommandReceived;
 
-	private static readonly Action<Exception>? OnFailure;
+	internal static readonly Action<Exception>? OnFailure;
 
-	private static readonly Action<string>? OnWarning;
+	internal static readonly Action<string>? OnWarning;
 
-	private static readonly Action<string>? OnDebug;
+	internal static readonly Action<string>? OnDebug;
 
 	private static void ThrowNotReady()
 	{
 		throw new InvalidOperationException("Messaging is not ready to be used yet!");
-	}
-
-	private static void RunPostInit()
-	{
-		_host.OnCommandReceived += OnCommandReceived;
 	}
 
 	public static void Send<T>(string id, T value) where T : unmanaged
@@ -256,7 +244,7 @@ public static partial class Messaging
 		var command = new ValueCommand<T>();
 		command.Id = id;
 		command.Value = value;
-		_host.SendCommand(command);
+		_backend.SendCommand(command);
 	}
 
 	public static void Send(string id, string str)
@@ -264,29 +252,29 @@ public static partial class Messaging
 		var command = new StringCommand();
 		command.Id = id;
 		command.String = str;
-		_host.SendCommand(command);
+		_backend.SendCommand(command);
 	}
 
 	public static void Send(string id)
 	{
 		var command = new IdentifiableCommand();
 		command.Id = id;
-		_host.SendCommand(command);
+		_backend.SendCommand(command);
 	}
 
 	public static void Receive<T>(string id, Action<T> callback) where T : unmanaged
 	{
-		_host.RegisterValueCallback(id, callback);
+		_backend.RegisterValueCallback(id, callback);
 	}
 
 	public static void Receive(string id, Action<string> callback)
 	{
-		_host.RegisterStringCallback(id, callback);
+		_backend.RegisterStringCallback(id, callback);
 	}
 
 	public static void Receive(string id, Action callback)
 	{
-		_host.RegisterCallback(id, callback);
+		_backend.RegisterCallback(id, callback);
 	}
 
 	public static void RegisterNewCommandType<T>() where T : RendererCommand
@@ -296,6 +284,6 @@ public static partial class Messaging
 
 	public static void Send(RendererCommand command)
 	{
-		_host.SendCommand(command);
+		_backend.SendCommand(command);
 	}
 }

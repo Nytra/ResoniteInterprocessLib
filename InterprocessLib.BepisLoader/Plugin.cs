@@ -126,10 +126,10 @@ public static partial class Messaging
 		if (renderSystemMessagingHost is null)
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
-		_host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-		_host.OnFailure = FailHandler;
-		_host.OnWarning = WarnHandler;
-		_host.OnDebug = DebugHandler;
-		RunPostInit();
+		_backend = new MessagingBackend(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
+		_backend.OnCommandReceived = OnCommandReceived;
+		_backend.OnFailure = OnFailure;
+		_backend.OnWarning = OnWarning;
+		_backend.OnDebug = OnDebug;
 	}
 }

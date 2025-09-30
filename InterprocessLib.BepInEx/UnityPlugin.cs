@@ -106,10 +106,10 @@ public static partial class Messaging
 			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 		}
 
-		_host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		_host.OnFailure = FailHandler;
-		_host.OnWarning = WarnHandler;
-		_host.OnDebug = DebugHandler;
-		RunPostInit();
+		_backend = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
+		_backend.OnCommandReceived = OnCommandReceived;
+		_backend.OnFailure = OnFailure;
+		_backend.OnWarning = OnWarning;
+		_backend.OnDebug = OnDebug;
 	}
 }
