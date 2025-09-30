@@ -3,11 +3,24 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-internal class MessagingBackend
+public class MessagingHost
 {
+	private struct OwnerData
+	{
+		public readonly Dictionary<string, object?> ValueCallbacks = new();
+
+		public readonly Dictionary<string, Action<string>?> StringCallbacks = new();
+
+		public readonly Dictionary<string, Action?> Callbacks = new();
+
+		public OwnerData()
+		{
+		}
+	}
+
 	private MessagingManager _primary;
 
-	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	public RenderCommandHandler? OnCommandReceived;
 
@@ -17,28 +30,30 @@ internal class MessagingBackend
 
 	public Action<string>? OnDebug;
 
-	private Dictionary<string, object?> _valueCallbackMap = new();
+	private Dictionary<string, OwnerData> _ownerData = new();
 
-	private Dictionary<string, Action<string>?> _stringCallbackMap = new();
-
-	private Dictionary<string, Action?> _callbackMap = new();
-
-	public void RegisterValueCallback<T>(string id, Action<T> callback) where T : unmanaged
+	public void RegisterOwner(string ownerName)
 	{
-		_valueCallbackMap[id] = callback;
+		var ownerData = new OwnerData();
+		_ownerData.Add(ownerName, ownerData);
 	}
 
-	public void RegisterStringCallback(string id, Action<string> callback)
+	public void RegisterValueCallback<T>(string owner, string id, Action<T> callback) where T : unmanaged
 	{
-		_stringCallbackMap[id] = callback;
+		_ownerData[owner].ValueCallbacks[id] = callback;
 	}
 
-	public void RegisterCallback(string id, Action callback)
+	public void RegisterStringCallback(string owner, string id, Action<string> callback)
 	{
-		_callbackMap[id] = callback;
+		_ownerData[owner].StringCallbacks[id] = callback;
 	}
 
-	public MessagingBackend(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
+	public void RegisterCallback(string owner, string id, Action callback)
+	{
+		_ownerData[owner].Callbacks[id] = callback;
+	}
+
+	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
 	{
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
@@ -49,15 +64,15 @@ internal class MessagingBackend
 		var newTypes = new List<Type>();
 		newTypes.Add(typeof(IdentifiableCommand));
 		newTypes.Add(typeof(StringCommand));
-		foreach (var valueType in Utils._valueTypes)
+		foreach (var valueType in Utils.ValueTypes)
 			newTypes.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
 		IdentifiableCommand.InitNewTypes(newTypes);
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
-		OnDebug?.Invoke($"Received value command: {command.Id}:{command.Value}");
-		if (_valueCallbackMap.TryGetValue(command.Id, out object? callback))
+		OnDebug?.Invoke($"Received value command: {command.Owner}:{command.Id}:{command.Value}");
+		if (_ownerData[command.Owner].ValueCallbacks.TryGetValue(command.Id, out object? callback))
 		{
 			if (callback != null)
 			{
@@ -68,8 +83,8 @@ internal class MessagingBackend
 
 	private void HandleStringCommand(StringCommand command)
 	{
-		OnDebug?.Invoke($"Received string command: {command.Id}:{command.String}");
-		if (_stringCallbackMap.TryGetValue(command.Id, out Action<string>? callback))
+		OnDebug?.Invoke($"Received string command: {command.Owner}:{command.Id}:{command.String}");
+		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out Action<string>? callback))
 		{
 			if (callback != null)
 			{
@@ -80,8 +95,8 @@ internal class MessagingBackend
 
 	private void HandleIdentifiableCommand(IdentifiableCommand command)
 	{
-		OnDebug?.Invoke($"Received identifiable command: {command.Id}");
-		if (_callbackMap.TryGetValue(command.Id, out Action? callback))
+		OnDebug?.Invoke($"Received identifiable command: {command.Owner}:{command.Id}");
+		if (_ownerData[command.Owner].Callbacks.TryGetValue(command.Id, out Action? callback))
 		{
 			if (callback != null)
 			{
@@ -120,12 +135,12 @@ internal class MessagingBackend
 		}
 	}
 
-	void FailHandler(Exception ex)
+	private void FailHandler(Exception ex)
 	{
 		OnFailure?.Invoke(ex);
 	}
 
-	void WarnHandler(string msg)
+	private void WarnHandler(string msg)
 	{
 		OnWarning?.Invoke(msg);
 	}
@@ -141,6 +156,7 @@ internal class MessagingBackend
 
 internal class IdentifiableCommand : RendererCommand
 {
+	internal string Owner = "";
 	public string Id = "";
 
 	public static void InitNewTypes(List<Type> extraTypes)
@@ -155,11 +171,13 @@ internal class IdentifiableCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
+		packer.Write(Owner);
 		packer.Write(Id);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
+		unpacker.Read(ref Owner);
 		unpacker.Read(ref Id);
 	}
 }
@@ -200,7 +218,7 @@ internal class StringCommand : IdentifiableCommand
 
 internal static class Utils
 {
-	public static Type[] _valueTypes =
+	public static Type[] ValueTypes =
 	{
 		typeof(bool),
 		typeof(byte),
@@ -220,13 +238,13 @@ internal static class Utils
 	};
 }
 
-public static partial class Messaging
+public partial class Messenger
 {
 #pragma warning disable CS8618
-	private static MessagingBackend _backend; // This will always be set by the static constructor
+	private static MessagingHost _host; // This will always be set by the static constructor
 #pragma warning restore CS8618
 
-	public static bool IsInitialized => _backend is not null;
+	public static bool IsInitialized => _host is not null;
 
 	internal static event RenderCommandHandler? OnCommandReceived;
 
@@ -238,9 +256,36 @@ public static partial class Messaging
 
 	internal static List<Action>? PostInitActions = new();
 
+	private string _ownerId;
+
+	private static HashSet<string> _registeredOwnerIds = new();
+
+	public Messenger(string ownerId)
+	{
+		if (ownerId is null)
+			throw new ArgumentNullException(nameof(ownerId));
+
+		if (_registeredOwnerIds.Contains(ownerId))
+			throw new ArgumentException($"Owner \"{ownerId}\" is already registered!");
+
+		_ownerId = ownerId;
+
+		_registeredOwnerIds.Add(ownerId);
+
+		if (IsInitialized)
+			RegisterWithBackend();
+		else
+			RunPostInit(RegisterWithBackend);
+	}
+
+	private void RegisterWithBackend()
+	{
+		_host.RegisterOwner(_ownerId);
+	}
+
 	private static void ThrowNotReady()
 	{
-		throw new InvalidOperationException("Messaging is not ready to be used yet!");
+		throw new InvalidOperationException("Messenger is not ready to be used yet!");
 	}
 
 	private static void FinishInitialization()
@@ -259,7 +304,7 @@ public static partial class Messaging
 		PostInitActions = null;
 	}
 
-	public static void RunPostInit(Action act)
+	private static void RunPostInit(Action act)
 	{
 		if (!IsInitialized)
 			PostInitActions!.Add(act);
@@ -269,51 +314,64 @@ public static partial class Messaging
 		}
 	}
 
-	public static void Send<T>(string id, T value) where T : unmanaged
+	public void Send<T>(string id, T value) where T : unmanaged
 	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
 		var command = new ValueCommand<T>();
+		command.Owner = _ownerId;
 		command.Id = id;
 		command.Value = value;
-		_backend.SendCommand(command);
+		_host.SendCommand(command);
 	}
 
-	public static void Send(string id, string str)
+	public void Send(string id, string str)
 	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+		if (str is null)
+			throw new ArgumentNullException(nameof(str));
+
 		var command = new StringCommand();
+		command.Owner = _ownerId;
 		command.Id = id;
 		command.String = str;
-		_backend.SendCommand(command);
+		_host.SendCommand(command);
 	}
 
-	public static void Send(string id)
+	public void Send(string id)
 	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
 		var command = new IdentifiableCommand();
+		command.Owner = _ownerId;
 		command.Id = id;
-		_backend.SendCommand(command);
+		_host.SendCommand(command);
 	}
 
-	public static void Receive<T>(string id, Action<T> callback) where T : unmanaged
+	public void Receive<T>(string id, Action<T> callback) where T : unmanaged
 	{
-		_backend.RegisterValueCallback(id, callback);
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_host.RegisterValueCallback(_ownerId, id, callback);
 	}
 
-	public static void Receive(string id, Action<string> callback)
+	public void Receive(string id, Action<string> callback)
 	{
-		_backend.RegisterStringCallback(id, callback);
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_host.RegisterStringCallback(_ownerId, id, callback);
 	}
 
-	public static void Receive(string id, Action callback)
+	public void Receive(string id, Action callback)
 	{
-		_backend.RegisterCallback(id, callback);
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_host.RegisterCallback(_ownerId, id, callback);
 	}
-
-	//public static void RegisterNewCommandType<T>() where T : RendererCommand
-	//{
-	//	IdentifiableCommand.InitNewTypes([typeof(T)]);
-	//}
-
-	//public static void Send(RendererCommand command)
-	//{
-	//	_backend.SendCommand(command);
-	//}
 }

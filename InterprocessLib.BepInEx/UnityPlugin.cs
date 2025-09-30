@@ -12,6 +12,7 @@ internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 	private static bool _initialized;
+	private static Messenger? _messenger;
 
 	void Awake()
 	{
@@ -25,11 +26,13 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		if (RenderingManager.Instance is null) return;
 
-		Messaging.OnWarning = WarnHandler;
-		Messaging.OnFailure = FailHandler;
-		Messaging.OnDebug = DebugHandler;
+		Messenger.OnWarning = WarnHandler;
+		Messenger.OnFailure = FailHandler;
+		Messenger.OnDebug = DebugHandler;
 
-		Messaging.Init();
+		Messenger.Init();
+
+		_messenger = new("Nytra");
 
 		_initialized = true;
 
@@ -38,23 +41,23 @@ internal class UnityPlugin : BaseUnityPlugin
 
 	static void Test()
 	{
-		Messaging.Receive<bool>("TestBool", (val) =>
+		_messenger!.Receive<bool>("TestBool", (val) =>
 		{
 			Log!.LogInfo($"Unity got TestBool: {val}");
 
-			Messaging.Send("TestInt", Time.frameCount);
+			_messenger.Send("TestInt", Time.frameCount);
 		});
-		Messaging.Receive("TestCommand", () =>
+		_messenger.Receive("TestCommand", () =>
 		{
 			Log!.LogInfo($"Unity got TestCommand");
 
-			Messaging.Send("TestCallback");
+			_messenger.Send("TestCallback");
 		});
 	}
 
 	private static void FailHandler(Exception ex)
 	{
-		Log!.LogError("Exception in messaging system:\n" + ex);
+		Log!.LogError("Exception in InterprocessLib messaging host:\n" + ex);
 	}
 
 	private static void WarnHandler(string msg)
@@ -68,24 +71,24 @@ internal class UnityPlugin : BaseUnityPlugin
 	}
 }
 
-public static partial class Messaging
+public partial class Messenger
 {
-	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	public void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		Send(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public static void Send(ConfigEntry<string> configEntry)
+	public void Send(ConfigEntry<string> configEntry)
 	{
 		Send(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public static void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
+	public void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
 	{
 		Receive(configEntry.Definition.Key, callback);
 	}
 
-	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
+	public void Receive(ConfigEntry<string> configEntry, Action<string> callback)
 	{
 		Receive(configEntry.Definition.Key, callback);
 	}
@@ -104,11 +107,11 @@ public static partial class Messaging
 			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 		}
 
-		_backend = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		_backend.OnCommandReceived = OnCommandReceived;
-		_backend.OnFailure = OnFailure;
-		_backend.OnWarning = OnWarning;
-		_backend.OnDebug = OnDebug;
+		_host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
+		_host.OnCommandReceived = OnCommandReceived;
+		_host.OnFailure = OnFailure;
+		_host.OnWarning = OnWarning;
+		_host.OnDebug = OnDebug;
 		FinishInitialization();
 	}
 }

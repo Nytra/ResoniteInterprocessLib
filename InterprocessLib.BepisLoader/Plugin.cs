@@ -15,7 +15,9 @@ internal class Plugin : BasePlugin
 {
 	public static ManualLogSource? Logger;
 	public static ConfigEntry<bool>? TestBool;
-	public static ConfigEntry<float>? TestFloat;
+	public static ConfigEntry<int>? TestInt;
+	public static ConfigEntry<string>? TestString;
+	private static Messenger? _messenger;
 
 	public override void Load()
 	{
@@ -38,47 +40,45 @@ internal class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
-			Messaging.OnFailure = FailHandler;
-			Messaging.OnWarning = WarnHandler;
-			Messaging.OnDebug = DebugHandler;
+			Messenger.OnFailure = FailHandler;
+			Messenger.OnWarning = WarnHandler;
+			Messenger.OnDebug = DebugHandler;
 
-			Messaging.Init();
+			Messenger.Init();
+
+			_messenger = new Messenger("Nytra");
 
 			Test();
 		};
 
-		TestBool = Config.Bind("General", "TestBool", false);
+		TestBool = Config.Bind("General", nameof(TestBool), false);
+		TestInt = Config.Bind("General", nameof(TestInt), 0);
+		TestString = Config.Bind("General", nameof(TestString), "Hello!");
+
 		TestBool.SettingChanged += (sender, args) =>
 		{
-			Logger.LogInfo($"TestBool changed in FrooxEngine: {TestBool.Value}");
-			Messaging.Send(TestBool);
+			_messenger!.Send(TestBool);
 		};
-
-		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
 
 	private static void Test()
 	{
-		Messaging.Receive<int>("TestInt", (val) =>
+		_messenger!.Receive<int>(nameof(TestInt), (val) =>
 		{
-			Logger!.LogInfo($"Test: Got TestInt: {val}");
-			TestFloat!.Value = val;
-
-			Messaging.Send("TestCommand");
+			TestInt!.Value = val;
+			_messenger.Send("TestCommand");
 		});
-		Messaging.Receive("TestString", (str) =>
+		_messenger.Receive("TestString", (str) =>
 		{
-			Logger!.LogInfo($"Test: Got TestString: {str}");
 		});
-		Messaging.Receive("TestCallback", () =>
+		_messenger.Receive("TestCallback", () =>
 		{
-			Logger!.LogInfo($"Test: Got TestCallback.");
 		});
 	}
 
 	private static void FailHandler(Exception ex)
 	{
-		Logger!.LogError("Exception in messaging system:\n" + ex);
+		Logger!.LogError("Exception in InterprocessLib messaging host:\n" + ex);
 	}
 
 	private static void WarnHandler(string msg)
@@ -92,31 +92,31 @@ internal class Plugin : BasePlugin
 	}
 }
 
-public static partial class Messaging
+public partial class Messenger
 {
-	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	public void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		Send(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public static void Send(ConfigEntry<string> configEntry)
+	public void Send(ConfigEntry<string> configEntry)
 	{
 		Send(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public static void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
+	public void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
 	{
 		Receive(configEntry.Definition.Key, callback);
 	}
 
-	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
+	public void Receive(ConfigEntry<string> configEntry, Action<string> callback)
 	{
 		Receive(configEntry.Definition.Key, callback);
 	}
 
 	internal static void Init()
 	{
-		if (_backend is not null) return;
+		if (IsInitialized) return;
 
 		if (Engine.Current?.RenderSystem is null)
 			ThrowNotReady();
@@ -126,11 +126,11 @@ public static partial class Messaging
 		if (renderSystemMessagingHost is null)
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
-		_backend = new MessagingBackend(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-		_backend.OnCommandReceived = OnCommandReceived;
-		_backend.OnFailure = OnFailure;
-		_backend.OnWarning = OnWarning;
-		_backend.OnDebug = OnDebug;
+		_host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
+		_host.OnCommandReceived = OnCommandReceived;
+		_host.OnFailure = OnFailure;
+		_host.OnWarning = OnWarning;
+		_host.OnDebug = OnDebug;
 		FinishInitialization();
 	}
 }
