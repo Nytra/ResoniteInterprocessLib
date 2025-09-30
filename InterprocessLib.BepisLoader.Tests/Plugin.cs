@@ -49,7 +49,7 @@ internal class Plugin : BasePlugin
 		CallbackCount = Config.Bind("General", nameof(CallbackCount), 0);
 		TestBool!.SettingChanged += (sender, args) =>
 		{
-			_messenger!.Send("Test", TestBool.Value);
+			_messenger!.Send(TestBool);
 		};
 		_messenger!.Receive<int>("Test", (val) =>
 		{

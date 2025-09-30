@@ -1,4 +1,5 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ namespace InterprocessLib.Tests;
 internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
+	public static ConfigEntry<bool>? TestBool;
 	private static Messenger? _messenger;
 
 	void Awake()
@@ -19,7 +21,8 @@ internal class UnityPlugin : BaseUnityPlugin
 
 	void Test()
 	{
-		_messenger!.Receive<bool>("Test", (val) =>
+		TestBool = Config.Bind("General", "TestBool", false);
+		_messenger!.Receive(TestBool, (val) =>
 		{
 			_messenger.Send("Test", Time.frameCount);
 		});

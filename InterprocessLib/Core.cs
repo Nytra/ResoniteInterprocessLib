@@ -73,7 +73,7 @@ public class MessagingHost
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
-		OnDebug?.Invoke($"Received value command: {command.Owner}:{command.Id}:{command.Value}");
+		OnDebug?.Invoke($"Received ValueCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Value}");
 		if (_ownerData[command.Owner].ValueCallbacks.TryGetValue(command.Id, out object? callback))
 		{
 			if (callback != null)
@@ -85,7 +85,7 @@ public class MessagingHost
 
 	private void HandleStringCommand(StringCommand command)
 	{
-		OnDebug?.Invoke($"Received string command: {command.Owner}:{command.Id}:{command.String}");
+		OnDebug?.Invoke($"Received StringCommand: {command.Owner}:{command.Id}:{command.String}");
 		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out Action<string>? callback))
 		{
 			if (callback != null)
@@ -97,7 +97,7 @@ public class MessagingHost
 
 	private void HandleIdentifiableCommand(IdentifiableCommand command)
 	{
-		OnDebug?.Invoke($"Received identifiable command: {command.Owner}:{command.Id}");
+		OnDebug?.Invoke($"Received IdentifiableCommand: {command.Owner}:{command.Id}");
 		if (_ownerData[command.Owner].Callbacks.TryGetValue(command.Id, out Action? callback))
 		{
 			if (callback != null)
@@ -157,7 +157,7 @@ public class MessagingHost
 			}
 			else if (command is ValueCommand valueCommand)
 			{
-				OnDebug.Invoke($"Sending ValueCommand: {valueCommand.Owner}:{valueCommand.Id}:{valueCommand.UntypedValue}");
+				OnDebug.Invoke($"Sending ValueCommand<{valueCommand.ValueType.Name}>: {valueCommand.Owner}:{valueCommand.Id}:{valueCommand.UntypedValue}");
 			}
 			else if (command is IdentifiableCommand identifiableCommand)
 			{
@@ -202,12 +202,14 @@ internal class IdentifiableCommand : RendererCommand
 internal abstract class ValueCommand : IdentifiableCommand
 {
 	public abstract object UntypedValue { get; }
+	public abstract Type ValueType { get; }
 }
 
 internal class ValueCommand<T> : ValueCommand where T : unmanaged
 {
 	public T Value;
 	public override object UntypedValue => Value;
+	public override Type ValueType => typeof(T);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
