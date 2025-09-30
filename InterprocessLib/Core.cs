@@ -13,16 +13,18 @@ public class MessagingHost
 
 		public readonly Dictionary<string, Action?> Callbacks = new();
 
+		public readonly Dictionary<string, object?> WrapperCallbacks = new();
+
 		public OwnerData()
 		{
 		}
 	}
 
-	internal static List<Type> CommandTypes = new(); // It's a list to guarantee order
-
 	private MessagingManager _primary;
 
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+
+	private static MethodInfo? _handleWrapperCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleWrapperCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	public RenderCommandHandler? OnCommandReceived;
 
@@ -55,6 +57,11 @@ public class MessagingHost
 		_ownerData[owner].Callbacks[id] = callback;
 	}
 
+	public void RegisterWrapperCallback<T>(string owner, string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	{
+		_ownerData[owner].WrapperCallbacks[id] = callback;
+	}
+
 	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
 	{
 		_primary = new MessagingManager(pool);
@@ -63,12 +70,17 @@ public class MessagingHost
 		_primary.WarningHandler = WarnHandler;
 		_primary.Connect(queueName + "InterprocessLib", isAuthority, queueCapacity);
 
-		CommandTypes.Add(typeof(IdentifiableCommand));
-		CommandTypes.Add(typeof(StringCommand));
-		foreach (var valueType in Utils.ValueTypes)
-			CommandTypes.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
+		if (!CommandTypeManager.InitializedTypes)
+		{
+			var list = new List<Type>();
+			list.Add(typeof(IdentifiableCommand));
+			list.Add(typeof(StringCommand));
+			foreach (var valueType in Utils.ValueTypes)
+				list.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
 
-		IdentifiableCommand.InitNewTypes();
+			CommandTypeManager.RegisterAdditionalCommandTypes(list);
+			CommandTypeManager.InitializedTypes = true;
+		}
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -107,6 +119,18 @@ public class MessagingHost
 		}
 	}
 
+	private void HandleWrapperCommand<T>(WrapperCommand command) where T : class, IMemoryPackable, new()
+	{
+		OnDebug?.Invoke($"Received WrapperCommand<{command.ObjectType.Name}>: {command.Owner}:{command.Id}:{command.UntypedObject ?? "NULL"}");
+		if (_ownerData[command.Owner].WrapperCallbacks.TryGetValue(command.Id, out object? callback))
+		{
+			if (callback != null)
+			{
+				((Action<T>)callback).Invoke((T)command.UntypedObject);
+			}
+		}
+	}
+
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
 		OnCommandReceived?.Invoke(command, messageSize);
@@ -114,10 +138,17 @@ public class MessagingHost
 		var commandType = command.GetType();
 		if (commandType.IsGenericType)
 		{
-			if (commandType.GetGenericTypeDefinition() == typeof(ValueCommand<>))
+			var genDef = commandType.GetGenericTypeDefinition();
+			if (genDef == typeof(ValueCommand<>))
 			{
 				var valueType = commandType.GetGenericArguments()[0];
 				var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
+				typedMethod.Invoke(this, new object[] { command });
+			}
+			else if (genDef == typeof(WrapperCommand<>))
+			{
+				var objectType = commandType.GetGenericArguments()[0];
+				var typedMethod = _handleWrapperCommandMethod!.MakeGenericMethod(objectType);
 				typedMethod.Invoke(this, new object[] { command });
 			}
 		}
@@ -132,6 +163,7 @@ public class MessagingHost
 					HandleIdentifiableCommand((IdentifiableCommand)command);
 					break;
 				default:
+					OnDebug?.Invoke($"Received RendererCommand: {command.GetType().Name}");
 					break;
 			}
 		}
@@ -163,8 +195,52 @@ public class MessagingHost
 			{
 				OnDebug.Invoke($"Sending IdentifiableCommand: {identifiableCommand.Owner}:{identifiableCommand.Id}");
 			}
+			else if (command is WrapperCommand wrapperCommand)
+			{
+				OnDebug.Invoke($"Sending WrapperCommand<{wrapperCommand.ObjectType.Name}>: {wrapperCommand.Owner}:{wrapperCommand.Id}:{wrapperCommand.UntypedObject ?? "NULL"}");
+			}
+			else
+			{
+				OnDebug.Invoke($"Sending RendererCommand: {command.GetType().Name}");
+			}
 		}
 		_primary.SendCommand(command);
+	}
+}
+
+internal static class CommandTypeManager
+{
+	private static readonly HashSet<Type> _registeredCommandTypes = new();
+
+	internal static bool InitializedTypes = false;
+
+	public static bool IsCommandTypeInitialized(Type type)
+	{
+		return _registeredCommandTypes.Contains(type);
+	}
+
+	public static bool IsCommandTypeInitialized<T>() where T : RendererCommand
+	{
+		return _registeredCommandTypes.Contains(typeof(T));
+	}
+
+	public static void RegisterAdditionalCommandTypes(List<Type> additionalCommandTypes)
+	{
+		foreach (Type type in additionalCommandTypes)
+		{
+			if (_registeredCommandTypes.Contains(type))
+				throw new InvalidOperationException($"Type {type.Name} is already registered!");
+
+			if (type.ContainsGenericParameters)
+				throw new ArgumentException($"Type must be a concrete type!");
+		}
+
+		IdentifiableCommand.InitNewTypes(additionalCommandTypes);
+
+		foreach (var type in additionalCommandTypes)
+		{
+			_registeredCommandTypes.Add(type);
+		}
 	}
 }
 
@@ -176,13 +252,13 @@ internal class IdentifiableCommand : RendererCommand
 	internal string Owner = "";
 	public string Id = "";
 
-	public static void InitNewTypes()
+	public static void InitNewTypes(List<Type> newTypes)
 	{
 		var list = new List<Type>();
 		var theType = typeof(PolymorphicMemoryPackableEntity<RendererCommand>);
 		var types = (List<Type>)theType.GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 		list.AddRange(types);
-		list.AddRange(MessagingHost.CommandTypes);
+		list.AddRange(newTypes);
 		InitTypes(list);
 	}
 
@@ -196,6 +272,30 @@ internal class IdentifiableCommand : RendererCommand
 	{
 		unpacker.Read(ref Owner);
 		unpacker.Read(ref Id);
+	}
+}
+
+internal abstract class WrapperCommand : IdentifiableCommand
+{
+	public abstract object? UntypedObject { get; }
+	public abstract Type ObjectType { get; }
+}
+
+internal class WrapperCommand<T> : WrapperCommand where T : class, IMemoryPackable, new()
+{
+	public T? Object;
+	public override object? UntypedObject => Object;
+	public override Type ObjectType => typeof(T);
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
+		packer.WriteObject(Object);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		base.Unpack(ref unpacker);
+		unpacker.ReadObject(ref Object);
 	}
 }
 
@@ -226,7 +326,7 @@ internal class ValueCommand<T> : ValueCommand where T : unmanaged
 
 internal class StringCommand : IdentifiableCommand
 {
-	public string String = "";
+	public string String;
 
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -277,13 +377,15 @@ public partial class Messenger
 
 	internal static Action<string>? OnDebug;
 
-	internal static List<Action>? PostInitActions = new();
+	private static List<Action>? PostInitActions = new();
 
 	private string _ownerId;
 
 	private static HashSet<string> _registeredOwnerIds = new();
 
-	public Messenger(string ownerId)
+	private List<Type>? _additionalCommandTypes;
+
+	public Messenger(string ownerId, List<Type>? additionalCommandTypes = null)
 	{
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
@@ -295,6 +397,8 @@ public partial class Messenger
 
 		_registeredOwnerIds.Add(ownerId);
 
+		_additionalCommandTypes = additionalCommandTypes;
+
 		if (IsInitialized)
 			RegisterWithBackend();
 		else
@@ -304,6 +408,8 @@ public partial class Messenger
 	private void RegisterWithBackend()
 	{
 		_host!.RegisterOwner(_ownerId);
+		if (_additionalCommandTypes is not null)
+			CommandTypeManager.RegisterAdditionalCommandTypes(_additionalCommandTypes);
 	}
 
 	private static void ThrowNotReady()
@@ -430,5 +536,25 @@ public partial class Messenger
 		}
 
 		_host!.RegisterCallback(_ownerId, id, callback);
+	}
+
+	public void Send<T>(T command) where T : class, IMemoryPackable, new()
+	{
+		if (command is null)
+			throw new ArgumentNullException(nameof(command));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Send(command));
+			return;
+		}
+
+		if (!CommandTypeManager.IsCommandTypeInitialized(command.GetType()))
+			throw new InvalidOperationException($"Type {command.GetType().Name} needs to be registered first!");
+
+		var wrapper = new WrapperCommand<T>();
+		wrapper.Object = command;
+
+		_host!.SendCommand(wrapper);
 	}
 }

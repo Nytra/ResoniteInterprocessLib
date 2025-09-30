@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using Renderite.Shared;
 using UnityEngine;
 
 namespace InterprocessLib.Tests;
@@ -15,7 +16,7 @@ internal class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("InterprocessLib.Tests");
+		_messenger = new("InterprocessLib.Tests", [typeof(MyThing)]);
 		Test();
 	}
 
@@ -33,6 +34,33 @@ internal class UnityPlugin : BaseUnityPlugin
 		_messenger.Receive("Test", () => 
 		{ 
 			_messenger.Send("Test");
+
+			var cmd = new MyThing();
+			cmd.Value = 9999;
+			cmd.Text = "HWowowow";
+			cmd.Time = DateTime.MinValue;
+
+			_messenger.Send(cmd);
 		});
+	}
+}
+
+class MyThing : RendererCommand
+{
+	public ulong Value;
+	public string Text = "";
+	public DateTime Time;
+	public override void Pack(ref MemoryPacker packer)
+	{
+		packer.Write(Value);
+		packer.Write(Text);
+		packer.Write(Time);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Value);
+		unpacker.Read(ref Text);
+		unpacker.Read(ref Time);
 	}
 }

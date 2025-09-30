@@ -4,6 +4,8 @@ using BepInEx.Logging;
 using BepInEx.NET.Common;
 using Elements.Core;
 using FrooxEngine;
+using Renderite.Shared;
+using System.Data;
 
 namespace InterprocessLib.Tests;
 
@@ -37,7 +39,7 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests");
+		_messenger = new Messenger("InterprocessLib.Tests", [typeof(MyThing)]);
 		Test();
 	}
 
@@ -65,5 +67,31 @@ internal class Plugin : BasePlugin
 		{
 			CallbackCount!.Value += 1;
 		});
+
+		var cmd = new MyThing();
+		cmd.Value = 2932;
+		cmd.Text = "Hello world";
+		cmd.Time = DateTime.Now;
+		_messenger.Send(cmd);
+	}
+}
+
+class MyThing : RendererCommand
+{
+	public ulong Value;
+	public string Text = "";
+	public DateTime Time;
+	public override void Pack(ref MemoryPacker packer)
+	{
+		packer.Write(Value);
+		packer.Write(Text);
+		packer.Write(Time);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Value);
+		unpacker.Read(ref Text);
+		unpacker.Read(ref Time);
 	}
 }
