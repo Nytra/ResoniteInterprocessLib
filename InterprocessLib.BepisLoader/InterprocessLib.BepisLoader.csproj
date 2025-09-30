@@ -8,7 +8,7 @@
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
     <PackageId>Nytra.InterprocessLib.BepisLoader</PackageId>
     <Product>InterprocessLib.BepisLoader</Product>
-    <RootNamespace>InterprocessLib.BepisLoader</RootNamespace>
+    <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>

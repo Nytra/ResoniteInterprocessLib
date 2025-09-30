@@ -8,7 +8,7 @@ using FrooxEngine;
 using HarmonyLib;
 using Renderite.Shared;
 
-namespace InterprocessLib.BepisLoader;
+namespace InterprocessLib;
 
 [ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
@@ -17,7 +17,6 @@ public class Plugin : BasePlugin
 	internal static new ManualLogSource? Log;
 	internal static ConfigEntry<bool>? TestBool;
 	internal static ConfigEntry<float>? TestFloat;
-	public static MessagingHost? MessagingHost;
 
 	public override void Load()
 	{
@@ -40,25 +39,21 @@ public class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
-			var renderSystemMessagingHost = (RenderiteMessagingHost)AccessTools.Field(typeof(RenderSystem), "_messagingHost").GetValue(Engine.Current.RenderSystem)!;
-			MessagingHost = new MessagingHost(true, renderSystemMessagingHost.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-			MessagingHost.OnCommandReceieved += CommandHandler;
-			MessagingHost.OnFailure += FailHandler;
-			MessagingHost.OnWarning += WarnHandler;
-			MessagingHost.OnDebug += DebugHandler;
+			Messaging.Host.OnCommandReceieved += CommandHandler;
+			Messaging.Host.OnFailure += FailHandler;
+			Messaging.Host.OnWarning += WarnHandler;
+			Messaging.Host.OnDebug += DebugHandler;
 
-			Tests.Test();
+			Test();
 		};
 
 		TestBool = Config.Bind("General", "TestBool", false);
 		TestBool.SettingChanged += (sender, args) =>
 		{
 			Log.LogInfo($"TestBool changed in FrooxEngine: {TestBool.Value}");
-			var command = new ValueCommand<bool>();
-			command.Id = "TestBool";
-			command.Value = TestBool.Value;
-			MessagingHost!.SendCommand(command);
+			Messaging.Send(TestBool);
 		};
+
 		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
 
@@ -81,27 +76,61 @@ public class Plugin : BasePlugin
 	{
 		
 	}
-}
 
-class Tests
-{
 	public static void Test()
 	{
-		Plugin.MessagingHost!.RegisterValueCallback<float>("TestFloat", (val) =>
+		Messaging.Receive<int>("TestInt", (val) =>
 		{
-			Plugin.Log!.LogInfo($"Test: Got TestFloat: {val}");
+			Plugin.Log!.LogInfo($"Test: Got TestInt: {val}");
 			Plugin.TestFloat!.Value = val;
-			var send = new IdentifiableCommand();
-			send.Id = "TestCommand";
-			Plugin.MessagingHost!.SendCommand(send);
+
+			Messaging.Send("TestCommand");
 		});
-		Plugin.MessagingHost!.RegisterStringCallback("TestString", (str) => 
+		Messaging.Receive("TestString", (str) =>
 		{
 			Plugin.Log!.LogInfo($"Test: Got TestString: {str}");
 		});
-		Plugin.MessagingHost!.RegisterCallback("TestCallback", () =>
+		Messaging.Receive("TestCallback", () =>
 		{
 			Plugin.Log!.LogInfo($"Test: Got TestCallback.");
 		});
+	}
+}
+
+public static partial class Messaging
+{
+	//internal static MessagingHost Host;
+
+	static Messaging()
+	{
+		if (Engine.Current is null)
+			ThrowNotReady();
+
+		var renderSystemMessagingHost = (RenderiteMessagingHost?)AccessTools.Field(typeof(RenderSystem), "_messagingHost").GetValue(Engine.Current!.RenderSystem);
+
+		if (renderSystemMessagingHost is null)
+			ThrowNotReady();
+
+		Host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
+	}
+
+	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	{
+		Send(configEntry.Definition.Key, configEntry.Value);
+	}
+
+	public static void Send(ConfigEntry<string> configEntry)
+	{
+		Send(configEntry.Definition.Key, configEntry.Value);
+	}
+
+	public static void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
+	{
+		Receive(configEntry.Definition.Key, callback);
+	}
+
+	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
+	{
+		Receive(configEntry.Definition.Key, callback);
 	}
 }

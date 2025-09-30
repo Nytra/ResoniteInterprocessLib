@@ -1,9 +1,13 @@
 ﻿using Renderite.Shared;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+
+//[assembly: InternalsVisibleTo("InterprocessLib.BepInEx")]
+//[assembly: InternalsVisibleTo("InterprocessLib.BepisLoader")]
 
 namespace InterprocessLib;
 
-public class MessagingHost
+internal class MessagingHost
 {
 	private MessagingManager _primary;
 
@@ -50,6 +54,7 @@ public class MessagingHost
 
 		QueueName = queueName;
 		QueueCapacity = queueCapacity;
+
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = HandleCommand;
 		_primary.FailureHandler = FailHandler;
@@ -153,9 +158,8 @@ public class MessagingHost
 
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
-// Causes errors in RendererCommandInitializer
 
-public class IdentifiableCommand : RendererCommand
+internal class IdentifiableCommand : RendererCommand
 {
 	public string Id = "";
 
@@ -180,7 +184,7 @@ public class IdentifiableCommand : RendererCommand
 	}
 }
 
-public class ValueCommand<T> : IdentifiableCommand where T : unmanaged
+internal class ValueCommand<T> : IdentifiableCommand where T : unmanaged
 {
 	public T Value;
 
@@ -197,7 +201,7 @@ public class ValueCommand<T> : IdentifiableCommand where T : unmanaged
 	}
 }
 
-public class StringCommand : IdentifiableCommand
+internal class StringCommand : IdentifiableCommand
 {
 	public string String = "";
 
@@ -234,4 +238,52 @@ internal static class Utils
 		typeof(DateTime),
 		typeof(TimeSpan)
 	};
+}
+
+public static partial class Messaging
+{
+	internal static MessagingHost Host;
+
+	private static void ThrowNotReady()
+	{
+		throw new InvalidOperationException("Messaging is not ready to be used yet!");
+	}
+
+	public static void Send<T>(string id, T value) where T : unmanaged
+	{
+		var command = new ValueCommand<T>();
+		command.Id = id;
+		command.Value = value;
+		Host.SendCommand(command);
+	}
+
+	public static void Send(string id, string str)
+	{
+		var command = new StringCommand();
+		command.Id = id;
+		command.String = str;
+		Host.SendCommand(command);
+	}
+
+	public static void Send(string id)
+	{
+		var command = new IdentifiableCommand();
+		command.Id = id;
+		Host.SendCommand(command);
+	}
+
+	public static void Receive<T>(string id, Action<T> callback) where T : unmanaged
+	{
+		Host.RegisterValueCallback(id, callback);
+	}
+
+	public static void Receive(string id, Action<string> callback)
+	{
+		Host.RegisterStringCallback(id, callback);
+	}
+
+	public static void Receive(string id, Action callback)
+	{
+		Host.RegisterCallback(id, callback);
+	}
 }

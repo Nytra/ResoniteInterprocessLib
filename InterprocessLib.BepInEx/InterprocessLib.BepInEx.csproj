@@ -8,7 +8,7 @@
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
     <PackageId>Nytra.InterprocessLib.BepInEx</PackageId>
     <Product>InterprocessLib.BepInEx</Product>
-    <RootNamespace>InterprocessLib.BepInEx</RootNamespace>
+    <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>

@@ -1,18 +1,18 @@
 ﻿using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
+using Renderite.Shared;
 using Renderite.Unity;
 using UnityEngine;
-using Renderite.Shared;
 
-namespace InterprocessLib.BepInEx;
+namespace InterprocessLib;
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.0")]
 public class Plugin : BaseUnityPlugin
 {
 	internal static ManualLogSource? Log;
 	private static bool _initialized;
-	public static MessagingHost? MessagingHost;
 
 	void Awake()
 	{
@@ -25,26 +25,14 @@ public class Plugin : BaseUnityPlugin
 
 		if (RenderingManager.Instance is null) return;
 
-		if (PackerMemoryPool.Instance is null) return;
-
-		var getConnectionParametersMethod = AccessTools.Method(typeof(RenderingManager), "GetConnectionParameters");
-
-		object[] parameters = { "", 0L };
-
-		if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
-		{
-			throw new Exception("Could not get connection parameters for mod IPC!");
-		}
-
-		MessagingHost = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		MessagingHost.OnCommandReceieved += CommandHandler;
-		MessagingHost.OnFailure += FailHandler;
-		MessagingHost.OnWarning += WarnHandler;
-		MessagingHost.OnDebug += DebugHandler;
+		Messaging.Host.OnCommandReceieved += CommandHandler;
+		Messaging.Host.OnFailure += FailHandler;
+		Messaging.Host.OnWarning += WarnHandler;
+		Messaging.Host.OnDebug += DebugHandler;
 
 		_initialized = true;
 
-		Tests.Test();
+		Test();
 	}
 
 	void FailHandler(Exception ex)
@@ -66,28 +54,60 @@ public class Plugin : BaseUnityPlugin
 	{
 
 	}
-}
 
-class Tests
-{
 	public static void Test()
 	{
-		Plugin.MessagingHost!.RegisterValueCallback<bool>("TestBool", (val) =>
+		Messaging.Receive<bool>("TestBool", (val) =>
 		{
 			Plugin.Log!.LogInfo($"Unity got TestBool: {val}");
 
-			var response = new ValueCommand<float>();
-			response.Id = "TestFloat";
-			response.Value = Time.frameCount;
-			Plugin.MessagingHost!.SendCommand(response);
+			Messaging.Send("TestInt", Time.frameCount);
 		});
-		Plugin.MessagingHost!.RegisterCallback("TestCommand", () => 
+		Messaging.Receive("TestCommand", () =>
 		{
 			Plugin.Log!.LogInfo($"Unity got TestCommand");
 
-			var response = new IdentifiableCommand();
-			response.Id = "TestCallback";
-			Plugin.MessagingHost!.SendCommand(response);
+			Messaging.Send("TestCallback");
 		});
+	}
+}
+
+public static partial class Messaging
+{
+	static Messaging()
+	{
+		if (RenderingManager.Instance is null)
+			ThrowNotReady();
+
+		var getConnectionParametersMethod = AccessTools.Method(typeof(RenderingManager), "GetConnectionParameters");
+
+		object[] parameters = { "", 0L };
+
+		if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
+		{
+			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
+		}
+
+		Host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance!);
+	}
+
+	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	{
+		Send(configEntry.Definition.Key, configEntry.Value);
+	}
+
+	public static void Send(ConfigEntry<string> configEntry)
+	{
+		Send(configEntry.Definition.Key, configEntry.Value);
+	}
+
+	public static void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
+	{
+		Receive(configEntry.Definition.Key, callback);
+	}
+
+	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
+	{
+		Receive(configEntry.Definition.Key, callback);
 	}
 }
