@@ -263,9 +263,7 @@ internal static class Utils
 
 public partial class Messenger
 {
-#pragma warning disable CS8618
-	private static MessagingHost _host; // This will always be set by the static constructor
-#pragma warning restore CS8618
+	private static MessagingHost? _host; 
 
 	public static bool IsInitialized => _host is not null;
 
@@ -303,7 +301,7 @@ public partial class Messenger
 
 	private void RegisterWithBackend()
 	{
-		_host.RegisterOwner(_ownerId);
+		_host!.RegisterOwner(_ownerId);
 	}
 
 	private static void ThrowNotReady()
@@ -350,7 +348,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Value = value;
-		_host.SendCommand(command);
+		_host!.SendCommand(command);
 	}
 
 	public void Send(string id, string str)
@@ -370,7 +368,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.String = str;
-		_host.SendCommand(command);
+		_host!.SendCommand(command);
 	}
 
 	public void Send(string id)
@@ -387,7 +385,7 @@ public partial class Messenger
 		var command = new IdentifiableCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
-		_host.SendCommand(command);
+		_host!.SendCommand(command);
 	}
 
 	public void Receive<T>(string id, Action<T> callback) where T : unmanaged
@@ -401,7 +399,7 @@ public partial class Messenger
 			return;
 		}
 
-		_host.RegisterValueCallback(_ownerId, id, callback);
+		_host!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
 	public void Receive(string id, Action<string> callback)
@@ -415,7 +413,7 @@ public partial class Messenger
 			return;
 		}
 
-		_host.RegisterStringCallback(_ownerId, id, callback);
+		_host!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
 	public void Receive(string id, Action callback)
@@ -429,6 +427,6 @@ public partial class Messenger
 			return;
 		}
 
-		_host.RegisterCallback(_ownerId, id, callback);
+		_host!.RegisterCallback(_ownerId, id, callback);
 	}
 }
