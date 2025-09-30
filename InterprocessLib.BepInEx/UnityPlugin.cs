@@ -10,7 +10,7 @@ using UnityEngine;
 namespace InterprocessLib;
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.0")]
-internal class Plugin : BaseUnityPlugin
+internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 	private static bool _initialized;
@@ -18,6 +18,7 @@ internal class Plugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
+		Update();
 	}
 
 	void Update()
@@ -26,29 +27,24 @@ internal class Plugin : BaseUnityPlugin
 
 		if (RenderingManager.Instance is null) return;
 
-		Messaging.OnCommandReceived += CommandHandler;
+		Messaging.Init();
 
 		_initialized = true;
 
 		Test();
 	}
 
-	void CommandHandler(RendererCommand command, int messageSize)
-	{
-
-	}
-
 	static void Test()
 	{
 		Messaging.Receive<bool>("TestBool", (val) =>
 		{
-			Plugin.Log!.LogInfo($"Unity got TestBool: {val}");
+			Log!.LogInfo($"Unity got TestBool: {val}");
 
 			Messaging.Send("TestInt", Time.frameCount);
 		});
 		Messaging.Receive("TestCommand", () =>
 		{
-			Plugin.Log!.LogInfo($"Unity got TestCommand");
+			Log!.LogInfo($"Unity got TestCommand");
 
 			Messaging.Send("TestCallback");
 		});
@@ -79,20 +75,20 @@ public static partial class Messaging
 
 	private static void FailHandler(Exception ex)
 	{
-		Plugin.Log!.LogError("Exception in messaging system:\n" + ex);
+		UnityPlugin.Log!.LogError("Exception in messaging system:\n" + ex);
 	}
 
 	private static void WarnHandler(string msg)
 	{
-		Plugin.Log!.LogWarning(msg);
+		UnityPlugin.Log!.LogWarning(msg);
 	}
 
 	private static void DebugHandler(string msg)
 	{
-		Plugin.Log!.LogDebug(msg);
+		UnityPlugin.Log!.LogDebug(msg);
 	}
 
-	static Messaging()
+	internal static void Init()
 	{
 		if (RenderingManager.Instance is null)
 			ThrowNotReady();
@@ -111,5 +107,6 @@ public static partial class Messaging
 		_backend.OnFailure = OnFailure;
 		_backend.OnWarning = OnWarning;
 		_backend.OnDebug = OnDebug;
+		FinishInitialization();
 	}
 }

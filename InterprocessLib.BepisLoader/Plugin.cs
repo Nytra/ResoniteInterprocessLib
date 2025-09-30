@@ -5,7 +5,6 @@ using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
 using FrooxEngine;
-using Renderite.Shared;
 using System.Reflection;
 
 namespace InterprocessLib;
@@ -14,14 +13,14 @@ namespace InterprocessLib;
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
 internal class Plugin : BasePlugin
 {
-	public static new ManualLogSource? Log;
+	public static ManualLogSource? Logger;
 	public static ConfigEntry<bool>? TestBool;
 	public static ConfigEntry<float>? TestFloat;
 
 	public override void Load()
 	{
-		Log = base.Log;
-		Log.LogEvent += (sender, eventArgs) => 
+		Logger = base.Log;
+		Logger.LogEvent += (sender, eventArgs) => 
 		{
 			switch (eventArgs.Level)
 			{
@@ -39,42 +38,36 @@ internal class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
-			Messaging.OnCommandReceived += CommandHandler;
-
+			Messaging.Init();
 			Test();
 		};
 
 		TestBool = Config.Bind("General", "TestBool", false);
 		TestBool.SettingChanged += (sender, args) =>
 		{
-			Log.LogInfo($"TestBool changed in FrooxEngine: {TestBool.Value}");
+			Logger.LogInfo($"TestBool changed in FrooxEngine: {TestBool.Value}");
 			Messaging.Send(TestBool);
 		};
 
 		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
 
-	void CommandHandler(RendererCommand command, int messageSize)
-	{
-		
-	}
-
 	static void Test()
 	{
 		Messaging.Receive<int>("TestInt", (val) =>
 		{
-			Plugin.Log!.LogInfo($"Test: Got TestInt: {val}");
-			Plugin.TestFloat!.Value = val;
+			Logger!.LogInfo($"Test: Got TestInt: {val}");
+			TestFloat!.Value = val;
 
 			Messaging.Send("TestCommand");
 		});
 		Messaging.Receive("TestString", (str) =>
 		{
-			Plugin.Log!.LogInfo($"Test: Got TestString: {str}");
+			Logger!.LogInfo($"Test: Got TestString: {str}");
 		});
 		Messaging.Receive("TestCallback", () =>
 		{
-			Plugin.Log!.LogInfo($"Test: Got TestCallback.");
+			Logger!.LogInfo($"Test: Got TestCallback.");
 		});
 	}
 }
@@ -103,21 +96,23 @@ public static partial class Messaging
 
 	private static void FailHandler(Exception ex)
 	{
-		Plugin.Log!.LogError("Exception in messaging system:\n" + ex);
+		Plugin.Logger!.LogError("Exception in messaging system:\n" + ex);
 	}
 
 	private static void WarnHandler(string msg)
 	{
-		Plugin.Log!.LogWarning(msg);
+		Plugin.Logger!.LogWarning(msg);
 	}
 
 	private static void DebugHandler(string msg)
 	{
-		Plugin.Log!.LogDebug(msg);
+		Plugin.Logger!.LogDebug(msg);
 	}
 
-	static Messaging()
+	internal static void Init()
 	{
+		if (_backend is not null) return;
+
 		if (Engine.Current?.RenderSystem is null)
 			ThrowNotReady();
 
@@ -131,5 +126,6 @@ public static partial class Messaging
 		_backend.OnFailure = OnFailure;
 		_backend.OnWarning = OnWarning;
 		_backend.OnDebug = OnDebug;
+		FinishInitialization();
 	}
 }

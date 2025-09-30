@@ -226,7 +226,9 @@ public static partial class Messaging
 	private static MessagingBackend _backend; // This will always be set by the static constructor
 #pragma warning restore CS8618
 
-	public static event RenderCommandHandler? OnCommandReceived;
+	public static bool IsInitialized => _backend is not null;
+
+	internal static event RenderCommandHandler? OnCommandReceived;
 
 	internal static readonly Action<Exception>? OnFailure;
 
@@ -234,9 +236,37 @@ public static partial class Messaging
 
 	internal static readonly Action<string>? OnDebug;
 
+	internal static List<Action>? PostInitActions = new();
+
 	private static void ThrowNotReady()
 	{
 		throw new InvalidOperationException("Messaging is not ready to be used yet!");
+	}
+
+	private static void FinishInitialization()
+	{
+		foreach (var action in PostInitActions!)
+		{
+			try
+			{
+				action();
+			}
+			catch (Exception ex)
+			{
+				OnWarning?.Invoke($"Exception running post-init action:\n{ex}");
+			}
+		}
+		PostInitActions = null;
+	}
+
+	public static void RunPostInit(Action act)
+	{
+		if (!IsInitialized)
+			PostInitActions!.Add(act);
+		else
+		{
+			act();
+		}
 	}
 
 	public static void Send<T>(string id, T value) where T : unmanaged
@@ -277,13 +307,13 @@ public static partial class Messaging
 		_backend.RegisterCallback(id, callback);
 	}
 
-	public static void RegisterNewCommandType<T>() where T : RendererCommand
-	{
-		IdentifiableCommand.InitNewTypes([typeof(T)]);
-	}
+	//public static void RegisterNewCommandType<T>() where T : RendererCommand
+	//{
+	//	IdentifiableCommand.InitNewTypes([typeof(T)]);
+	//}
 
-	public static void Send(RendererCommand command)
-	{
-		_backend.SendCommand(command);
-	}
+	//public static void Send(RendererCommand command)
+	//{
+	//	_backend.SendCommand(command);
+	//}
 }
