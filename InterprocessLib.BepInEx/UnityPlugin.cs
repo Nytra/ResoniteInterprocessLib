@@ -43,14 +43,14 @@ internal class UnityPlugin : BaseUnityPlugin
 	{
 		_messenger!.Receive<bool>("TestBool", (val) =>
 		{
-			Log!.LogInfo($"Unity got TestBool: {val}");
-
 			_messenger.Send("TestInt", Time.frameCount);
 		});
-		_messenger.Receive("TestCommand", () =>
+		_messenger.Receive("TestString", (str) =>
 		{
-			Log!.LogInfo($"Unity got TestCommand");
-
+			_messenger.Send("TestString", (Application.productName ?? "") + UnityEngine.Random.value.ToString());
+		});
+		_messenger.Receive("TestCallback", () => 
+		{ 
 			_messenger.Send("TestCallback");
 		});
 	}

@@ -17,6 +17,7 @@ internal class Plugin : BasePlugin
 	public static ConfigEntry<bool>? TestBool;
 	public static ConfigEntry<int>? TestInt;
 	public static ConfigEntry<string>? TestString;
+	public static ConfigEntry<int>? CallbackCount;
 	private static Messenger? _messenger;
 
 	public override void Load()
@@ -54,6 +55,7 @@ internal class Plugin : BasePlugin
 		TestBool = Config.Bind("General", nameof(TestBool), false);
 		TestInt = Config.Bind("General", nameof(TestInt), 0);
 		TestString = Config.Bind("General", nameof(TestString), "Hello!");
+		CallbackCount = Config.Bind("General", nameof(CallbackCount), 0);
 
 		TestBool.SettingChanged += (sender, args) =>
 		{
@@ -66,13 +68,16 @@ internal class Plugin : BasePlugin
 		_messenger!.Receive<int>(nameof(TestInt), (val) =>
 		{
 			TestInt!.Value = val;
-			_messenger.Send("TestCommand");
+			_messenger.Send(nameof(TestString), Engine.VersionNumber ?? "");
 		});
-		_messenger.Receive("TestString", (str) =>
+		_messenger.Receive(nameof(TestString), (str) =>
 		{
+			TestString!.Value = str;
+			_messenger.Send("TestCallback");
 		});
 		_messenger.Receive("TestCallback", () =>
 		{
+			CallbackCount!.Value += 1;
 		});
 	}
 
