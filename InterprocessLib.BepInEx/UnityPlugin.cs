@@ -3,7 +3,6 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using Renderite.Unity;
 using System.Reflection;
-using UnityEngine;
 
 namespace InterprocessLib;
 
@@ -32,7 +31,7 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		Messenger.Init();
 
-		//_messenger = new("InterprocessLib");
+		//_messenger = new("InterprocessLib.BepInEx");
 
 		_initialized = true;
 	}

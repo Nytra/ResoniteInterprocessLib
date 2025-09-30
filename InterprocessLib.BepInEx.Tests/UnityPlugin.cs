@@ -1,10 +1,6 @@
 ﻿using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
-using Renderite.Unity;
-using System.Reflection;
 using UnityEngine;
-using InterprocessLib;
 
 namespace InterprocessLib.Tests;
 
@@ -17,7 +13,7 @@ internal class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("Nytra");
+		_messenger = new("InterprocessLib.BepInEx.Tests");
 		Test();
 	}
 

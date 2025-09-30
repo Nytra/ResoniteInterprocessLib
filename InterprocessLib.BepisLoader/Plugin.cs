@@ -43,7 +43,7 @@ internal class Plugin : BasePlugin
 
 			Messenger.Init();
 
-			//_messenger = new Messenger("InterprocessLib");
+			//_messenger = new Messenger("InterprocessLib.BepisLoader");
 		};
 	}
 

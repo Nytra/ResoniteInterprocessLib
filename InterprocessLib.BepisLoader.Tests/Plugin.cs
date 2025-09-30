@@ -4,8 +4,6 @@ using BepInEx.Logging;
 using BepInEx.NET.Common;
 using Elements.Core;
 using FrooxEngine;
-using System.Reflection;
-using InterprocessLib;
 
 namespace InterprocessLib.Tests;
 
@@ -39,7 +37,7 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("Nytra");
+		_messenger = new Messenger("InterprocessLib.BepisLoader.Tests");
 		Test();
 	}
 
