@@ -13,15 +13,15 @@ internal class MessagingHost
 
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	public event RenderCommandHandler? OnCommandReceieved;
+	public event RenderCommandHandler? OnCommandReceived;
 
 	public static MessagingHost? Instance { get; private set; }
 
-	public event Action<Exception>? OnFailure;
+	internal Action<Exception>? OnFailure;
 
-	public event Action<string>? OnWarning;
+	internal Action<string>? OnWarning;
 
-	public event Action<string>? OnDebug;
+	internal Action<string>? OnDebug;
 
 	private Dictionary<string, object?> _valueCallbackMap = new();
 
@@ -103,7 +103,7 @@ internal class MessagingHost
 
 	private void HandleCommand(RendererCommand command, int messageSize)
 	{
-		OnCommandReceieved?.Invoke(command, messageSize);
+		OnCommandReceived?.Invoke(command, messageSize);
 
 		var cmdType = command.GetType();
 		if (cmdType.IsGenericType)
@@ -144,11 +144,6 @@ internal class MessagingHost
 	public void SendCommand(RendererCommand command)
 	{
 		_primary.SendCommand(command);
-	}
-
-	internal void Debug(string msg)
-	{
-		OnDebug?.Invoke(msg);
 	}
 }
 
@@ -236,15 +231,26 @@ internal static class Utils
 	};
 }
 
+/// <summary>
+/// Public class for sending and receiving messages
+/// It's a thin layer over the actual <see cref="MessagingHost"/>
+/// </summary>
 public static partial class Messaging
 {
 #pragma warning disable CS8618
-	internal static MessagingHost Host;
-#pragma warning restore CS8618 
+	internal static readonly MessagingHost Host; // This will always be set by the static constructor
+#pragma warning restore CS8618
+
+	public static event RenderCommandHandler? OnCommandReceived;
 
 	private static void ThrowNotReady()
 	{
 		throw new InvalidOperationException("Messaging is not ready to be used yet!");
+	}
+
+	private static void RunPostInit()
+	{
+		Host.OnCommandReceived += OnCommandReceived;
 	}
 
 	public static void Send<T>(string id, T value) where T : unmanaged
@@ -293,10 +299,5 @@ public static partial class Messaging
 	public static void Send(RendererCommand command)
 	{
 		Host.SendCommand(command);
-	}
-
-	public static void Receive(RenderCommandHandler callback)
-	{
-		Host.OnCommandReceieved += callback;
 	}
 }

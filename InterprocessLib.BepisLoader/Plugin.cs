@@ -37,10 +37,10 @@ public class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
-			Messaging.Host.OnCommandReceieved += CommandHandler;
-			Messaging.Host.OnFailure += FailHandler;
-			Messaging.Host.OnWarning += WarnHandler;
-			Messaging.Host.OnDebug += DebugHandler;
+			Messaging.OnCommandReceived += CommandHandler;
+			Messaging.Host.OnFailure = FailHandler;
+			Messaging.Host.OnWarning = WarnHandler;
+			Messaging.Host.OnDebug = DebugHandler;
 
 			Test();
 		};

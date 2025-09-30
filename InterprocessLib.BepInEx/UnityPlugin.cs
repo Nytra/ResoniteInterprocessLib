@@ -25,10 +25,10 @@ public class Plugin : BaseUnityPlugin
 
 		if (RenderingManager.Instance is null) return;
 
-		Messaging.Host.OnCommandReceieved += CommandHandler;
-		Messaging.Host.OnFailure += FailHandler;
-		Messaging.Host.OnWarning += WarnHandler;
-		Messaging.Host.OnDebug += DebugHandler;
+		Messaging.OnCommandReceived += CommandHandler;
+		Messaging.Host.OnFailure = FailHandler;
+		Messaging.Host.OnWarning = WarnHandler;
+		Messaging.Host.OnDebug = DebugHandler;
 
 		_initialized = true;
 
