@@ -16,7 +16,7 @@ internal class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("InterprocessLib.Tests", [typeof(MyThing)]);
+		_messenger = new("InterprocessLib.Tests", [typeof(MyThing), typeof(TestObject)]);
 		Test();
 	}
 
@@ -40,7 +40,17 @@ internal class UnityPlugin : BaseUnityPlugin
 			cmd.Text = "HWowowow";
 			cmd.Time = DateTime.MinValue;
 
-			_messenger.Send(cmd);
+			_messenger.SendObject("TestObject2", cmd);
+		});
+		_messenger.ReceiveObject<MyThing>("TestObject", (thing) => 
+		{ 
+			Log!.LogInfo($"MyThing: {thing.Value} {thing.Text} {thing.Time}");
+		});
+		_messenger.Receive("NullStr", (str) => { });
+
+		_messenger.ReceiveObject<TestObject>("TestObj2", (obj) => 
+		{ 
+			Log!.LogInfo($"TestObject: {obj.Value} {obj.Obj.Value} {obj.Obj.Text} {obj.Obj.Time}");
 		});
 	}
 }
@@ -62,5 +72,23 @@ class MyThing : RendererCommand
 		unpacker.Read(ref Value);
 		unpacker.Read(ref Text);
 		unpacker.Read(ref Time);
+	}
+}
+
+class TestObject : IMemoryPackable
+{
+	public byte Value;
+	public MyThing Obj;
+
+	public void Pack(ref MemoryPacker packer)
+	{
+		packer.Write(Value);
+		packer.WriteObject(Obj);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Value);
+		unpacker.ReadObject(ref Obj);
 	}
 }

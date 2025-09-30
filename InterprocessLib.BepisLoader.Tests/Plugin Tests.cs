@@ -39,7 +39,7 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests", [typeof(MyThing)]);
+		_messenger = new Messenger("InterprocessLib.Tests", [typeof(MyThing), typeof(TestObject)]);
 		Test();
 	}
 
@@ -72,8 +72,16 @@ internal class Plugin : BasePlugin
 		cmd.Value = 2932;
 		cmd.Text = "Hello world";
 		cmd.Time = DateTime.Now;
-		_messenger.Send(cmd);
-	}
+
+		_messenger.SendObject("TestObject", cmd);
+
+		_messenger.Send("NullStr", null);
+
+		var testObj = new TestObject();
+		testObj.Value = 0xF8;
+		testObj.Obj = cmd;
+		_messenger.SendObject("TestObj2", testObj);
+	} 
 }
 
 class MyThing : RendererCommand
@@ -93,5 +101,23 @@ class MyThing : RendererCommand
 		unpacker.Read(ref Value);
 		unpacker.Read(ref Text);
 		unpacker.Read(ref Time);
+	}
+}
+
+class TestObject : IMemoryPackable
+{
+	public byte Value;
+	public MyThing Obj;
+
+	public void Pack(ref MemoryPacker packer)
+	{
+		packer.Write(Value);
+		packer.WriteObject(Obj);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Value);
+		unpacker.ReadObject(ref Obj);
 	}
 }
