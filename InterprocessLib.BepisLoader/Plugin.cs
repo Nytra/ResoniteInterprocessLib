@@ -4,8 +4,6 @@ using BepInEx.Logging;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
-using FrooxEngine;
-using HarmonyLib;
 using Renderite.Shared;
 
 namespace InterprocessLib;
@@ -99,19 +97,6 @@ public class Plugin : BasePlugin
 
 public static partial class Messaging
 {
-	static Messaging()
-	{
-		if (Engine.Current is null)
-			ThrowNotReady();
-
-		var renderSystemMessagingHost = (RenderiteMessagingHost?)AccessTools.Field(typeof(RenderSystem), "_messagingHost").GetValue(Engine.Current!.RenderSystem);
-
-		if (renderSystemMessagingHost is null)
-			ThrowNotReady();
-
-		Host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-	}
-
 	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		Send(configEntry.Definition.Key, configEntry.Value);

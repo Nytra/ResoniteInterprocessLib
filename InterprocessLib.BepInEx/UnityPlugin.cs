@@ -74,23 +74,6 @@ public class Plugin : BaseUnityPlugin
 
 public static partial class Messaging
 {
-	static Messaging()
-	{
-		if (RenderingManager.Instance is null)
-			ThrowNotReady();
-
-		var getConnectionParametersMethod = AccessTools.Method(typeof(RenderingManager), "GetConnectionParameters");
-
-		object[] parameters = { "", 0L };
-
-		if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
-		{
-			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
-		}
-
-		Host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance!);
-	}
-
 	public static void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		Send(configEntry.Definition.Key, configEntry.Value);
