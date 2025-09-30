@@ -78,17 +78,17 @@ internal class Plugin : BasePlugin
 
 	private static void FailHandler(Exception ex)
 	{
-		Plugin.Logger!.LogError("Exception in messaging system:\n" + ex);
+		Logger!.LogError("Exception in messaging system:\n" + ex);
 	}
 
 	private static void WarnHandler(string msg)
 	{
-		Plugin.Logger!.LogWarning(msg);
+		Logger!.LogWarning(msg);
 	}
 
 	private static void DebugHandler(string msg)
 	{
-		Plugin.Logger!.LogDebug(msg);
+		Logger!.LogDebug(msg);
 	}
 }
 
