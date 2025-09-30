@@ -230,11 +230,11 @@ public static partial class Messaging
 
 	internal static event RenderCommandHandler? OnCommandReceived;
 
-	internal static readonly Action<Exception>? OnFailure;
+	internal static Action<Exception>? OnFailure;
 
-	internal static readonly Action<string>? OnWarning;
+	internal static Action<string>? OnWarning;
 
-	internal static readonly Action<string>? OnDebug;
+	internal static Action<string>? OnDebug;
 
 	internal static List<Action>? PostInitActions = new();
 

@@ -38,7 +38,12 @@ internal class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
+			Messaging.OnFailure = FailHandler;
+			Messaging.OnWarning = WarnHandler;
+			Messaging.OnDebug = DebugHandler;
+
 			Messaging.Init();
+
 			Test();
 		};
 
@@ -52,7 +57,7 @@ internal class Plugin : BasePlugin
 		TestFloat = Config.Bind("General", "TestFloat", 0f);
 	}
 
-	static void Test()
+	private static void Test()
 	{
 		Messaging.Receive<int>("TestInt", (val) =>
 		{
@@ -69,6 +74,21 @@ internal class Plugin : BasePlugin
 		{
 			Logger!.LogInfo($"Test: Got TestCallback.");
 		});
+	}
+
+	private static void FailHandler(Exception ex)
+	{
+		Plugin.Logger!.LogError("Exception in messaging system:\n" + ex);
+	}
+
+	private static void WarnHandler(string msg)
+	{
+		Plugin.Logger!.LogWarning(msg);
+	}
+
+	private static void DebugHandler(string msg)
+	{
+		Plugin.Logger!.LogDebug(msg);
 	}
 }
 
@@ -92,21 +112,6 @@ public static partial class Messaging
 	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
 	{
 		Receive(configEntry.Definition.Key, callback);
-	}
-
-	private static void FailHandler(Exception ex)
-	{
-		Plugin.Logger!.LogError("Exception in messaging system:\n" + ex);
-	}
-
-	private static void WarnHandler(string msg)
-	{
-		Plugin.Logger!.LogWarning(msg);
-	}
-
-	private static void DebugHandler(string msg)
-	{
-		Plugin.Logger!.LogDebug(msg);
 	}
 
 	internal static void Init()

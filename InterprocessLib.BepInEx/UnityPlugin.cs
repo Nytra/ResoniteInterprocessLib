@@ -1,8 +1,6 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
-using HarmonyLib;
-using Renderite.Shared;
 using Renderite.Unity;
 using System.Reflection;
 using UnityEngine;
@@ -27,6 +25,10 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		if (RenderingManager.Instance is null) return;
 
+		Messaging.OnWarning = WarnHandler;
+		Messaging.OnFailure = FailHandler;
+		Messaging.OnDebug = DebugHandler;
+
 		Messaging.Init();
 
 		_initialized = true;
@@ -48,6 +50,21 @@ internal class UnityPlugin : BaseUnityPlugin
 
 			Messaging.Send("TestCallback");
 		});
+	}
+
+	private static void FailHandler(Exception ex)
+	{
+		Log!.LogError("Exception in messaging system:\n" + ex);
+	}
+
+	private static void WarnHandler(string msg)
+	{
+		Log!.LogWarning(msg);
+	}
+
+	private static void DebugHandler(string msg)
+	{
+		Log!.LogDebug(msg);
 	}
 }
 
@@ -71,21 +88,6 @@ public static partial class Messaging
 	public static void Receive(ConfigEntry<string> configEntry, Action<string> callback)
 	{
 		Receive(configEntry.Definition.Key, callback);
-	}
-
-	private static void FailHandler(Exception ex)
-	{
-		UnityPlugin.Log!.LogError("Exception in messaging system:\n" + ex);
-	}
-
-	private static void WarnHandler(string msg)
-	{
-		UnityPlugin.Log!.LogWarning(msg);
-	}
-
-	private static void DebugHandler(string msg)
-	{
-		UnityPlugin.Log!.LogDebug(msg);
 	}
 
 	internal static void Init()
