@@ -1,5 +1,4 @@
 using Renderite.Shared;
-using System.Collections;
 using System.Reflection;
 
 namespace InterprocessLib;
@@ -18,9 +17,7 @@ public class MessagingHost
 
 		public readonly Dictionary<string, object?> ValueCollectionCallbacks = new();
 
-		//public readonly Dictionary<string, object?> ValueHashSetCallbacks = new();
-
-		public readonly Dictionary<string, Action<List<string>>?> StringListCallbacks = new();
+		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
 
 		public readonly Dictionary<string, object?> ObjectListCallbacks = new();
 
@@ -40,8 +37,6 @@ public class MessagingHost
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
-
-	//private static MethodInfo? _handleValueHashSetCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueHashSetCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -132,7 +127,7 @@ public class MessagingHost
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
 		OnDebug?.Invoke($"Received ValueCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Value}");
-		if (_ownerData[command.Owner].ValueCallbacks.TryGetValue(command.Id, out object? callback))
+		if (_ownerData[command.Owner].ValueCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -149,7 +144,7 @@ public class MessagingHost
 	private void HandleValueCollectionCommand<C, T>(ValueCollectionCommand<C, T> command) where C : ICollection<T>, new() where T : unmanaged
 	{
 		OnDebug?.Invoke($"Received ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
-		if (_ownerData[command.Owner].ValueCollectionCallbacks.TryGetValue(command.Id, out object? callback))
+		if (_ownerData[command.Owner].ValueCollectionCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -163,27 +158,10 @@ public class MessagingHost
 		}
 	}
 
-	//private void HandleValueHashSetCommand<T>(ValueHashSetCommand<T> command) where T : unmanaged
-	//{
-	//	OnDebug?.Invoke($"Received ValueHashSetCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
-	//	if (_ownerData[command.Owner].ValueHashSetCallbacks.TryGetValue(command.Id, out object? callback))
-	//	{
-	//		if (callback != null)
-	//		{
-	//			((Action<HashSet<T>?>)callback).Invoke(command.Values);
-	//		}
-	//	}
-	//	else
-	//	{
-	//		OnWarning?.Invoke($"ValueHashSetCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-	//		return;
-	//	}
-	//}
-
 	private void HandleStringCommand(StringCommand command)
 	{
 		OnDebug?.Invoke($"Received StringCommand: {command.Owner}:{command.Id}:{command.String ?? "NULL"}");
-		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out Action<string?>? callback))
+		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -200,11 +178,11 @@ public class MessagingHost
 	private void HandleStringListCommand(StringListCommand command)
 	{
 		OnDebug?.Invoke($"Received StringListCommand: {command.Owner}:{command.Id}:{command.Values}");
-		if (_ownerData[command.Owner].StringListCallbacks.TryGetValue(command.Id, out Action<List<string>>? callback))
+		if (_ownerData[command.Owner].StringListCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
-				((Action<List<string>?>)callback).Invoke(command.Values);
+				callback.Invoke(command.Values);
 			}
 		}
 		else
@@ -217,7 +195,7 @@ public class MessagingHost
 	private void HandleEmptyCommand(EmptyCommand command)
 	{
 		OnDebug?.Invoke($"Received EmptyCommand: {command.Owner}:{command.Id}");
-		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out Action? callback))
+		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -234,7 +212,7 @@ public class MessagingHost
 	private void HandleObjectCommand<T>(ObjectCommand<T> command) where T : class, IMemoryPackable, new()
 	{
 		OnDebug?.Invoke($"Received ObjectCommand<{command.ObjectType.Name}>: {command.Owner}:{command.Id}:{command.UntypedObject ?? "NULL"}");
-		if (_ownerData[command.Owner].ObjectCallbacks.TryGetValue(command.Id, out object? callback))
+		if (_ownerData[command.Owner].ObjectCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -251,7 +229,7 @@ public class MessagingHost
 	private void HandleObjectListCommand<T>(ObjectListCommand<T> command) where T : class, IMemoryPackable, new()
 	{
 		OnDebug?.Invoke($"Received ObjectListCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
-		if (_ownerData[command.Owner].ObjectListCallbacks.TryGetValue(command.Id, out object? callback))
+		if (_ownerData[command.Owner].ObjectListCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -282,7 +260,7 @@ public class MessagingHost
 		{
 			var valueType = valueCommand.ValueType;
 			var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
-			typedMethod.Invoke(this, new object[] { command });
+			typedMethod.Invoke(this, [command]);
 		}
 		else if (command is CollectionCommand collectionCommand)
 		{
@@ -294,19 +272,19 @@ public class MessagingHost
 			else if (listType.IsValueType)
 			{
 				var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(listType);
-				typedMethod.Invoke(this, new object[] { command });
+				typedMethod.Invoke(this, [command]);
 			}
 			else
 			{
 				var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(listType);
-				typedMethod.Invoke(this, new object[] { command });
+				typedMethod.Invoke(this, [command]);
 			}
 		}
 		else if (command is ObjectCommand objectCommand)
 		{
 			var objectType = objectCommand.ObjectType;
 			var typedMethod = _handleObjectCommandMethod!.MakeGenericMethod(objectType);
-			typedMethod.Invoke(this, new object[] { command });
+			typedMethod.Invoke(this, [command]);
 		}
 		else
 		{
