@@ -56,7 +56,9 @@ messenger.ReceiveObject<TestCommand>("TestCustomRendererCommand", (recvCmd) =>
 });
 ```
 
-For more examples you can check the tests files: https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Extra/Tests.cs
+For more examples you can check the tests files: 
+
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Extra/Tests.cs
 
 https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.BepInEx.Tests/UnityPluginTests.cs
 
