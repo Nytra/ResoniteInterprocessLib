@@ -26,7 +26,6 @@ internal class UnityPlugin : BaseUnityPlugin
 		Messenger.OnWarning = WarnHandler;
 		Messenger.OnFailure = FailHandler;
 		Messenger.OnDebug = DebugHandler;
-		Messenger.OnCommandReceived = CommandHandler;
 
 		Messenger.Init();
 
@@ -46,14 +45,5 @@ internal class UnityPlugin : BaseUnityPlugin
 	private static void DebugHandler(string msg)
 	{
 		Log!.LogDebug(msg);
-	}
-
-	private static void CommandHandler(RendererCommand command, int messageSize)
-	{
-		if (command is MessengerReadyCommand)
-		{
-			Messenger.FinishInitialization();
-			Messenger.OnCommandReceived = null;
-		}
 	}
 }

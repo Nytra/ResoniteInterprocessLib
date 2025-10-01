@@ -4,13 +4,11 @@ namespace InterprocessLib;
 
 public partial class Messenger
 {
-	private static MessagingHost? Host;
+	private static MessagingHost? _host;
 
-	private static bool IsInitialized => Host is not null && PostInitActions is null;
+	public static bool IsInitialized => _host is not null && _postInitActions is null;
 
 	public const bool IsAuthority = IsFrooxEngine;
-
-	internal static RenderCommandHandler? OnCommandReceived;
 
 	internal static Action<Exception>? OnFailure;
 
@@ -18,7 +16,7 @@ public partial class Messenger
 
 	internal static Action<string>? OnDebug;
 
-	private static List<Action>? PostInitActions = new();
+	private static List<Action>? _postInitActions = new();
 
 	private string _ownerId;
 
@@ -52,14 +50,14 @@ public partial class Messenger
 
 	private void Register()
 	{
-		Host!.RegisterOwner(_ownerId);
+		_host!.RegisterOwner(_ownerId);
 		if (_additionalPackableTypes is not null)
 		{
 			foreach (var type in _additionalPackableTypes)
 			{
 				try
 				{
-					TypeManager._registerPackableTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+					TypeManager.RegisterPackableTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
 				}
 				catch (Exception ex)
 				{
@@ -73,7 +71,7 @@ public partial class Messenger
 			{
 				try
 				{
-					TypeManager._registerValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+					TypeManager.RegisterValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
 				}
 				catch (Exception ex)
 				{
@@ -83,13 +81,13 @@ public partial class Messenger
 		}
 	}
 
-	internal static void FinishInitialization()
+	private static void FinishInitialization()
 	{
-		if (Host!.IsAuthority)
-			Host!.SendCommand(new MessengerReadyCommand());
+		if (IsAuthority)
+			_host!.SendCommand(new MessengerReadyCommand());
 
-		var actions = PostInitActions!.ToArray();
-		PostInitActions = null;
+		var actions = _postInitActions!.ToArray();
+		_postInitActions = null;
 		foreach (var action in actions)
 		{
 			try
@@ -107,7 +105,7 @@ public partial class Messenger
 	{
 		if (!IsInitialized)
 		{
-			PostInitActions!.Add(act);
+			_postInitActions!.Add(act);
 		}
 		else
 			throw new InvalidOperationException("Already initialized!");
@@ -131,7 +129,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Value = value;
-		Host!.SendCommand(command);
+		_host!.SendCommand(command);
 	}
 
 	public void SendString(string id, string? str)
@@ -149,7 +147,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.String = str;
-		Host!.SendCommand(command);
+		_host!.SendCommand(command);
 	}
 
 	public void SendEmptyCommand(string id)
@@ -166,7 +164,7 @@ public partial class Messenger
 		var command = new EmptyCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
-		Host!.SendCommand(command);
+		_host!.SendCommand(command);
 	}
 
 	public void SendObject<T>(string id, T? obj) where T : class, IMemoryPackable, new()
@@ -188,7 +186,7 @@ public partial class Messenger
 		wrapper.Owner = _ownerId;
 		wrapper.Id = id;
 
-		Host!.SendCommand(wrapper);
+		_host!.SendCommand(wrapper);
 	}
 
 	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
@@ -205,7 +203,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterValueCallback(_ownerId, id, callback);
+		_host!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveString(string id, Action<string?> callback)
@@ -219,7 +217,7 @@ public partial class Messenger
 			return;
 		}
 
-		Host!.RegisterStringCallback(_ownerId, id, callback);
+		_host!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveEmptyCommand(string id, Action callback)
@@ -233,7 +231,7 @@ public partial class Messenger
 			return;
 		}
 
-		Host!.RegisterCallback(_ownerId, id, callback);
+		_host!.RegisterEmptyCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveObject<T>(string id, Action<T?> callback) where T : class, IMemoryPackable, new()
@@ -250,6 +248,6 @@ public partial class Messenger
 		if (!TypeManager.IsPackableTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterWrapperCallback(_ownerId, id, callback);
+		_host!.RegisterWrapperCallback(_ownerId, id, callback);
 	}
 }

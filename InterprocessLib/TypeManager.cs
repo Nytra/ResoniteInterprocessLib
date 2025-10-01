@@ -9,13 +9,13 @@ internal static class TypeManager
 
 	private static readonly HashSet<Type> _registeredValueTypes = new();
 
-	internal static bool InitializedCoreTypes = false;
+	private static bool _initializedCoreTypes = false;
 
-	internal static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.Public | BindingFlags.Static);
+	internal static MethodInfo? RegisterValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	internal static MethodInfo? _registerPackableTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalPackableType), BindingFlags.Public | BindingFlags.Static);
+	internal static MethodInfo? RegisterPackableTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalPackableType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	public static Type[] ValueTypes =
+	private static Type[] _valueTypes =
 	{
 		typeof(bool),
 		typeof(byte),
@@ -34,19 +34,19 @@ internal static class TypeManager
 		typeof(TimeSpan)
 	};
 
-	public static void InitializeCoreTypes()
+	internal static void InitializeCoreTypes()
 	{
-		if (InitializedCoreTypes) return;
+		if (_initializedCoreTypes) return;
 
 		RegisterAdditionalPackableType<MessengerReadyCommand>();
 		RegisterAdditionalPackableType<EmptyCommand>();
 		RegisterAdditionalPackableType<StringCommand>();
 
-		foreach (var valueType in TypeManager.ValueTypes)
+		foreach (var valueType in TypeManager._valueTypes)
 		{
 			try
 			{
-				TypeManager._registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+				TypeManager.RegisterValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
 			}
 			catch (Exception ex)
 			{
@@ -55,17 +55,17 @@ internal static class TypeManager
 		}
 	}
 
-	public static bool IsValueTypeInitialized<T>() where T : unmanaged
+	internal static bool IsValueTypeInitialized<T>() where T : unmanaged
 	{
 		return _registeredValueTypes.Contains(typeof(T));
 	}
 
-	public static bool IsPackableTypeInitialized<T>() where T : class, IMemoryPackable, new()
+	internal static bool IsPackableTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
-	public static void RegisterAdditionalValueType<T>() where T : unmanaged
+	internal static void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
 		var type = typeof(T);
 		Type valueCommandType;
@@ -83,7 +83,7 @@ internal static class TypeManager
 		_registeredValueTypes.Add(type);
 	}
 
-	public static void RegisterAdditionalPackableType<T>() where T : class, IMemoryPackable, new()
+	internal static void RegisterAdditionalPackableType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 

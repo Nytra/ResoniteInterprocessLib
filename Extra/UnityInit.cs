@@ -1,3 +1,4 @@
+using Renderite.Shared;
 using Renderite.Unity;
 using System.Reflection;
 
@@ -5,7 +6,17 @@ namespace InterprocessLib;
 
 public partial class Messenger
 {
-	public const bool IsFrooxEngine = false;
+	private const bool IsFrooxEngine = false;
+
+	private static void CommandHandler(RendererCommand command, int messageSize)
+	{
+		if (IsInitialized) return;
+
+		if (command is MessengerReadyCommand)
+		{
+			FinishInitialization();
+		}
+	}
 
 	internal static void Init()
 	{
@@ -21,7 +32,6 @@ public partial class Messenger
 			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 		}
 
-		Host = new(IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		Host.OnCommandReceived = OnCommandReceived;
+		_host = new(IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, OnFailure, OnWarning, OnDebug);
 	}
 }

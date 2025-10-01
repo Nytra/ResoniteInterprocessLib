@@ -54,9 +54,8 @@ internal class Plugin : BasePlugin
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnWarning = WarnHandler;
 			Messenger.OnDebug = DebugHandler;
-			Messenger.OnCommandReceived = CommandHandler;
+
 			Messenger.Init();
-			Messenger.FinishInitialization();
 		};
 	}
 
@@ -73,10 +72,5 @@ internal class Plugin : BasePlugin
 	private static void DebugHandler(string msg)
 	{
 		Log!.LogDebug(msg);
-	}
-
-	private static void CommandHandler(RendererCommand command, int messageSize)
-	{
-
 	}
 }

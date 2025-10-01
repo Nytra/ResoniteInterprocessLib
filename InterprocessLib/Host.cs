@@ -11,7 +11,7 @@ public class MessagingHost
 
 		public readonly Dictionary<string, Action<string?>?> StringCallbacks = new();
 
-		public readonly Dictionary<string, Action?> Callbacks = new();
+		public readonly Dictionary<string, Action?> EmptyCallbacks = new();
 
 		public readonly Dictionary<string, object?> WrapperCallbacks = new();
 
@@ -20,7 +20,11 @@ public class MessagingHost
 		}
 	}
 
-	public bool IsAuthority;
+	public bool IsAuthority { get; }
+
+	public string QueueName { get; }
+
+	public long QueueCapacity { get; }
 
 	private MessagingManager _primary;
 
@@ -28,13 +32,13 @@ public class MessagingHost
 
 	private static MethodInfo? _handleWrapperCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleWrapperCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	public RenderCommandHandler? OnCommandReceived;
+	private RenderCommandHandler? OnCommandReceived { get; }
 
-	public Action<string>? OnWarning;
+	private Action<string>? OnWarning { get; }
 
-	public Action<string>? OnDebug;
+	private Action<string>? OnDebug { get; }
 
-	public Action<Exception>? OnFailure;
+	private Action<Exception>? OnFailure { get; }
 
 	private Dictionary<string, OwnerData> _ownerData = new();
 
@@ -54,9 +58,9 @@ public class MessagingHost
 		_ownerData[owner].StringCallbacks[id] = callback;
 	}
 
-	public void RegisterCallback(string owner, string id, Action callback)
+	public void RegisterEmptyCallback(string owner, string id, Action callback)
 	{
-		_ownerData[owner].Callbacks[id] = callback;
+		_ownerData[owner].EmptyCallbacks[id] = callback;
 	}
 
 	public void RegisterWrapperCallback<T>(string owner, string id, Action<T?> callback) where T : class, IMemoryPackable, new()
@@ -64,20 +68,23 @@ public class MessagingHost
 		_ownerData[owner].WrapperCallbacks[id] = callback;
 	}
 
-	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
+	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler, Action<Exception>? failhandler, Action<string>? warnHandler, Action<string>? debugHandler)
 	{
 		IsAuthority = isAuthority;
+		QueueName = queueName + "InterprocessLib";
+		QueueCapacity = queueCapacity;
 	
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = FailHandler;
 		_primary.WarningHandler = WarnHandler;
 
-		OnDebug = Messenger.OnDebug;
-		OnWarning = Messenger.OnWarning;
-		OnFailure = Messenger.OnFailure;
+		OnDebug = debugHandler;
+		OnWarning = warnHandler;
+		OnFailure = failhandler;
+		OnCommandReceived = commandHandler;
 
-		_primary.Connect(queueName + "InterprocessLib", isAuthority, queueCapacity);
+		_primary.Connect(queueName, isAuthority, queueCapacity);
 
 		TypeManager.InitializeCoreTypes();
 	}
@@ -129,7 +136,7 @@ public class MessagingHost
 	private void HandleEmptyCommand(EmptyCommand command)
 	{
 		OnDebug?.Invoke($"Received EmptyCommand: {command.Owner}:{command.Id}");
-		if (_ownerData[command.Owner].Callbacks.TryGetValue(command.Id, out Action? callback))
+		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out Action? callback))
 		{
 			if (callback != null)
 			{

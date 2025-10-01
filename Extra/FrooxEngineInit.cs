@@ -1,11 +1,16 @@
 using FrooxEngine;
+using Renderite.Shared;
 using System.Reflection;
 
 namespace InterprocessLib;
 
 public partial class Messenger
 {
-	public const bool IsFrooxEngine = true;
+	private const bool IsFrooxEngine = true;
+
+	private static void CommandHandler(RendererCommand command, int messageSize)
+	{
+	}
 
 	internal static void Init()
 	{
@@ -19,7 +24,8 @@ public partial class Messenger
 		if (renderSystemMessagingHost is null)
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
-		Host = new MessagingHost(IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-		Host.OnCommandReceived = OnCommandReceived;
+		_host = new MessagingHost(IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, OnFailure, OnWarning, OnDebug);
+
+		FinishInitialization();
 	}
 }
