@@ -6,7 +6,7 @@ The library only depends on `Renderite.Shared`, meaning it could work with other
 
 BepisLoader and BepInEx projects are included.
 
-# Usage
+## Usage
 
 After including the library in your project, all you have to do is create your own instance of the `Messenger` class. You can do this at any time, even before Resonite starts.
 
@@ -55,6 +55,12 @@ messenger.ReceiveObject<TestCommand>("TestCustomRendererCommand", (recvCmd) =>
 	Log($"TestCustomRendererCommand: {recvCmd?.Value}, {recvCmd?.Text}, {recvCmd?.Time}");
 });
 ```
+
+For more examples you can check the tests files: https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Extra/Tests.cs
+
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.BepInEx.Tests/UnityPluginTests.cs
+
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.BepisLoader.Tests/PluginTests.cs
 
 ## Installation (Manual)
 1. Install [BepisLoader](https://github.com/ResoniteModding/BepisLoader) and [BepInExRenderer](https://thunderstore.io/c/resonite/p/ResoniteModding/BepInExRenderer/) and [RenderiteHook](https://thunderstore.io/c/resonite/p/ResoniteModding/RenderiteHook/) for Resonite.
