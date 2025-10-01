@@ -106,30 +106,6 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 	}
 }
 
-//internal sealed class ValueHashSetCommand<T> : CollectionCommand where T : unmanaged
-//{
-//	public HashSet<T>? Values;
-
-//	public override ICollection? UntypedCollection => (ICollection?)Values;
-//	public override Type InnerDataType => typeof(T);
-
-//	public override void Pack(ref MemoryPacker packer)
-//	{
-//		base.Pack(ref packer);
-//#pragma warning disable CS8604
-//		packer.WriteValueList<HashSet<T>, T>(Values);
-//#pragma warning restore
-//	}
-
-//	public override void Unpack(ref MemoryUnpacker unpacker)
-//	{
-//		base.Unpack(ref unpacker);
-//#pragma warning disable CS8601
-//		unpacker.ReadValueList<HashSet<T>, T>(ref Values);
-//#pragma warning restore
-//	}
-//}
-
 internal sealed class StringListCommand : CollectionCommand
 {
 	public List<string>? Values;
