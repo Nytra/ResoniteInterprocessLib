@@ -94,9 +94,9 @@ internal static class TypeManager
 
 		var valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
 
-		var valueListCommandType = typeof(ValueListCommand<>).MakeGenericType(type);
+		var valueListCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
 
-		var valueHashSetCommandType = typeof(ValueHashSetCommand<>).MakeGenericType(type);
+		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
 		IdentifiableCommand.InitNewTypes([valueCommandType, valueListCommandType, valueHashSetCommandType]);
 

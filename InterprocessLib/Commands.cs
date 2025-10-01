@@ -95,33 +95,9 @@ internal sealed class EmptyCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class ValueListCommand<T> : CollectionCommand where T : unmanaged
+internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : unmanaged
 {
-	public List<T>? Values;
-
-	public override ICollection? UntypedCollection => Values;
-	public override Type InnerDataType => typeof(T);
-
-	public override void Pack(ref MemoryPacker packer)
-	{
-		base.Pack(ref packer);
-#pragma warning disable CS8604
-		packer.WriteValueList<List<T>, T>(Values);
-#pragma warning restore
-	}
-
-	public override void Unpack(ref MemoryUnpacker unpacker)
-	{
-		base.Unpack(ref unpacker);
-#pragma warning disable CS8601
-		unpacker.ReadValueList<List<T>, T>(ref Values);
-#pragma warning restore
-	}
-}
-
-internal sealed class ValueHashSetCommand<T> : CollectionCommand where T : unmanaged
-{
-	public HashSet<T>? Values;
+	public C? Values;
 
 	public override ICollection? UntypedCollection => (ICollection?)Values;
 	public override Type InnerDataType => typeof(T);
@@ -130,7 +106,7 @@ internal sealed class ValueHashSetCommand<T> : CollectionCommand where T : unman
 	{
 		base.Pack(ref packer);
 #pragma warning disable CS8604
-		packer.WriteValueList<HashSet<T>, T>(Values);
+		packer.WriteValueList<ICollection<T>, T>(Values);
 #pragma warning restore
 	}
 
@@ -138,10 +114,34 @@ internal sealed class ValueHashSetCommand<T> : CollectionCommand where T : unman
 	{
 		base.Unpack(ref unpacker);
 #pragma warning disable CS8601
-		unpacker.ReadValueList<HashSet<T>, T>(ref Values);
+		unpacker.ReadValueList<C, T>(ref Values);
 #pragma warning restore
 	}
 }
+
+//internal sealed class ValueHashSetCommand<T> : CollectionCommand where T : unmanaged
+//{
+//	public HashSet<T>? Values;
+
+//	public override ICollection? UntypedCollection => (ICollection?)Values;
+//	public override Type InnerDataType => typeof(T);
+
+//	public override void Pack(ref MemoryPacker packer)
+//	{
+//		base.Pack(ref packer);
+//#pragma warning disable CS8604
+//		packer.WriteValueList<HashSet<T>, T>(Values);
+//#pragma warning restore
+//	}
+
+//	public override void Unpack(ref MemoryUnpacker unpacker)
+//	{
+//		base.Unpack(ref unpacker);
+//#pragma warning disable CS8601
+//		unpacker.ReadValueList<HashSet<T>, T>(ref Values);
+//#pragma warning restore
+//	}
+//}
 
 internal sealed class StringListCommand : CollectionCommand
 {

@@ -137,7 +137,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		var command = new ValueListCommand<T>();
+		var command = new ValueCollectionCommand<List<T>, T>();
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
@@ -158,7 +158,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		var command = new ValueHashSetCommand<T>();
+		var command = new ValueCollectionCommand<HashSet<T>, T>();
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = hashSet;
@@ -292,7 +292,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterValueListCallback(_ownerId, id, callback);
+		_host!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
 
 	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>> callback) where T : unmanaged
@@ -309,7 +309,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterValueHashSetCallback(_ownerId, id, callback);
+		_host!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
 	public void ReceiveString(string id, Action<string?> callback)

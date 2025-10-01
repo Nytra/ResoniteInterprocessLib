@@ -16,9 +16,9 @@ public class MessagingHost
 
 		public readonly Dictionary<string, object?> ObjectCallbacks = new();
 
-		public readonly Dictionary<string, object?> ValueListCallbacks = new();
+		public readonly Dictionary<string, object?> ValueCollectionCallbacks = new();
 
-		public readonly Dictionary<string, object?> ValueHashSetCallbacks = new();
+		//public readonly Dictionary<string, object?> ValueHashSetCallbacks = new();
 
 		public readonly Dictionary<string, Action<List<string>>?> StringListCallbacks = new();
 
@@ -39,9 +39,9 @@ public class MessagingHost
 
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleValueListCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleValueHashSetCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueHashSetCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	//private static MethodInfo? _handleValueHashSetCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueHashSetCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -68,14 +68,9 @@ public class MessagingHost
 		_ownerData[owner].ValueCallbacks[id] = callback;
 	}
 
-	public void RegisterValueListCallback<T>(string owner, string id, Action<List<T>> callback) where T : unmanaged
+	public void RegisterValueCollectionCallback<C, T>(string owner, string id, Action<C> callback) where C : ICollection<T>, new() where T : unmanaged
 	{
-		_ownerData[owner].ValueListCallbacks[id] = callback;
-	}
-
-	public void RegisterValueHashSetCallback<T>(string owner, string id, Action<HashSet<T>> callback) where T : unmanaged
-	{
-		_ownerData[owner].ValueHashSetCallbacks[id] = callback;
+		_ownerData[owner].ValueCollectionCallbacks[id] = callback;
 	}
 
 	public void RegisterStringCallback(string owner, string id, Action<string?> callback)
@@ -151,39 +146,39 @@ public class MessagingHost
 		}
 	}
 
-	private void HandleValueListCommand<T>(ValueListCommand<T> command) where T : unmanaged
+	private void HandleValueCollectionCommand<C, T>(ValueCollectionCommand<C, T> command) where C : ICollection<T>, new() where T : unmanaged
 	{
-		OnDebug?.Invoke($"Received ValueListCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
-		if (_ownerData[command.Owner].ValueListCallbacks.TryGetValue(command.Id, out object? callback))
+		OnDebug?.Invoke($"Received ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
+		if (_ownerData[command.Owner].ValueCollectionCallbacks.TryGetValue(command.Id, out object? callback))
 		{
 			if (callback != null)
 			{
-				((Action<List<T>?>)callback).Invoke(command.Values);
+				((Action<C?>)callback).Invoke(command.Values);
 			}
 		}
 		else
 		{
-			OnWarning?.Invoke($"ValueListCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+			OnWarning?.Invoke($"ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 			return;
 		}
 	}
 
-	private void HandleValueHashSetCommand<T>(ValueHashSetCommand<T> command) where T : unmanaged
-	{
-		OnDebug?.Invoke($"Received ValueHashSetCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
-		if (_ownerData[command.Owner].ValueHashSetCallbacks.TryGetValue(command.Id, out object? callback))
-		{
-			if (callback != null)
-			{
-				((Action<HashSet<T>?>)callback).Invoke(command.Values);
-			}
-		}
-		else
-		{
-			OnWarning?.Invoke($"ValueHashSetCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
-		}
-	}
+	//private void HandleValueHashSetCommand<T>(ValueHashSetCommand<T> command) where T : unmanaged
+	//{
+	//	OnDebug?.Invoke($"Received ValueHashSetCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
+	//	if (_ownerData[command.Owner].ValueHashSetCallbacks.TryGetValue(command.Id, out object? callback))
+	//	{
+	//		if (callback != null)
+	//		{
+	//			((Action<HashSet<T>?>)callback).Invoke(command.Values);
+	//		}
+	//	}
+	//	else
+	//	{
+	//		OnWarning?.Invoke($"ValueHashSetCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+	//		return;
+	//	}
+	//}
 
 	private void HandleStringCommand(StringCommand command)
 	{
@@ -298,16 +293,8 @@ public class MessagingHost
 			}
 			else if (listType.IsValueType)
 			{
-				if (collectionCommand.UntypedCollection is IList list)
-				{
-					var typedMethod = _handleValueListCommandMethod!.MakeGenericMethod(listType);
-					typedMethod.Invoke(this, new object[] { command });
-				}
-				else
-				{
-					var typedMethod = _handleValueHashSetCommandMethod!.MakeGenericMethod(listType);
-					typedMethod.Invoke(this, new object[] { command });
-				}
+				var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(listType);
+				typedMethod.Invoke(this, new object[] { command });
 			}
 			else
 			{
