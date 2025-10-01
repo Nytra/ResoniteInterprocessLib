@@ -29,7 +29,7 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
-If you want to send more complex data such as custom memory-packable structs, you must register the types when you instantiate the messenger.
+If you want to send more complex data such as custom memory-packable structs and classes, you must register the types when you instantiate the messenger.
 
 There are two lists that can be provided: the first is for `IMemoryPackable` class types, and the second is for `unmanaged` value types.
 
