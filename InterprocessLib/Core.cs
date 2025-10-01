@@ -20,6 +20,8 @@ public class MessagingHost
 		}
 	}
 
+	public bool IsAuthority;
+
 	private MessagingManager _primary;
 
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
@@ -64,23 +66,42 @@ public class MessagingHost
 
 	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
 	{
+		IsAuthority = isAuthority;
+
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = FailHandler;
 		_primary.WarningHandler = WarnHandler;
 		_primary.Connect(queueName + "InterprocessLib", isAuthority, queueCapacity);
 
-		if (!CommandTypeManager.InitializedTypes)
+		if (!TypeManager.InitializedCoreTypes)
 		{
-			var list = new List<Type>();
-			list.Add(typeof(MessengerReadyCommand));
-			list.Add(typeof(IdentifiableCommand));
-			list.Add(typeof(StringCommand));
-			foreach (var valueType in Utils.ValueTypes)
-				list.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
+			//var list = new List<Type>();
+			//list.Add(typeof(MessengerReadyCommand));
+			//list.Add(typeof(IdentifiableCommand));
+			//list.Add(typeof(StringCommand));
 
-			CommandTypeManager.RegisterAdditionalTypes(list);
-			CommandTypeManager.InitializedTypes = true;
+			//foreach (var valueType in Utils.ValueTypes)
+				//list.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
+
+			TypeManager.RegisterAdditionalPackableType<MessengerReadyCommand>();
+			TypeManager.RegisterAdditionalPackableType<IdentifiableCommand>();
+			TypeManager.RegisterAdditionalPackableType<StringCommand>();
+
+			var registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.Public | BindingFlags.Static);
+			foreach (var valueType in Utils.ValueTypes)
+			{
+				try
+				{
+					registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+				}
+				catch (Exception ex)
+				{
+					OnWarning?.Invoke($"Could not register additional value type {valueType.Name}!\n{ex}");
+				}
+			}
+
+			TypeManager.InitializedCoreTypes = true;
 		}
 	}
 
@@ -96,7 +117,7 @@ public class MessagingHost
 		}
 		else
 		{
-			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			OnWarning?.Invoke($"ValueCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 			return;
 		}
 	}
@@ -113,7 +134,7 @@ public class MessagingHost
 		}
 		else
 		{
-			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			OnWarning?.Invoke($"StringCommand with Id \"{command.Id}\" is not registered to receive a callback!");
 			return;
 		}
 	}
@@ -130,7 +151,7 @@ public class MessagingHost
 		}
 		else
 		{
-			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			OnWarning?.Invoke($"IdentifiableCommand with Id \"{command.Id}\" is not registered to receive a callback!");
 			return;
 		}
 	}
@@ -147,7 +168,7 @@ public class MessagingHost
 		}
 		else
 		{
-			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			OnWarning?.Invoke($"WrapperCommand<{command.ObjectType.Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 			return;
 		}
 	}
@@ -160,7 +181,7 @@ public class MessagingHost
 		{
 			if (!_ownerData.TryGetValue(identifiableCommand.Owner, out var data))
 			{
-				OnWarning?.Invoke($"Owner {identifiableCommand.Owner} is not registered!");
+				OnWarning?.Invoke($"Owner \"{identifiableCommand.Owner}\" is not registered!");
 				return;
 			}
 		}
@@ -238,61 +259,111 @@ public class MessagingHost
 	}
 }
 
-internal static class CommandTypeManager
+internal static class TypeManager
 {
 	private static readonly HashSet<Type> _registeredObjectTypes = new();
 
-	internal static bool InitializedTypes = false;
+	private static readonly HashSet<Type> _registeredValueTypes = new();
 
-	public static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
+	internal static bool InitializedCoreTypes = false;
+
+	public static bool IsTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
-	public static void RegisterAdditionalTypes(List<Type> additionalTypes)
+	public static void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
-		var cmdTypes = new List<Type>();
-		var objTypes = new List<Type>();
-		foreach (Type type in additionalTypes)
-		{
-			if (_registeredObjectTypes.Contains(type))
-				throw new InvalidOperationException($"Type {type.Name} is already registered!");
+		var type = typeof(T);
+		Type valueCommandType;
 
-			if (type.ContainsGenericParameters)
-				throw new ArgumentException($"Type must be a concrete type!");
-		}
+		if (_registeredValueTypes.Contains(type))
+			throw new InvalidOperationException($"Type {type.Name} is already registered!");
 
-		foreach (var type in additionalTypes)
-		{
-			if (!type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
-			{
-				objTypes.Add(type);
-			}
-			else
-			{
-				cmdTypes.Add(type);
-			}
-			try
-			{
-				cmdTypes.Add(typeof(WrapperCommand<>).MakeGenericType(type));
-			}
-			catch
-			{
-				throw new ArgumentException($"Type {type.Name} is not compatible!");
-			}
-		}
+		if (type.ContainsGenericParameters)
+			throw new ArgumentException($"Type must be a concrete type!");
 
-		IdentifiableCommand.InitNewTypes(cmdTypes);
+		valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
 
-		foreach (var type in objTypes)
-		{
-			_registeredObjectTypes.Add(type);
-		}
-		foreach (var type in cmdTypes)
-		{
-			_registeredObjectTypes.Add(type);
-		}
+		IdentifiableCommand.InitNewTypes([valueCommandType]);
+
+		_registeredValueTypes.Add(type);
 	}
+
+	public static void RegisterAdditionalPackableType<T>() where T : class, IMemoryPackable, new()
+	{
+		var type = typeof(T);
+
+		if (_registeredObjectTypes.Contains(type))
+			throw new InvalidOperationException($"Type {type.Name} is already registered!");
+
+		if (type.ContainsGenericParameters)
+			throw new ArgumentException($"Type must be a concrete type!");
+
+		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
+		{
+			IdentifiableCommand.InitNewTypes([type]);
+		}
+
+		var wrapperCommandType = typeof(WrapperCommand<>).MakeGenericType(type);
+		IdentifiableCommand.InitNewTypes([wrapperCommandType]);
+
+		_registeredObjectTypes.Add(type);
+		_registeredObjectTypes.Add(wrapperCommandType);
+	}
+
+	//public static void RegisterAdditionalTypes(List<Type> additionalTypes)
+	//{
+	//	var cmdTypes = new List<Type>();
+	//	var objTypes = new List<Type>();
+
+	//	foreach (Type type in additionalTypes)
+	//	{
+	//		if (_registeredObjectTypes.Contains(type))
+	//			throw new InvalidOperationException($"Type {type.Name} is already registered!");
+
+	//		if (type.ContainsGenericParameters)
+	//			throw new ArgumentException($"Type must be a concrete type!");
+
+	//		if (!type.GetInterfaces().Any(i => i == typeof(IMemoryPackable)))
+	//			throw new ArgumentException($"Type {type.Name} must have interface IMemoryPackable!");
+
+	//		if (!type.IsClass)
+	//			throw new ArgumentException($"Type {type.Name} must be a class!");
+	//	}
+
+	//	foreach (var type in additionalTypes)
+	//	{
+	//		if (!type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
+	//		{
+	//			objTypes.Add(type);
+	//		}
+	//		else
+	//		{
+	//			cmdTypes.Add(type);
+	//		}
+
+	//		try
+	//		{
+	//			cmdTypes.Add(typeof(WrapperCommand<>).MakeGenericType(type));
+	//		}
+	//		catch
+	//		{
+	//			throw new ArgumentException($"Type {type.Name} is not compatible!");
+	//		}
+	//	}
+
+	//	IdentifiableCommand.InitNewTypes(cmdTypes);
+
+	//	foreach (var type in objTypes)
+	//	{
+	//		_registeredObjectTypes.Add(type);
+	//	}
+	//	foreach (var type in cmdTypes)
+	//	{
+	//		_registeredObjectTypes.Add(type);
+	//	}
+	//}
 }
 
 // IMPORTANT:
@@ -427,9 +498,9 @@ internal static class Utils
 
 public partial class Messenger
 {
-	internal static MessagingHost? _host;
+	internal static MessagingHost? Host;
 
-	public static bool IsInitialized => _host is not null && PostInitActions is null;
+	internal static bool IsInitialized => Host is not null && PostInitActions is null;
 
 	internal static RenderCommandHandler? OnCommandReceived;
 
@@ -445,7 +516,9 @@ public partial class Messenger
 
 	private static HashSet<string> _registeredOwnerIds = new();
 
-	private List<Type>? _additionalCommandTypes;
+	private List<Type>? _additionalPackableTypes;
+
+	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalPackableType), BindingFlags.Public | BindingFlags.Static);
 
 	public Messenger(string ownerId, List<Type>? additionalCommandTypes = null)
 	{
@@ -459,7 +532,7 @@ public partial class Messenger
 
 		_registeredOwnerIds.Add(ownerId);
 
-		_additionalCommandTypes = additionalCommandTypes;
+		_additionalPackableTypes = additionalCommandTypes;
 
 		if (IsInitialized)
 			Register();
@@ -469,18 +542,29 @@ public partial class Messenger
 
 	private void Register()
 	{
-		_host!.RegisterOwner(_ownerId);
-		if (_additionalCommandTypes is not null)
-			CommandTypeManager.RegisterAdditionalTypes(_additionalCommandTypes);
-	}
-
-	private static void ThrowNotReady()
-	{
-		throw new InvalidOperationException("Messenger is not ready to be used yet!");
+		Host!.RegisterOwner(_ownerId);
+		if (_additionalPackableTypes is not null)
+		{
+			foreach (var type in _additionalPackableTypes)
+			{
+				try
+				{
+					_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+				}
+				catch (Exception ex)
+				{
+					OnWarning?.Invoke($"Could not register additional type {type.Name}!\n{ex}");
+				}
+			}
+		}
+			
 	}
 
 	internal static void FinishInitialization()
 	{
+		if (Host!.IsAuthority)
+			Host!.SendCommand(new MessengerReadyCommand());
+
 		var actions = PostInitActions!.ToArray();
 		PostInitActions = null;
 		foreach (var action in actions)
@@ -521,7 +605,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Value = value;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void Send(string id, string str)
@@ -539,7 +623,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.String = str;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void Send(string id)
@@ -556,63 +640,7 @@ public partial class Messenger
 		var command = new IdentifiableCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
-		_host!.SendCommand(command);
-	}
-
-	public void Receive<T>(string id, Action<T> callback) where T : unmanaged
-	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => Receive(id, callback));
-			return;
-		}
-
-		_host!.RegisterValueCallback(_ownerId, id, callback);
-	}
-
-	public void Receive(string id, Action<string> callback)
-	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => Receive(id, callback));
-			return;
-		}
-
-		_host!.RegisterStringCallback(_ownerId, id, callback);
-	}
-
-	public void Receive(string id, Action callback)
-	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => Receive(id, callback));
-			return;
-		}
-
-		_host!.RegisterCallback(_ownerId, id, callback);
-	}
-
-	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
-	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveObject(id, callback));
-			return;
-		}
-
-		_host!.RegisterWrapperCallback(_ownerId, id, callback);
+		Host!.SendCommand(command);
 	}
 
 	public void SendObject<T>(string id, T obj) where T : class, IMemoryPackable, new()
@@ -626,7 +654,7 @@ public partial class Messenger
 			return;
 		}
 
-		if (!CommandTypeManager.IsObjectTypeInitialized<T>())
+		if (!TypeManager.IsTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {obj.GetType().Name} needs to be registered first!");
 
 		var wrapper = new WrapperCommand<T>();
@@ -634,6 +662,64 @@ public partial class Messenger
 		wrapper.Owner = _ownerId;
 		wrapper.Id = id;
 
-		_host!.SendCommand(wrapper);
+		Host!.SendCommand(wrapper);
 	}
+
+	public void Receive<T>(string id, Action<T> callback) where T : unmanaged
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Receive(id, callback));
+			return;
+		}
+
+		Host!.RegisterValueCallback(_ownerId, id, callback);
+	}
+
+	public void Receive(string id, Action<string> callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Receive(id, callback));
+			return;
+		}
+
+		Host!.RegisterStringCallback(_ownerId, id, callback);
+	}
+
+	public void Receive(string id, Action callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => Receive(id, callback));
+			return;
+		}
+
+		Host!.RegisterCallback(_ownerId, id, callback);
+	}
+
+	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => ReceiveObject(id, callback));
+			return;
+		}
+
+		Host!.RegisterWrapperCallback(_ownerId, id, callback);
+	}
+
+	
 }

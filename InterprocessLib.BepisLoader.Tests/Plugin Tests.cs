@@ -5,7 +5,6 @@ using BepInEx.NET.Common;
 using Elements.Core;
 using FrooxEngine;
 using Renderite.Shared;
-using System.Data;
 
 namespace InterprocessLib.Tests;
 
@@ -13,17 +12,18 @@ namespace InterprocessLib.Tests;
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
 internal class Plugin : BasePlugin
 {
-	public static ManualLogSource? Logger;
+	public static new ManualLogSource? Log;
 	public static ConfigEntry<bool>? TestBool;
 	public static ConfigEntry<int>? TestInt;
 	public static ConfigEntry<string>? TestString;
 	public static ConfigEntry<int>? CallbackCount;
 	private static Messenger? _messenger;
+	private static Messenger? _unknownMessenger;
 
 	public override void Load()
 	{
-		Logger = base.Log;
-		Logger.LogEvent += (sender, eventArgs) => 
+		Log = base.Log;
+		Log.LogEvent += (sender, eventArgs) => 
 		{
 			switch (eventArgs.Level)
 			{
@@ -40,6 +40,7 @@ internal class Plugin : BasePlugin
 		};
 
 		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestObject), typeof(TestObject2)]);
+		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessenger");
 		Test();
 	}
 
@@ -84,15 +85,19 @@ internal class Plugin : BasePlugin
 
 		_messenger.ReceiveObject<TestCommand>("TestCmd2", (cmd2) =>
 		{
-			Logger!.LogInfo($"TestCommand: {cmd2.Value} {cmd2.Text} {cmd2.Time}");
+			Log!.LogInfo($"TestCommand: {cmd2.Value} {cmd2.Text} {cmd2.Time}");
 		});
 
-		Log.LogInfo($"Hello!");
+		base.Log.LogInfo($"Hello!");
 
 		_messenger.ReceiveObject<TestObject2>("TestObj2", (obj2) =>
 		{
-			Logger!.LogInfo($"TestObject2: {obj2.Value}");
+			Log!.LogInfo($"TestObject2: {obj2.Value}");
 		});
+
+		_messenger.Send("UnknownIdTest");
+
+		_unknownMessenger!.Send("Hello");
 	} 
 }
 
@@ -119,7 +124,7 @@ class TestCommand : RendererCommand
 class TestObject : IMemoryPackable
 {
 	public byte Value;
-	public TestCommand Obj;
+	public TestCommand? Obj;
 
 	public void Pack(ref MemoryPacker packer)
 	{

@@ -50,9 +50,9 @@ internal class UnityPlugin : BaseUnityPlugin
 		Log!.LogDebug(msg);
 	}
 
-	private static void CommandHandler(RendererCommand command, int size)
+	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
-		if (command is MessengerReadyCommand)
+		if (command is MessengerReadyCommand && !Messenger.IsInitialized)
 		{
 			Messenger.FinishInitialization();
 			Messenger.OnCommandReceived = null;
@@ -85,7 +85,7 @@ public partial class Messenger
 	internal static void Init()
 	{
 		if (RenderingManager.Instance is null)
-			ThrowNotReady();
+			throw new InvalidOperationException("Messenger is not ready to be used yet!");
 
 		var getConnectionParametersMethod = typeof(RenderingManager).GetMethod("GetConnectionParameters", BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -96,10 +96,10 @@ public partial class Messenger
 			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 		}
 
-		_host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
-		_host.OnCommandReceived = OnCommandReceived;
-		_host.OnFailure = OnFailure;
-		_host.OnWarning = OnWarning;
-		_host.OnDebug = OnDebug;
+		Host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
+		Host.OnCommandReceived = OnCommandReceived;
+		Host.OnFailure = OnFailure;
+		Host.OnWarning = OnWarning;
+		Host.OnDebug = OnDebug;
 	}
 }

@@ -14,7 +14,7 @@ namespace InterprocessLib;
 internal class Plugin : BasePlugin
 {
 	public static ManualLogSource? Logger;
-	private static DateTime _initLoopStartTime;
+	private static bool _debugLoggingEnabled;
 
 	public override void Load()
 	{
@@ -29,11 +29,26 @@ internal class Plugin : BasePlugin
 				case LogLevel.Warning:
 					UniLog.Warning($"[{PluginMetadata.NAME}] {eventArgs.Data}");
 					break;
+				case LogLevel.Debug:
+					if (_debugLoggingEnabled)
+					{
+						UniLog.Log($"[{PluginMetadata.NAME}] [DEBUG] {eventArgs.Data}");
+					}
+					break;
 				default:
 					UniLog.Log($"[{PluginMetadata.NAME}] {eventArgs.Data}");
 					break;
 			}
 		};
+
+		foreach (var logListener in BepInEx.Logging.Logger.Listeners)
+		{
+			if (logListener.LogLevelFilter == LogLevel.Debug)
+			{
+				_debugLoggingEnabled = true;
+				break;
+			}
+		}
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
@@ -41,7 +56,6 @@ internal class Plugin : BasePlugin
 			Messenger.OnWarning = WarnHandler;
 			Messenger.OnDebug = DebugHandler;
 			Messenger.Init();
-			Messenger._host!.SendCommand(new MessengerReadyCommand());
 			Messenger.FinishInitialization();
 		};
 	}
@@ -89,17 +103,17 @@ public partial class Messenger
 		if (IsInitialized) return;
 
 		if (Engine.Current?.RenderSystem is null)
-			ThrowNotReady();
+			throw new InvalidOperationException("Messenger is not ready to be used yet!");
 
 		var renderSystemMessagingHost = (RenderiteMessagingHost?)typeof(RenderSystem).GetField("_messagingHost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Engine.Current!.RenderSystem);
 
 		if (renderSystemMessagingHost is null)
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
-		_host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
-		_host.OnCommandReceived = OnCommandReceived;
-		_host.OnFailure = OnFailure;
-		_host.OnWarning = OnWarning;
-		_host.OnDebug = OnDebug;
+		Host = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost);
+		Host.OnCommandReceived = OnCommandReceived;
+		Host.OnFailure = OnFailure;
+		Host.OnWarning = OnWarning;
+		Host.OnDebug = OnDebug;
 	}
 }
