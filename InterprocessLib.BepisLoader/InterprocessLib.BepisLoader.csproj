@@ -52,7 +52,7 @@
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
       <Private>False</Private>
     </Reference>
-	<Compile Include="../InterprocessLib/Core.cs" />
+	<Compile Include="../InterprocessLib/*.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->
