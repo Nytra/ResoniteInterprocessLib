@@ -8,7 +8,9 @@ BepisLoader and BepInEx projects are included.
 
 ## Usage
 
-After including the library in your project, all you have to do is create your own instance of the `Messenger` class. You can do this at any time, even before Resonite starts. Make sure both processes register with the same name.
+After including the library in your project, all you have to do is create your own instance of the `Messenger` class. You can do this at any time, even before Resonite starts.
+
+### !!! Make sure both processes register with the same name !!!
 
 ```
 var messenger = new Messenger("PluginName");
