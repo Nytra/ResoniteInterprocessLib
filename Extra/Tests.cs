@@ -69,7 +69,7 @@ public static class Tests
 			_logCallback!($"NullStr: {str}");
 
 		});
-		_messenger.SendString("NullStr", null);
+		_messenger.SendString("NullStr", null!);
 	}
 
 	static void TestEmptyCommand()

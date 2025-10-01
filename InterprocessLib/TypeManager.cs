@@ -13,7 +13,7 @@ internal static class TypeManager
 
 	internal static MethodInfo? RegisterValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	internal static MethodInfo? RegisterPackableTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalPackableType), BindingFlags.NonPublic | BindingFlags.Static);
+	internal static MethodInfo? RegisterObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
 
 	private static Type[] _valueTypes =
 	{
@@ -38,15 +38,16 @@ internal static class TypeManager
 	{
 		if (_initializedCoreTypes) return;
 
-		RegisterAdditionalPackableType<MessengerReadyCommand>();
-		RegisterAdditionalPackableType<EmptyCommand>();
-		RegisterAdditionalPackableType<StringCommand>();
+		RegisterAdditionalObjectType<MessengerReadyCommand>();
+		RegisterAdditionalObjectType<EmptyCommand>();
+		RegisterAdditionalObjectType<StringCommand>();
+		RegisterAdditionalObjectType<StringListCommand>();
 
 		foreach (var valueType in TypeManager._valueTypes)
 		{
 			try
 			{
-				TypeManager.RegisterValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+				RegisterValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
 			}
 			catch (Exception ex)
 			{
@@ -55,12 +56,28 @@ internal static class TypeManager
 		}
 	}
 
+	internal static void InitValueTypeList(List<Type> types)
+	{
+		foreach (var type in types)
+		{
+			RegisterValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+		}
+	}
+
+	internal static void InitObjectTypeList(List<Type> types)
+	{
+		foreach (var type in types)
+		{
+			RegisterObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+		}
+	}
+
 	internal static bool IsValueTypeInitialized<T>() where T : unmanaged
 	{
 		return _registeredValueTypes.Contains(typeof(T));
 	}
 
-	internal static bool IsPackableTypeInitialized<T>() where T : class, IMemoryPackable, new()
+	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
@@ -68,7 +85,6 @@ internal static class TypeManager
 	internal static void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
 		var type = typeof(T);
-		Type valueCommandType;
 
 		if (_registeredValueTypes.Contains(type))
 			throw new InvalidOperationException($"Type {type.Name} is already registered!");
@@ -76,14 +92,18 @@ internal static class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
+		var valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
 
-		IdentifiableCommand.InitNewTypes([valueCommandType]);
+		var valueListCommandType = typeof(ValueListCommand<>).MakeGenericType(type);
+
+		var valueHashSetCommandType = typeof(ValueHashSetCommand<>).MakeGenericType(type);
+
+		IdentifiableCommand.InitNewTypes([valueCommandType, valueListCommandType, valueHashSetCommandType]);
 
 		_registeredValueTypes.Add(type);
 	}
 
-	internal static void RegisterAdditionalPackableType<T>() where T : class, IMemoryPackable, new()
+	internal static void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 
@@ -98,10 +118,12 @@ internal static class TypeManager
 			IdentifiableCommand.InitNewTypes([type]);
 		}
 
-		var wrapperCommandType = typeof(WrapperCommand<>).MakeGenericType(type);
-		IdentifiableCommand.InitNewTypes([wrapperCommandType]);
+		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
+
+		var objectListCommandType = typeof(ObjectListCommand<>).MakeGenericType(type);
+
+		IdentifiableCommand.InitNewTypes([objectCommandType, objectListCommandType]);
 
 		_registeredObjectTypes.Add(type);
-		_registeredObjectTypes.Add(wrapperCommandType);
 	}
 }

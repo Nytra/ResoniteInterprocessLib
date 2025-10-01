@@ -14,7 +14,7 @@ public partial class Messenger
 
 	internal static void Init()
 	{
-		if (IsInitialized) return;
+		if (_isInitialized) return;
 
 		if (Engine.Current?.RenderSystem is null)
 			throw new InvalidOperationException("Messenger is not ready to be used yet!");
