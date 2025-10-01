@@ -76,24 +76,15 @@ public class MessagingHost
 
 		if (!TypeManager.InitializedCoreTypes)
 		{
-			//var list = new List<Type>();
-			//list.Add(typeof(MessengerReadyCommand));
-			//list.Add(typeof(IdentifiableCommand));
-			//list.Add(typeof(StringCommand));
-
-			//foreach (var valueType in Utils.ValueTypes)
-				//list.Add(typeof(ValueCommand<>).MakeGenericType(valueType));
-
 			TypeManager.RegisterAdditionalPackableType<MessengerReadyCommand>();
 			TypeManager.RegisterAdditionalPackableType<IdentifiableCommand>();
 			TypeManager.RegisterAdditionalPackableType<StringCommand>();
 
-			var registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.Public | BindingFlags.Static);
 			foreach (var valueType in Utils.ValueTypes)
 			{
 				try
 				{
-					registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+					TypeManager._registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
 				}
 				catch (Exception ex)
 				{
@@ -266,6 +257,10 @@ internal static class TypeManager
 	private static readonly HashSet<Type> _registeredValueTypes = new();
 
 	internal static bool InitializedCoreTypes = false;
+
+	internal static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.Public | BindingFlags.Static);
+
+	internal static MethodInfo? _registerPackableTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalPackableType), BindingFlags.Public | BindingFlags.Static);
 
 	public static bool IsTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
@@ -518,9 +513,9 @@ public partial class Messenger
 
 	private List<Type>? _additionalPackableTypes;
 
-	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalPackableType), BindingFlags.Public | BindingFlags.Static);
+	private List<Type>? _additionalValueTypes;
 
-	public Messenger(string ownerId, List<Type>? additionalCommandTypes = null)
+	public Messenger(string ownerId, List<Type>? additionalPackableTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
@@ -532,7 +527,7 @@ public partial class Messenger
 
 		_registeredOwnerIds.Add(ownerId);
 
-		_additionalPackableTypes = additionalCommandTypes;
+		_additionalPackableTypes = additionalPackableTypes;
 
 		if (IsInitialized)
 			Register();
@@ -549,7 +544,7 @@ public partial class Messenger
 			{
 				try
 				{
-					_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+					TypeManager._registerPackableTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
 				}
 				catch (Exception ex)
 				{
@@ -557,7 +552,20 @@ public partial class Messenger
 				}
 			}
 		}
-			
+		if (_additionalValueTypes is not null)
+		{
+			foreach (var type in _additionalValueTypes)
+			{
+				try
+				{
+					TypeManager._registerValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+				}
+				catch (Exception ex)
+				{
+					OnWarning?.Invoke($"Could not register additional value type {type.Name}!\n{ex}");
+				}
+			}
+		}
 	}
 
 	internal static void FinishInitialization()
