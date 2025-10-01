@@ -31,6 +31,23 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
+You can also send lists.
+
+```
+var list = new List<float>();
+list.Add(2f);
+list.Add(7f);
+list.Add(21f);
+messenger.SendValueList("TestValueList", list);
+```
+
+```
+messenger.ReceiveValueList<float>("TestValueList", (list) => 
+{
+	Log($"TestValueList: {string.Join(",", list!)}");
+});
+```
+
 If you want to send more complex data such as custom memory-packable structs and classes, you must register the types when you instantiate the messenger.
 
 There are two lists that can be provided: the first is for `IMemoryPackable` class types, and the second is for `unmanaged` value types.
