@@ -108,12 +108,12 @@ public static class Tests
 
 	static void TestValue()
 	{
-		_messenger!.ReceiveValue<int>("TestInt", (val) =>
+		_messenger!.ReceiveValue<int>("TestValue", (val) =>
 		{
-			_logCallback!($"TestInt: {val}");
+			_logCallback!($"TestValue: {val}");
 		});
 
-		_messenger.SendValue<int>("TestInt", 637);
+		_messenger.SendValue<int>("TestValue", 637);
 	}
 
 	static void TestNestedPackable()
@@ -201,13 +201,13 @@ public static class Tests
 
 	static void TestUnregisteredPackable()
 	{
-		_messenger!.ReceiveValue<UnregisteredPackable>("UnregisteredCommand", (recv) =>
+		_messenger!.ReceiveValue<UnregisteredPackable>("UnregisteredPackable", (recv) =>
 		{
-			_logCallback!($"UnregisteredCommand");
+			_logCallback!($"UnregisteredPackable");
 		});
 
 		var unregistered = new UnregisteredPackable();
-		_messenger.SendValue("UnregisteredCommand", unregistered);
+		_messenger.SendValue("UnregisteredPackable", unregistered);
 	}
 
 	static void TestUnregisteredStruct()
