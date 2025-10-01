@@ -86,24 +86,60 @@ internal class Plugin : BasePlugin
 
 public partial class Messenger
 {
-	public void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	private Dictionary<ConfigEntryBase, bool> _syncStates = new();
+
+	public void SyncConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	{
+		_syncStates[configEntry] = true;
+		SendConfigEntry<T>(configEntry);
+		configEntry.SettingChanged += (sender, args) =>
+		{
+			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
+				SendConfigEntry<T>(configEntry);
+		};
+		ReceiveConfigEntry<T>(configEntry);
+	}
+
+	public void SyncConfigEntry(ConfigEntry<string> configEntry)
+	{
+		_syncStates[configEntry] = true;
+		SendConfigEntry(configEntry);
+		configEntry.SettingChanged += (sender, args) =>
+		{
+			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
+				SendConfigEntry(configEntry);
+		};
+		ReceiveConfigEntry(configEntry);
+	}
+
+	public void SendConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		SendValue(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public void Send(ConfigEntry<string> configEntry)
+	public void SendConfigEntry(ConfigEntry<string> configEntry)
 	{
 		SendString(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
+	public void ReceiveConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
-		ReceiveValue(configEntry.Definition.Key, callback);
+		ReceiveValue<T>(configEntry.Definition.Key, (val) =>
+		{
+			_syncStates[configEntry] = false;
+			configEntry.Value = val;
+			_syncStates[configEntry] = true;
+		});
 	}
 
-	public void Receive(ConfigEntry<string> configEntry, Action<string?> callback)
+	public void ReceiveConfigEntry(ConfigEntry<string> configEntry)
 	{
-		ReceiveString(configEntry.Definition.Key, callback);
+		ReceiveString(configEntry.Definition.Key, (str) =>
+		{
+			_syncStates[configEntry] = false;
+			configEntry.Value = str!;
+			_syncStates[configEntry] = true;
+		});
 	}
 
 	internal static void Init()

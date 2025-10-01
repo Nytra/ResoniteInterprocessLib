@@ -48,7 +48,7 @@ public static class Tests
 		}
 		catch (Exception ex)
 		{
-			logCallback($"TestUnregisteredPackable threw an exception:\n{ex}");
+			logCallback($"TestUnregisteredStruct threw an exception:\n{ex}");
 		}
 	}
 
