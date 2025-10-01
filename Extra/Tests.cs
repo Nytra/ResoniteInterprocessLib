@@ -58,6 +58,14 @@ public static class Tests
 		{
 			logCallback($"TestUnregisteredStruct threw an exception: {ex.Message}");
 		}
+		try
+		{
+			TestUnregisteredVanillaObject();
+		}
+		catch (Exception ex)
+		{
+			logCallback($"TestUnregisteredVanillaObject threw an exception: {ex.Message}");
+		}
 	}
 
 	static void TestUnknownMessenger()
@@ -217,7 +225,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveValueList<float>("TestValueList", (list) => 
 		{
-			_logCallback!($"TestValueList: {list}");
+			_logCallback!($"TestValueList: {string.Join(",", list!)}");
 		});
 
 		var list = new List<float>();
@@ -231,7 +239,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveValueHashSet<float>("TestValueHashSet", (list) =>
 		{
-			_logCallback!($"TestValueHashSet: {list}");
+			_logCallback!($"TestValueHashSet: {string.Join(",", list!)}");
 		});
 
 		var set = new HashSet<float>();
@@ -245,7 +253,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveObjectList<TestPackable>("TestObjectList", (list) =>
 		{
-			_logCallback!($"TestObjectList: {list}");
+			_logCallback!($"TestObjectList: {string.Join(",", list)}");
 		});
 
 		var list = new List<TestPackable>();
@@ -259,7 +267,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveStringList("TestStringList", (list) =>
 		{
-			_logCallback!($"TestStringList: {list}");
+			_logCallback!($"TestStringList: {string.Join(",", list!.Select(s => s ?? "NULL"))}");
 		});
 
 		var list = new List<string>();
@@ -280,6 +288,17 @@ public static class Tests
 
 		var obj = new RendererInitData();
 		_messenger.SendObject("TestVanillaObject", obj);
+	}
+
+	static void TestUnregisteredVanillaObject()
+	{
+		_messenger!.ReceiveObject<QualityConfig>("TestUnregisteredVanillaObject", (recv) =>
+		{
+			_logCallback!($"TestUnregisteredVanillaObject: {recv.perPixelLights} {recv.shadowCascades} {recv.shadowResolution} {recv.shadowDistance} {recv.skinWeightMode}");
+		});
+
+		var obj = new QualityConfig();
+		_messenger.SendObject("TestUnregisteredVanillaObject", obj);
 	}
 
 #if TEST_COMPILATION
@@ -365,6 +384,11 @@ public class TestPackable : IMemoryPackable
 	public void Unpack(ref MemoryUnpacker unpacker)
 	{
 		unpacker.Read(ref Value);
+	}
+
+	public override string ToString()
+	{
+		return $"TestPackable: {Value}";
 	}
 }
 

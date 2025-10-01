@@ -2,9 +2,12 @@
 
 namespace InterprocessLib;
 
+/// <summary>
+/// Simple interprocess messaging API.
+/// </summary>
 public partial class Messenger
 {
-	private static MessagingHost? _host;
+	internal static MessagingHost? _host;
 
 	/// <summary>
 	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
@@ -33,7 +36,7 @@ public partial class Messenger
 	private List<Type>? _additionalValueTypes;
 
 	/// <summary>
-	/// Simple interprocess messaging API.
+	/// Creates an instance with a unique owner
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
 	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>

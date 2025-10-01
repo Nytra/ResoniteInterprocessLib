@@ -3,6 +3,7 @@ using BepInEx.Logging;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
+using FrooxEngine;
 
 namespace InterprocessLib;
 
@@ -34,17 +35,32 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
-		{
-			Messenger.OnFailure = FailHandler;
-			Messenger.OnWarning = WarnHandler;
+		Messenger.OnFailure = FailHandler;
+		Messenger.OnWarning = WarnHandler;
 
 #if DEBUG
-			Messenger.OnDebug = DebugHandler;
+		Messenger.OnDebug = DebugHandler;
 #endif
 
-			Messenger.Init();
+		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
+		{
+			InitLoop();
 		};
+	}
+
+	// Sometimes OnEngineReady is too early to initialize
+	// FrameIndex = 120 is when the loading bar disappears
+	private static void InitLoop()
+	{
+		var renderSystem = Engine.Current?.RenderSystem;
+		if (renderSystem is null || (renderSystem.HasRenderer && renderSystem.FrameIndex < 120))
+		{
+			Engine.Current!.GlobalCoroutineManager.RunInUpdates(1, InitLoop);
+		}
+		else
+		{
+			Messenger.Init();
+		}
 	}
 
 	private static void FailHandler(Exception ex)

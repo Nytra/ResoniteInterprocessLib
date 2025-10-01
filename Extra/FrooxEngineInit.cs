@@ -25,7 +25,6 @@ public partial class Messenger
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
 		_host = new MessagingHost(IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, OnFailure, OnWarning, OnDebug);
-
 		FinishInitialization();
 	}
 }
