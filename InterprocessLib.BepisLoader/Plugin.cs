@@ -13,13 +13,13 @@ namespace InterprocessLib;
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
 internal class Plugin : BasePlugin
 {
-	public static ManualLogSource? Logger;
+	public static new ManualLogSource? Log;
 	private static bool _debugLoggingEnabled;
 
 	public override void Load()
 	{
-		Logger = base.Log;
-		Logger.LogEvent += (sender, eventArgs) => 
+		Log = base.Log;
+		Log.LogEvent += (sender, eventArgs) => 
 		{
 			switch (eventArgs.Level)
 			{
@@ -43,8 +43,9 @@ internal class Plugin : BasePlugin
 
 		foreach (var logListener in BepInEx.Logging.Logger.Listeners)
 		{
-			if (logListener.LogLevelFilter == LogLevel.Debug)
+			if (logListener.LogLevelFilter >= LogLevel.Debug)
 			{
+				Log.LogInfo("Debug logging is enabled");
 				_debugLoggingEnabled = true;
 				break;
 			}
@@ -62,17 +63,17 @@ internal class Plugin : BasePlugin
 
 	private static void FailHandler(Exception ex)
 	{
-		Logger!.LogError("Exception in InterprocessLib messaging host:\n" + ex.ToString());
+		Log!.LogError("Exception in InterprocessLib messaging host:\n" + ex.ToString());
 	}
 
 	private static void WarnHandler(string msg)
 	{
-		Logger!.LogWarning(msg);
+		Log!.LogWarning(msg);
 	}
 
 	private static void DebugHandler(string msg)
 	{
-		Logger!.LogDebug(msg);
+		Log!.LogDebug(msg);
 	}
 }
 
