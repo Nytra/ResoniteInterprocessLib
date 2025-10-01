@@ -33,8 +33,8 @@ target = "Renderer/plugins/InterprocessLib.BepInEx/"
 
 # Include the PDB file for better debugging support
 # [[build.copy]]
-# source = "./InterprocessLib/bin/Release/InterprocessLib.pdb"
-# target = "plugins/InterprocessLib/"
+# source = "./InterprocessLib.BepisLoader/bin/Release/InterprocessLib.BepisLoader.pdb"
+# target = "plugins/InterprocessLib.BepisLoader/"
 
 # Uncomment the following lines to include CHANGELOG file in your mod package. https://wiki.thunderstore.io/mods/updating-a-package#changelog
 [[build.copy]]
