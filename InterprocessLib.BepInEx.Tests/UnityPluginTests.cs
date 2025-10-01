@@ -5,12 +5,12 @@ using BepInEx.Logging;
 namespace InterprocessLib.Tests;
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.0")]
-internal class UnityPlugin : BaseUnityPlugin
+public class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 	private static Messenger? _messenger;
 	private static Messenger? _unknownMessenger;
-	private static ConfigEntry<int>? SyncTest;
+	public static ConfigEntry<int>? SyncTest;
 
 	void Awake()
 	{
@@ -26,6 +26,10 @@ internal class UnityPlugin : BaseUnityPlugin
 		_messenger.ReceiveEmptyCommand("CheckSync", () => 
 		{ 
 			_messenger.SendValue<int>("SyncTestOutput", SyncTest.Value);
+		});
+		_messenger.ReceiveEmptyCommand("Reset", () => 
+		{ 
+			SyncTest.Value = 0;
 		});
 		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
 	}

@@ -8,7 +8,7 @@ namespace InterprocessLib.Tests;
 
 [BepInExResoniteShim.ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
-internal class Plugin : BasePlugin
+public class Plugin : BasePlugin
 {
 	public static new ManualLogSource? Log;
 	public static ConfigEntry<bool>? RunTestsToggle;
@@ -17,6 +17,7 @@ internal class Plugin : BasePlugin
 	public static ConfigEntry<int>? SyncTest;
 	public static ConfigEntry<bool>? CheckSyncToggle;
 	public static ConfigEntry<int>? SyncTestOutput;
+	public static ConfigEntry<bool>? ResetToggle;
 
 	public override void Load()
 	{
@@ -48,6 +49,7 @@ internal class Plugin : BasePlugin
 		RunTestsToggle = Config.Bind("General", "RunTests", false);
 		CheckSyncToggle = Config.Bind("General", "CheckSync", false);
 		SyncTestOutput = Config.Bind("General", "SyncTestOutput", 0);
+		ResetToggle = Config.Bind("General", "ResetToggle", false);
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
@@ -56,6 +58,10 @@ internal class Plugin : BasePlugin
 		CheckSyncToggle!.SettingChanged += (sender, args) =>
 		{
 			_messenger.SendEmptyCommand("CheckSync");
+		};
+		ResetToggle!.SettingChanged += (sender, args) => 
+		{ 
+			_messenger.SendEmptyCommand("Reset");
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) => 
 		{ 
