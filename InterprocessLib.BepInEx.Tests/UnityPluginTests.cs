@@ -5,6 +5,8 @@ using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
+#if USE_TESTS
+
 [BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.0")]
 public class UnityPlugin : BaseUnityPlugin
 {
@@ -35,3 +37,5 @@ public class UnityPlugin : BaseUnityPlugin
 		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
 	}
 }
+
+#endif

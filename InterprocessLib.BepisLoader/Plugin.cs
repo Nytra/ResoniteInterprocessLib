@@ -38,9 +38,7 @@ internal class Plugin : BasePlugin
 		Messenger.OnFailure = FailHandler;
 		Messenger.OnWarning = WarnHandler;
 
-#if DEBUG
-		Messenger.OnDebug = DebugHandler;
-#endif
+		//Messenger.OnDebug = DebugHandler;
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{

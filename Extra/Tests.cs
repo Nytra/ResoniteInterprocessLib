@@ -1,4 +1,5 @@
 //#define TEST_COMPILATION
+#define USE_TESTS
 
 using Renderite.Shared;
 using System.Reflection;

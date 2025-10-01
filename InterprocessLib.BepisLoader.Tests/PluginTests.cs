@@ -7,6 +7,8 @@ using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
+#if USE_TESTS
+
 [BepInExResoniteShim.ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
 public class Plugin : BasePlugin
@@ -70,3 +72,5 @@ public class Plugin : BasePlugin
 		});
 	}
 }
+
+#endif
