@@ -4,9 +4,11 @@ namespace InterprocessLib;
 
 public partial class Messenger
 {
-	internal static MessagingHost? Host;
+	private static MessagingHost? Host;
 
-	internal static bool IsInitialized => Host is not null && PostInitActions is null;
+	private static bool IsInitialized => Host is not null && PostInitActions is null;
+
+	public const bool IsAuthority = IsFrooxEngine;
 
 	internal static RenderCommandHandler? OnCommandReceived;
 

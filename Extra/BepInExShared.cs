@@ -9,7 +9,8 @@ public partial class Messenger
 	public void SyncConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		_syncStates[configEntry] = true;
-		SendConfigEntry<T>(configEntry);
+		if (IsFrooxEngine)
+			SendConfigEntry<T>(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
@@ -21,7 +22,8 @@ public partial class Messenger
 	public void SyncConfigEntry(ConfigEntry<string> configEntry)
 	{
 		_syncStates[configEntry] = true;
-		SendConfigEntry(configEntry);
+		if (IsFrooxEngine)
+			SendConfigEntry(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)

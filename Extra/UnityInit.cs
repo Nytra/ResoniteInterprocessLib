@@ -5,6 +5,8 @@ namespace InterprocessLib;
 
 public partial class Messenger
 {
+	public const bool IsFrooxEngine = false;
+
 	internal static void Init()
 	{
 		if (RenderingManager.Instance is null)
@@ -19,7 +21,7 @@ public partial class Messenger
 			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 		}
 
-		Host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
+		Host = new(IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
 		Host.OnCommandReceived = OnCommandReceived;
 	}
 }

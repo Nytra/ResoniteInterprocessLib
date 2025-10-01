@@ -50,7 +50,7 @@ internal class UnityPlugin : BaseUnityPlugin
 
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
-		if (command is MessengerReadyCommand && !Messenger.IsInitialized)
+		if (command is MessengerReadyCommand)
 		{
 			Messenger.FinishInitialization();
 			Messenger.OnCommandReceived = null;
