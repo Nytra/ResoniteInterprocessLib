@@ -32,7 +32,7 @@
     <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
     <PackageReference Include="ResoniteModding.BepisResoniteWrapper" Version="1.*" />
   </ItemGroup>
-
+  
   <!-- NuGet fallback stripped game references -->
   <ItemGroup Condition="!Exists('$(GamePath)')">
     <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
@@ -52,9 +52,9 @@
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
       <Private>False</Private>
     </Reference>
-	<Compile Include="../Extra/Tests.cs" />
   </ItemGroup>
   <ItemGroup>
+	<Compile Include="../Extra/Tests.cs" />
     <Reference Include="InterprocessLib.BepisLoader">
       <HintPath>..\InterprocessLib.BepisLoader\bin\Release\InterprocessLib.BepisLoader.dll</HintPath>
     </Reference>

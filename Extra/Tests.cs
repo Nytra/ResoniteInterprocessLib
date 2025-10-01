@@ -1,3 +1,5 @@
+//#define TEST_COMPILATION
+
 using Renderite.Shared;
 using System.Reflection;
 
@@ -26,13 +28,18 @@ public static class Tests
 		TestPackable();
 		TestStruct();
 		TestNestedStruct();
+		TestValueList();
+		TestValueHashSet();
+		TestStringList();
+		TestObjectList();
+
 		try
 		{
 			TestUnregisteredCommand();
 		}
 		catch (Exception ex) 
 		{
-			logCallback($"TestUnregisteredCommand threw an exception:\n{ex}");
+			logCallback($"TestUnregisteredCommand threw an exception: {ex.Message}");
 		}
 		try
 		{
@@ -40,7 +47,7 @@ public static class Tests
 		}
 		catch (Exception ex)
 		{
-			logCallback($"TestUnregisteredPackable threw an exception:\n{ex}");
+			logCallback($"TestUnregisteredPackable threw an exception: {ex.Message}");
 		}
 		try
 		{
@@ -48,7 +55,7 @@ public static class Tests
 		}
 		catch (Exception ex)
 		{
-			logCallback($"TestUnregisteredStruct threw an exception:\n{ex}");
+			logCallback($"TestUnregisteredStruct threw an exception: {ex.Message}");
 		}
 	}
 
@@ -205,35 +212,111 @@ public static class Tests
 		_messenger.SendValue("UnregisteredStruct", unregistered);
 	}
 
+	static void TestValueList()
+	{
+		_messenger!.ReceiveValueList<float>("TestValueList", (list) => 
+		{
+			_logCallback!($"TestValueList: {list}");
+		});
+
+		var list = new List<float>();
+		list.Add(2f);
+		list.Add(7f);
+		list.Add(21f);
+		_messenger.SendValueList("TestValueList", list);
+	}
+
+	static void TestValueHashSet()
+	{
+		_messenger!.ReceiveValueHashSet<float>("TestValueHashSet", (list) =>
+		{
+			_logCallback!($"TestValueHashSet: {list}");
+		});
+
+		var set = new HashSet<float>();
+		set.Add(99.92f);
+		set.Add(127.2f);
+		set.Add(-4.32f);
+		_messenger.SendValueHashSet("TestValueHashSet", set);
+	}
+
+	static void TestObjectList()
+	{
+		_messenger!.ReceiveObjectList<TestPackable>("TestObjectList", (list) =>
+		{
+			_logCallback!($"TestObjectList: {list}");
+		});
+
+		var list = new List<TestPackable>();
+		list.Add(new() { Value = 7 });
+		list.Add(new() { Value = 15 });
+		list.Add(new() { Value = 83 });
+		_messenger.SendObjectList("TestObjectList", list);
+	}
+
+	static void TestStringList()
+	{
+		_messenger!.ReceiveStringList("TestStringList", (list) =>
+		{
+			_logCallback!($"TestStringList: {list}");
+		});
+
+		var list = new List<string>();
+		list.Add("Hello");
+		list.Add("World");
+		list.Add("owo");
+		list.Add(null!);
+		list.Add("x3");
+		_messenger.SendStringList("TestStringList", list);
+	}
+
+	static void TestVanillaObject()
+	{
+		_messenger!.ReceiveObject<RendererInitData>("TestVanillaObject", (recv) =>
+		{
+			_logCallback!($"TestVanillaObject: {recv.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice}");
+		});
+
+		var list = new List<string>();
+		list.Add("Hello");
+		list.Add("World");
+		list.Add("owo");
+		list.Add(null!);
+		list.Add("x3");
+		_messenger.SendStringList("TestStringList", list);
+	}
+
+#if TEST_COMPILATION
+	//Won't compile
+	static void TestInvalidType()
+	{
+		_messenger!.ReceiveObject<InvalidType>("InvalidType", (recvInvalidType) =>
+		{
+			_logCallback!($"InvalidType: {recvInvalidType?.Exception}");
+		});
+
+		var invalid = new InvalidType();
+
+		invalid.Exception = new Exception();
+
+		_messenger!.SendObject("InvalidType", invalid);
+	}
+
 	// Won't compile
-	//static void TestInvalidType()
-	//{
-	//	_messenger!.ReceiveObject<InvalidType>("InvalidType", (recvInvalidType) =>
-	//	{
-	//		_logCallback!($"InvalidType: {recvInvalidType?.Exception}");
-	//	});
+	static void TestInvalidStruct()
+	{
+		_messenger!.ReceiveValue<StructWithObject>("StructWithObject", (recvStructWithObject) =>
+		{
+			_logCallback!($"StructWithObject: {recvStructWithObject.Assembly}");
+		});
 
-	//	var invalid = new InvalidType();
+		var invalid = new StructWithObject();
 
-	//	invalid.Exception = new Exception();
+		invalid.Assembly = Assembly.GetExecutingAssembly();
 
-	//	_messenger!.SendObject("InvalidType", invalid);
-	//}
-
-	// Won't compile
-	//static void TestInvalidStruct()
-	//{
-	//	_messenger!.ReceiveValue<StructWithObject>("StructWithObject", (recvStructWithObject) =>
-	//	{
-	//		_logCallback!($"StructWithObject: {recvStructWithObject.Assembly}");
-	//	});
-
-	//	var invalid = new StructWithObject();
-
-	//	invalid.Assembly = Assembly.GetExecutingAssembly();
-
-	//	_messenger!.SendValue("StructWithObject", invalid);
-	//}
+		_messenger!.SendValue("StructWithObject", invalid);
+	}
+#endif
 }
 
 public class TestCommand : RendererCommand

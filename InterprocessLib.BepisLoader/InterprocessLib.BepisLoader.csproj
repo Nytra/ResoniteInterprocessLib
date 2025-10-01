@@ -32,8 +32,7 @@
     <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
     <PackageReference Include="ResoniteModding.BepisResoniteWrapper" Version="1.*" />
   </ItemGroup>
-
-  <!-- NuGet fallback stripped game references -->
+  
   <ItemGroup Condition="!Exists('$(GamePath)')">
     <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
   </ItemGroup>
@@ -52,6 +51,9 @@
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
       <Private>False</Private>
     </Reference>
+  </ItemGroup>
+  
+  <ItemGroup>
 	<Compile Include="../InterprocessLib/*.cs" />
 	<Compile Include="../Extra/BepInExShared.cs" />
 	<Compile Include="../Extra/FrooxEngineInit.cs" />

@@ -1,6 +1,5 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
-using Renderite.Shared;
 using Renderite.Unity;
 
 namespace InterprocessLib;
@@ -25,7 +24,10 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		Messenger.OnWarning = WarnHandler;
 		Messenger.OnFailure = FailHandler;
+
+#if DEBUG
 		Messenger.OnDebug = DebugHandler;
+#endif
 
 		Messenger.Init();
 

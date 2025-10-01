@@ -3,7 +3,6 @@ using BepInEx.Logging;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
-using Renderite.Shared;
 
 namespace InterprocessLib;
 
@@ -12,7 +11,6 @@ namespace InterprocessLib;
 internal class Plugin : BasePlugin
 {
 	public static new ManualLogSource? Log;
-	private static bool _debugLoggingEnabled;
 
 	public override void Load()
 	{
@@ -28,10 +26,7 @@ internal class Plugin : BasePlugin
 					UniLog.Warning($"[{PluginMetadata.NAME}] {eventArgs.Data}");
 					break;
 				case LogLevel.Debug:
-					if (_debugLoggingEnabled)
-					{
-						UniLog.Log($"[{PluginMetadata.NAME}] [DEBUG] {eventArgs.Data}");
-					}
+					UniLog.Log($"[{PluginMetadata.NAME}] [DEBUG] {eventArgs.Data}");
 					break;
 				default:
 					UniLog.Log($"[{PluginMetadata.NAME}] {eventArgs.Data}");
@@ -39,21 +34,14 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		foreach (var logListener in BepInEx.Logging.Logger.Listeners)
-		{
-			if (logListener.LogLevelFilter >= LogLevel.Debug)
-			{
-				Log.LogInfo("Debug logging is enabled");
-				_debugLoggingEnabled = true;
-				break;
-			}
-		}
-
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnWarning = WarnHandler;
+
+#if DEBUG
 			Messenger.OnDebug = DebugHandler;
+#endif
 
 			Messenger.Init();
 		};
@@ -71,6 +59,6 @@ internal class Plugin : BasePlugin
 
 	private static void DebugHandler(string msg)
 	{
-		Log!.LogDebug(msg);
+		Log!.LogInfo(msg);
 	}
 }

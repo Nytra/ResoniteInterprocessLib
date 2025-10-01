@@ -15,6 +15,8 @@ internal static class TypeManager
 
 	internal static MethodInfo? RegisterObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
 
+	internal static List<Type> CoreTypesList = ((List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).ToList();
+
 	private static Type[] _valueTypes =
 	{
 		typeof(bool),
@@ -79,7 +81,8 @@ internal static class TypeManager
 
 	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
-		return _registeredObjectTypes.Contains(typeof(T));
+		var type = typeof(T);
+		return _registeredObjectTypes.Contains(type) || CoreTypesList.Contains(type);
 	}
 
 	internal static void RegisterAdditionalValueType<T>() where T : unmanaged

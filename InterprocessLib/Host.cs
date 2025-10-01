@@ -73,7 +73,7 @@ public class MessagingHost
 		_ownerData[owner].StringCallbacks[id] = callback;
 	}
 
-	public void RegisterStringListCallback(string owner, string id, Action<List<string>> callback)
+	public void RegisterStringListCallback(string owner, string id, Action<List<string>?>? callback)
 	{
 		_ownerData[owner].StringListCallbacks[id] = callback;
 	}
@@ -98,35 +98,30 @@ public class MessagingHost
 		IsAuthority = isAuthority;
 		QueueName = queueName + "InterprocessLib";
 		QueueCapacity = queueCapacity;
-	
-		_primary = new MessagingManager(pool);
-		_primary.CommandHandler = CommandHandler;
-		_primary.FailureHandler = FailHandler;
-		_primary.WarningHandler = WarnHandler;
 
 		OnDebug = debugHandler;
 		OnWarning = warnHandler;
 		OnFailure = failhandler;
 		OnCommandReceived = commandHandler;
 
-		_primary.Connect(queueName, isAuthority, queueCapacity);
-
 		TypeManager.InitializeCoreTypes();
-	}
 
-	private void FailHandler(Exception ex)
-	{
-		OnFailure?.Invoke(ex);
-	}
+		_primary = new MessagingManager(pool);
+		_primary.CommandHandler = CommandHandler;
+		_primary.FailureHandler = (ex) => 
+		{ 
+			OnFailure?.Invoke(ex);
+		};
+		_primary.WarningHandler = (msg) =>
+		{
+			OnWarning?.Invoke(msg);
+		};
 
-	private void WarnHandler(string msg)
-	{
-		OnWarning?.Invoke(msg);
+		_primary.Connect(queueName, isAuthority, queueCapacity);
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
-		OnDebug?.Invoke($"Received ValueCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Value}");
 		if (_ownerData[command.Owner].ValueCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -137,13 +132,11 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"ValueCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void HandleValueCollectionCommand<C, T>(ValueCollectionCommand<C, T> command) where C : ICollection<T>, new() where T : unmanaged
 	{
-		OnDebug?.Invoke($"Received ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
 		if (_ownerData[command.Owner].ValueCollectionCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -154,13 +147,11 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void HandleStringCommand(StringCommand command)
 	{
-		OnDebug?.Invoke($"Received StringCommand: {command.Owner}:{command.Id}:{command.String ?? "NULL"}");
 		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -171,13 +162,11 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"StringCommand with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void HandleStringListCommand(StringListCommand command)
 	{
-		OnDebug?.Invoke($"Received StringListCommand: {command.Owner}:{command.Id}:{command.Values}");
 		if (_ownerData[command.Owner].StringListCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -188,13 +177,11 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"StringListCommand with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void HandleEmptyCommand(EmptyCommand command)
 	{
-		OnDebug?.Invoke($"Received EmptyCommand: {command.Owner}:{command.Id}");
 		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -205,13 +192,11 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"EmptyCommand with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void HandleObjectCommand<T>(ObjectCommand<T> command) where T : class, IMemoryPackable, new()
 	{
-		OnDebug?.Invoke($"Received ObjectCommand<{command.ObjectType.Name}>: {command.Owner}:{command.Id}:{command.UntypedObject ?? "NULL"}");
 		if (_ownerData[command.Owner].ObjectCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -222,13 +207,11 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"ObjectCommand<{command.ObjectType.Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void HandleObjectListCommand<T>(ObjectListCommand<T> command) where T : class, IMemoryPackable, new()
 	{
-		OnDebug?.Invoke($"Received ObjectListCommand<{typeof(T).Name}>: {command.Owner}:{command.Id}:{command.Values}");
 		if (_ownerData[command.Owner].ObjectListCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
@@ -239,12 +222,13 @@ public class MessagingHost
 		else
 		{
 			OnWarning?.Invoke($"ObjectListCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-			return;
 		}
 	}
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
+		OnDebug?.Invoke($"Received {command}");
+
 		OnCommandReceived?.Invoke(command, messageSize);
 
 		if (command is IdentifiableCommand identifiableCommand)
@@ -264,19 +248,20 @@ public class MessagingHost
 		}
 		else if (command is CollectionCommand collectionCommand)
 		{
-			var listType = collectionCommand.InnerDataType;
-			if (listType == typeof(string))
+			var innerDataType = collectionCommand.InnerDataType;
+			if (innerDataType == typeof(string))
 			{
 				HandleStringListCommand((StringListCommand)collectionCommand);
 			}
-			else if (listType.IsValueType)
+			else if (innerDataType.IsValueType)
 			{
-				var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(listType);
+				var collectionType = collectionCommand.CollectionType;
+				var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
 				typedMethod.Invoke(this, [command]);
 			}
 			else
 			{
-				var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(listType);
+				var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(innerDataType);
 				typedMethod.Invoke(this, [command]);
 			}
 		}
@@ -300,7 +285,6 @@ public class MessagingHost
 					OnWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {command.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
 					break;
 				default:
-					OnDebug?.Invoke($"Received RendererCommand: {command.GetType().Name}");
 					break;
 			}
 		}

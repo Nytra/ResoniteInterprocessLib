@@ -10,7 +10,7 @@ public partial class Messenger
 
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
-		if (_isInitialized) return;
+		if (IsInitialized) return;
 
 		if (command is MessengerReadyCommand)
 		{

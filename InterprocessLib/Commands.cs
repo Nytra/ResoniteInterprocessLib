@@ -15,9 +15,8 @@ internal abstract class IdentifiableCommand : RendererCommand
 	public static void InitNewTypes(List<Type> newTypes)
 	{
 		var list = new List<Type>();
-		var theType = typeof(PolymorphicMemoryPackableEntity<RendererCommand>);
-		var types = (List<Type>)theType.GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
-		list.AddRange(types);
+		
+		//list.AddRange(types);
 		list.AddRange(newTypes);
 		InitTypes(list);
 	}
@@ -42,26 +41,15 @@ internal abstract class IdentifiableCommand : RendererCommand
 
 internal abstract class CollectionCommand : IdentifiableCommand
 {
-	public abstract ICollection? UntypedCollection { get; }
+	public abstract IEnumerable? UntypedCollection { get; }
 	public abstract Type InnerDataType { get; }
+	public abstract Type CollectionType { get; }
 
 	public override string ToString()
 	{
-		return $"{GetType().Name}<{InnerDataType.Name}>:{Owner}:{Id}:{UntypedCollection?.ToString() ?? "NULL"}";
+		return $"CollectionCommand:{CollectionType.Name}<{InnerDataType.Name}>:{Owner}:{Id}:{UntypedCollection?.ToString() ?? "NULL"}";
 	}
 }
-
-//internal abstract class ListCommand : CollectionCommand
-//{
-//	public abstract IList? UntypedList { get; }
-//	public override ICollection? UntypedCollection => UntypedList;
-//}
-
-//internal abstract class HashSetCommand : CollectionCommand
-//{
-//	public abstract ICollection? UntypedHashSet { get; }
-//	public override ICollection? UntypedCollection => UntypedHashSet;
-//}
 
 internal abstract class ValueCommand : IdentifiableCommand
 {
@@ -99,8 +87,9 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 {
 	public C? Values;
 
-	public override ICollection? UntypedCollection => (ICollection?)Values;
+	public override IEnumerable? UntypedCollection => Values;
 	public override Type InnerDataType => typeof(T);
+	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -147,8 +136,9 @@ internal sealed class StringListCommand : CollectionCommand
 {
 	public List<string>? Values;
 
-	public override ICollection? UntypedCollection => Values;
+	public override IEnumerable? UntypedCollection => Values;
 	public override Type InnerDataType => typeof(string);
+	public override Type CollectionType => typeof(List<string>);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -171,8 +161,9 @@ internal sealed class ObjectListCommand<T> : CollectionCommand where T : class, 
 {
 	public List<T>? Values;
 
-	public override ICollection? UntypedCollection => Values;
+	public override IEnumerable? UntypedCollection => Values;
 	public override Type InnerDataType => typeof(T);
+	public override Type CollectionType => typeof(List<T>);
 
 	public override void Pack(ref MemoryPacker packer)
 	{

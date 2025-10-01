@@ -6,7 +6,7 @@ public partial class Messenger
 {
 	private static MessagingHost? _host;
 
-	private static bool _isInitialized => _host is not null && _postInitActions is null;
+	public static bool IsInitialized => _host is not null && _postInitActions is null;
 
 	/// <summary>
 	/// Does this process have authority over the other process.
@@ -53,7 +53,7 @@ public partial class Messenger
 
 		_additionalValueTypes = additionalValueTypes;
 
-		if (_isInitialized)
+		if (IsInitialized)
 			Register();
 		else
 			RunPostInit(Register);
@@ -94,7 +94,7 @@ public partial class Messenger
 
 	private static void RunPostInit(Action act)
 	{
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			_postInitActions!.Add(act);
 		}
@@ -107,7 +107,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValue(id, value));
 			return;
@@ -128,7 +128,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValueList(id, list));
 			return;
@@ -149,7 +149,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValueHashSet(id, hashSet));
 			return;
@@ -170,7 +170,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendString(id, str));
 			return;
@@ -188,7 +188,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendStringList(id, list));
 			return;
@@ -206,7 +206,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendEmptyCommand(id));
 			return;
@@ -223,7 +223,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendObject(id, obj));
 			return;
@@ -245,7 +245,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendObjectList(id, list));
 			return;
@@ -266,7 +266,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValue(id, callback));
 			return;
@@ -283,7 +283,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValueList(id, callback));
 			return;
@@ -300,7 +300,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValueHashSet(id, callback));
 			return;
@@ -317,7 +317,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveString(id, callback));
 			return;
@@ -326,12 +326,12 @@ public partial class Messenger
 		_host!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveStringList(string id, Action<List<string>> callback)
+	public void ReceiveStringList(string id, Action<List<string>?>? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveStringList(id, callback));
 			return;
@@ -345,7 +345,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveEmptyCommand(id, callback));
 			return;
@@ -359,7 +359,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveObject(id, callback));
 			return;
@@ -376,7 +376,7 @@ public partial class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!_isInitialized)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveObjectList(id, callback));
 			return;
