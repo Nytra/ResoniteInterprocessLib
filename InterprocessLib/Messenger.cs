@@ -6,6 +6,9 @@ public partial class Messenger
 {
 	private static MessagingHost? _host;
 
+	/// <summary>
+	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
+	/// </summary>
 	public static bool IsInitialized => _host is not null && _postInitActions is null;
 
 	/// <summary>
