@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
@@ -15,7 +16,7 @@ public class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable)], [typeof(TestStruct), typeof(TestNestedStruct)]);
+		_messenger = new("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct)]);
 		_unknownMessenger = new("InterprocessLib.Tests.UnknownMessengerUnity");
 		SyncTest = Config.Bind("General", "SyncTest", 34);
 		_messenger.SyncConfigEntry(SyncTest);

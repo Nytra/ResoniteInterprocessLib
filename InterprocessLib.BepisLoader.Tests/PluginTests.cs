@@ -3,6 +3,7 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
 using Elements.Core;
+using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
@@ -38,7 +39,7 @@ public class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable)], [typeof(TestStruct), typeof(TestNestedStruct)]);
+		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct)]);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
 
 		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);

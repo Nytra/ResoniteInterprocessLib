@@ -32,6 +32,7 @@ public static class Tests
 		TestValueHashSet();
 		TestStringList();
 		TestObjectList();
+		TestVanillaObject();
 
 		try
 		{
@@ -274,16 +275,11 @@ public static class Tests
 	{
 		_messenger!.ReceiveObject<RendererInitData>("TestVanillaObject", (recv) =>
 		{
-			_logCallback!($"TestVanillaObject: {recv.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice}");
+			_logCallback!($"TestVanillaObject: {recv.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice} {recv.setWindowIcon} {recv.splashScreenOverride}");
 		});
 
-		var list = new List<string>();
-		list.Add("Hello");
-		list.Add("World");
-		list.Add("owo");
-		list.Add(null!);
-		list.Add("x3");
-		_messenger.SendStringList("TestStringList", list);
+		var obj = new RendererInitData();
+		_messenger.SendObject("TestVanillaObject", obj);
 	}
 
 #if TEST_COMPILATION

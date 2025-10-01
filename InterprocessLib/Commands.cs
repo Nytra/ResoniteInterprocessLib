@@ -15,8 +15,7 @@ internal abstract class IdentifiableCommand : RendererCommand
 	public static void InitNewTypes(List<Type> newTypes)
 	{
 		var list = new List<Type>();
-		
-		//list.AddRange(types);
+		list.AddRange(TypeManager.CoreTypesList);
 		list.AddRange(newTypes);
 		InitTypes(list);
 	}

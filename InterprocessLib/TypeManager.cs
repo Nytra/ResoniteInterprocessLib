@@ -15,7 +15,7 @@ internal static class TypeManager
 
 	internal static MethodInfo? RegisterObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	internal static List<Type> CoreTypesList = ((List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!).ToList();
+	internal static List<Type> CoreTypesList => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
 	private static Type[] _valueTypes =
 	{
@@ -82,7 +82,7 @@ internal static class TypeManager
 	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
-		return _registeredObjectTypes.Contains(type) || CoreTypesList.Contains(type);
+		return _registeredObjectTypes.Contains(type);
 	}
 
 	internal static void RegisterAdditionalValueType<T>() where T : unmanaged
@@ -116,7 +116,7 @@ internal static class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
+		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)) && !CoreTypesList.Contains(type))
 		{
 			IdentifiableCommand.InitNewTypes([type]);
 		}

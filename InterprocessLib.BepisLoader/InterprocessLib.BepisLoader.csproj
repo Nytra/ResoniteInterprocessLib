@@ -30,7 +30,6 @@
     <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
     <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" />
     <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
-    <PackageReference Include="ResoniteModding.BepisResoniteWrapper" Version="1.*" />
   </ItemGroup>
   
   <ItemGroup Condition="!Exists('$(GamePath)')">
@@ -57,6 +56,12 @@
 	<Compile Include="../InterprocessLib/*.cs" />
 	<Compile Include="../Extra/BepInExShared.cs" />
 	<Compile Include="../Extra/FrooxEngineInit.cs" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="BepisResoniteWrapper">
+      <HintPath>$(GamePath)BepInEx\plugins\ResoniteModding-BepisResoniteWrapper\BepisResoniteWrapper\BepisResoniteWrapper.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->
