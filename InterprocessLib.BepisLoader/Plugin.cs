@@ -14,7 +14,7 @@ namespace InterprocessLib;
 internal class Plugin : BasePlugin
 {
 	public static ManualLogSource? Logger;
-	//private static Messenger? _messenger;
+	private static DateTime _initLoopStartTime;
 
 	public override void Load()
 	{
@@ -40,16 +40,15 @@ internal class Plugin : BasePlugin
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnWarning = WarnHandler;
 			Messenger.OnDebug = DebugHandler;
-
 			Messenger.Init();
-
-			//_messenger = new Messenger("InterprocessLib");
+			Messenger._host!.SendCommand(new MessengerReadyCommand());
+			Messenger.FinishInitialization();
 		};
 	}
 
 	private static void FailHandler(Exception ex)
 	{
-		Logger!.LogError("Exception in InterprocessLib messaging host:\n" + ex);
+		Logger!.LogError("Exception in InterprocessLib messaging host:\n" + ex.ToString());
 	}
 
 	private static void WarnHandler(string msg)
@@ -102,6 +101,5 @@ public partial class Messenger
 		_host.OnFailure = OnFailure;
 		_host.OnWarning = OnWarning;
 		_host.OnDebug = OnDebug;
-		FinishInitialization();
 	}
 }

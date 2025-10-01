@@ -16,7 +16,7 @@ internal class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("InterprocessLib.Tests", [typeof(MyThing), typeof(TestObject)]);
+		_messenger = new("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestObject), typeof(TestObject2)]);
 		Test();
 	}
 
@@ -35,27 +35,34 @@ internal class UnityPlugin : BaseUnityPlugin
 		{ 
 			_messenger.Send("Test");
 
-			var cmd = new MyThing();
+			var cmd = new TestCommand();
 			cmd.Value = 9999;
 			cmd.Text = "HWowowow";
 			cmd.Time = DateTime.MinValue;
 
-			_messenger.SendObject("TestObject2", cmd);
+			_messenger.SendObject("TestCmd2", cmd);
 		});
-		_messenger.ReceiveObject<MyThing>("TestObject", (thing) => 
+		_messenger.ReceiveObject<TestCommand>("TestCmd", (thing) => 
 		{ 
-			Log!.LogInfo($"MyThing: {thing.Value} {thing.Text} {thing.Time}");
+			Log!.LogInfo($"TestCommand: {thing.Value} {thing.Text} {thing.Time}");
 		});
 		_messenger.Receive("NullStr", (str) => { });
 
-		_messenger.ReceiveObject<TestObject>("TestObj2", (obj) => 
+		_messenger.ReceiveObject<TestObject>("TestObj", (obj) => 
 		{ 
 			Log!.LogInfo($"TestObject: {obj.Value} {obj.Obj.Value} {obj.Obj.Text} {obj.Obj.Time}");
 		});
+
+		var testObj2 = new TestObject2();
+		testObj2.Value = 5;
+
+		Log!.LogInfo($"Hello!");
+
+		_messenger.SendObject("TestObj2", testObj2);
 	}
 }
 
-class MyThing : RendererCommand
+class TestCommand : RendererCommand
 {
 	public ulong Value;
 	public string Text = "";
@@ -78,7 +85,7 @@ class MyThing : RendererCommand
 class TestObject : IMemoryPackable
 {
 	public byte Value;
-	public MyThing Obj;
+	public TestCommand Obj;
 
 	public void Pack(ref MemoryPacker packer)
 	{
@@ -90,5 +97,20 @@ class TestObject : IMemoryPackable
 	{
 		unpacker.Read(ref Value);
 		unpacker.ReadObject(ref Obj);
+	}
+}
+
+class TestObject2 : IMemoryPackable
+{
+	public uint Value;
+
+	public void Pack(ref MemoryPacker packer)
+	{
+		packer.Write(Value);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Value);
 	}
 }

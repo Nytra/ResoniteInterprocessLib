@@ -73,6 +73,7 @@ public class MessagingHost
 		if (!CommandTypeManager.InitializedTypes)
 		{
 			var list = new List<Type>();
+			list.Add(typeof(MessengerReadyCommand));
 			list.Add(typeof(IdentifiableCommand));
 			list.Add(typeof(StringCommand));
 			foreach (var valueType in Utils.ValueTypes)
@@ -93,6 +94,11 @@ public class MessagingHost
 				((Action<T>)callback).Invoke(command.Value);
 			}
 		}
+		else
+		{
+			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			return;
+		}
 	}
 
 	private void HandleStringCommand(StringCommand command)
@@ -104,6 +110,11 @@ public class MessagingHost
 			{
 				callback.Invoke(command.String);
 			}
+		}
+		else
+		{
+			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			return;
 		}
 	}
 
@@ -117,6 +128,11 @@ public class MessagingHost
 				callback.Invoke();
 			}
 		}
+		else
+		{
+			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			return;
+		}
 	}
 
 	private void HandleWrapperCommand<T>(WrapperCommand command) where T : class, IMemoryPackable, new()
@@ -129,11 +145,25 @@ public class MessagingHost
 				((Action<T>)callback).Invoke((T)command.UntypedObject);
 			}
 		}
+		else
+		{
+			OnWarning?.Invoke($"Id {command.Id} is not registered to receive a callback!");
+			return;
+		}
 	}
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
 		OnCommandReceived?.Invoke(command, messageSize);
+
+		if (command is IdentifiableCommand identifiableCommand)
+		{
+			if (!_ownerData.TryGetValue(identifiableCommand.Owner, out var data))
+			{
+				OnWarning?.Invoke($"Owner {identifiableCommand.Owner} is not registered!");
+				return;
+			}
+		}
 
 		var commandType = command.GetType();
 		if (commandType.IsGenericType)
@@ -156,10 +186,10 @@ public class MessagingHost
 		{
 			switch (command)
 			{
-				case StringCommand stringCommand:
+				case StringCommand:
 					HandleStringCommand((StringCommand)command);
 					break;
-				case IdentifiableCommand identifiableCommand:
+				case IdentifiableCommand:
 					HandleIdentifiableCommand((IdentifiableCommand)command);
 					break;
 				default:
@@ -234,7 +264,7 @@ internal static class CommandTypeManager
 
 		foreach (var type in additionalTypes)
 		{
-			if (!type.IsSubclassOf(typeof(RendererCommand)))
+			if (!type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
 			{
 				objTypes.Add(type);
 			}
@@ -245,7 +275,6 @@ internal static class CommandTypeManager
 			try
 			{
 				cmdTypes.Add(typeof(WrapperCommand<>).MakeGenericType(type));
-				
 			}
 			catch
 			{
@@ -268,6 +297,17 @@ internal static class CommandTypeManager
 
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
+
+internal class MessengerReadyCommand : RendererCommand
+{
+	public override void Pack(ref MemoryPacker packer)
+	{
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+	}
+}
 
 internal class IdentifiableCommand : RendererCommand
 {
@@ -387,11 +427,11 @@ internal static class Utils
 
 public partial class Messenger
 {
-	private static MessagingHost? _host; 
+	internal static MessagingHost? _host;
 
-	public static bool IsInitialized => _host is not null;
+	public static bool IsInitialized => _host is not null && PostInitActions is null;
 
-	internal static event RenderCommandHandler? OnCommandReceived;
+	internal static RenderCommandHandler? OnCommandReceived;
 
 	internal static Action<Exception>? OnFailure;
 
@@ -422,12 +462,12 @@ public partial class Messenger
 		_additionalCommandTypes = additionalCommandTypes;
 
 		if (IsInitialized)
-			RegisterWithBackend();
+			Register();
 		else
-			RunPostInit(RegisterWithBackend);
+			RunPostInit(Register);
 	}
 
-	private void RegisterWithBackend()
+	private void Register()
 	{
 		_host!.RegisterOwner(_ownerId);
 		if (_additionalCommandTypes is not null)
@@ -439,9 +479,11 @@ public partial class Messenger
 		throw new InvalidOperationException("Messenger is not ready to be used yet!");
 	}
 
-	private static void FinishInitialization()
+	internal static void FinishInitialization()
 	{
-		foreach (var action in PostInitActions!)
+		var actions = PostInitActions!.ToArray();
+		PostInitActions = null;
+		foreach (var action in actions)
 		{
 			try
 			{
@@ -452,13 +494,14 @@ public partial class Messenger
 				OnWarning?.Invoke($"Exception running post-init action:\n{ex}");
 			}
 		}
-		PostInitActions = null;
 	}
 
 	private static void RunPostInit(Action act)
 	{
 		if (!IsInitialized)
+		{
 			PostInitActions!.Add(act);
+		}
 		else
 			throw new InvalidOperationException("Already initialized!");
 	}
@@ -485,8 +528,6 @@ public partial class Messenger
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
-		//if (str is null)
-		//	throw new ArgumentNullException(nameof(str));
 
 		if (!IsInitialized)
 		{

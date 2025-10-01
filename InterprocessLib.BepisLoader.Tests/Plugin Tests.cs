@@ -39,7 +39,7 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests", [typeof(MyThing), typeof(TestObject)]);
+		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestObject), typeof(TestObject2)]);
 		Test();
 	}
 
@@ -68,23 +68,35 @@ internal class Plugin : BasePlugin
 			CallbackCount!.Value += 1;
 		});
 
-		var cmd = new MyThing();
+		var cmd = new TestCommand();
 		cmd.Value = 2932;
 		cmd.Text = "Hello world";
 		cmd.Time = DateTime.Now;
 
-		_messenger.SendObject("TestObject", cmd);
+		_messenger.SendObject("TestCmd", cmd);
 
 		_messenger.Send("NullStr", null);
 
 		var testObj = new TestObject();
 		testObj.Value = 0xF8;
 		testObj.Obj = cmd;
-		_messenger.SendObject("TestObj2", testObj);
+		_messenger.SendObject("TestObj", testObj);
+
+		_messenger.ReceiveObject<TestCommand>("TestCmd2", (cmd2) =>
+		{
+			Logger!.LogInfo($"TestCommand: {cmd2.Value} {cmd2.Text} {cmd2.Time}");
+		});
+
+		Log.LogInfo($"Hello!");
+
+		_messenger.ReceiveObject<TestObject2>("TestObj2", (obj2) =>
+		{
+			Logger!.LogInfo($"TestObject2: {obj2.Value}");
+		});
 	} 
 }
 
-class MyThing : RendererCommand
+class TestCommand : RendererCommand
 {
 	public ulong Value;
 	public string Text = "";
@@ -107,7 +119,7 @@ class MyThing : RendererCommand
 class TestObject : IMemoryPackable
 {
 	public byte Value;
-	public MyThing Obj;
+	public TestCommand Obj;
 
 	public void Pack(ref MemoryPacker packer)
 	{
@@ -119,5 +131,20 @@ class TestObject : IMemoryPackable
 	{
 		unpacker.Read(ref Value);
 		unpacker.ReadObject(ref Obj);
+	}
+}
+
+class TestObject2 : IMemoryPackable
+{
+	public uint Value;
+
+	public void Pack(ref MemoryPacker packer)
+	{
+		packer.Write(Value);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Value);
 	}
 }

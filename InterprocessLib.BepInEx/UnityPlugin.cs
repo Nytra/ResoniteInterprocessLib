@@ -1,6 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using Renderite.Shared;
 using Renderite.Unity;
 using System.Reflection;
 
@@ -11,7 +12,6 @@ internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 	private static bool _initialized;
-	//private static Messenger? _messenger;
 
 	void Awake()
 	{
@@ -28,17 +28,16 @@ internal class UnityPlugin : BaseUnityPlugin
 		Messenger.OnWarning = WarnHandler;
 		Messenger.OnFailure = FailHandler;
 		Messenger.OnDebug = DebugHandler;
+		Messenger.OnCommandReceived = CommandHandler;
 
 		Messenger.Init();
-
-		//_messenger = new("InterprocessLib");
 
 		_initialized = true;
 	}
 
 	private static void FailHandler(Exception ex)
 	{
-		Log!.LogError("Exception in InterprocessLib messaging host:\n" + ex);
+		Log!.LogError("Exception in InterprocessLib messaging host:\n" + ex.ToString());
 	}
 
 	private static void WarnHandler(string msg)
@@ -49,6 +48,15 @@ internal class UnityPlugin : BaseUnityPlugin
 	private static void DebugHandler(string msg)
 	{
 		Log!.LogDebug(msg);
+	}
+
+	private static void CommandHandler(RendererCommand command, int size)
+	{
+		if (command is MessengerReadyCommand)
+		{
+			Messenger.FinishInitialization();
+			Messenger.OnCommandReceived = null;
+		}
 	}
 }
 
@@ -93,6 +101,5 @@ public partial class Messenger
 		_host.OnFailure = OnFailure;
 		_host.OnWarning = OnWarning;
 		_host.OnDebug = OnDebug;
-		FinishInitialization();
 	}
 }
