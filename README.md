@@ -31,7 +31,7 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
-You can also send lists.
+You can also work with lists.
 
 ```
 var list = new List<float>();
