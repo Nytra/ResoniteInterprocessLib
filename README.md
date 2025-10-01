@@ -8,7 +8,7 @@ BepisLoader and BepInEx projects are included.
 
 ## Usage
 
-After including the library in your project, all you have to do is create your own instance of the `Messenger` class. You can do this at any time, even before Resonite starts.
+After including the library in your project, all you have to do is create your own instance of the `Messenger` class. You can do this at any time, even before Resonite starts. Make sure both processes register with the same name.
 
 ```
 var messenger = new Messenger("PluginName");
@@ -20,7 +20,7 @@ From here you can use the object to send data or to register callbacks to receiv
 messenger.SendValue<int>("TestValue", 637);
 ```
 
-It's not much use to send a value if nothing in the other process knows to receive it. 
+Here's how to receive a value in the other process.
 
 ```
 messenger.ReceiveValue<int>("TestValue", (val) =>
