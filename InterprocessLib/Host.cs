@@ -9,7 +9,7 @@ public class MessagingHost
 	{
 		public readonly Dictionary<string, object?> ValueCallbacks = new();
 
-		public readonly Dictionary<string, Action<string>?> StringCallbacks = new();
+		public readonly Dictionary<string, Action<string?>?> StringCallbacks = new();
 
 		public readonly Dictionary<string, Action?> Callbacks = new();
 
@@ -30,11 +30,11 @@ public class MessagingHost
 
 	public RenderCommandHandler? OnCommandReceived;
 
-	public Action<Exception>? OnFailure;
-
 	public Action<string>? OnWarning;
 
 	public Action<string>? OnDebug;
+
+	public Action<Exception>? OnFailure;
 
 	private Dictionary<string, OwnerData> _ownerData = new();
 
@@ -49,7 +49,7 @@ public class MessagingHost
 		_ownerData[owner].ValueCallbacks[id] = callback;
 	}
 
-	public void RegisterStringCallback(string owner, string id, Action<string> callback)
+	public void RegisterStringCallback(string owner, string id, Action<string?> callback)
 	{
 		_ownerData[owner].StringCallbacks[id] = callback;
 	}
@@ -59,7 +59,7 @@ public class MessagingHost
 		_ownerData[owner].Callbacks[id] = callback;
 	}
 
-	public void RegisterWrapperCallback<T>(string owner, string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	public void RegisterWrapperCallback<T>(string owner, string id, Action<T?> callback) where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].WrapperCallbacks[id] = callback;
 	}
@@ -67,33 +67,29 @@ public class MessagingHost
 	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool)
 	{
 		IsAuthority = isAuthority;
-
+	
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = FailHandler;
 		_primary.WarningHandler = WarnHandler;
+
+		OnDebug = Messenger.OnDebug;
+		OnWarning = Messenger.OnWarning;
+		OnFailure = Messenger.OnFailure;
+
 		_primary.Connect(queueName + "InterprocessLib", isAuthority, queueCapacity);
 
-		if (!TypeManager.InitializedCoreTypes)
-		{
-			TypeManager.RegisterAdditionalPackableType<MessengerReadyCommand>();
-			TypeManager.RegisterAdditionalPackableType<EmptyCommand>();
-			TypeManager.RegisterAdditionalPackableType<StringCommand>();
+		TypeManager.InitializeCoreTypes();
+	}
 
-			foreach (var valueType in TypeManager.ValueTypes)
-			{
-				try
-				{
-					TypeManager._registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
-				}
-				catch (Exception ex)
-				{
-					OnWarning?.Invoke($"Could not register additional value type {valueType.Name}!\n{ex}");
-				}
-			}
+	private void FailHandler(Exception ex)
+	{
+		OnFailure?.Invoke(ex);
+	}
 
-			TypeManager.InitializedCoreTypes = true;
-		}
+	private void WarnHandler(string msg)
+	{
+		OnWarning?.Invoke(msg);
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -116,7 +112,7 @@ public class MessagingHost
 	private void HandleStringCommand(StringCommand command)
 	{
 		OnDebug?.Invoke($"Received StringCommand: {command.Owner}:{command.Id}:{command.String ?? "NULL"}");
-		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out Action<string>? callback))
+		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out Action<string?>? callback))
 		{
 			if (callback != null)
 			{
@@ -154,7 +150,7 @@ public class MessagingHost
 		{
 			if (callback != null)
 			{
-				((Action<T>)callback).Invoke((T)command.UntypedObject);
+				((Action<T?>)callback).Invoke((T?)command.UntypedObject);
 			}
 		}
 		else
@@ -212,16 +208,6 @@ public class MessagingHost
 					break;
 			}
 		}
-	}
-
-	private void FailHandler(Exception ex)
-	{
-		OnFailure?.Invoke(ex);
-	}
-
-	private void WarnHandler(string msg)
-	{
-		OnWarning?.Invoke(msg);
 	}
 
 	public void SendCommand(RendererCommand command)

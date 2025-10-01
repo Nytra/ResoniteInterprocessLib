@@ -13,12 +13,9 @@ namespace InterprocessLib.Tests;
 internal class Plugin : BasePlugin
 {
 	public static new ManualLogSource? Log;
-	public static ConfigEntry<bool>? TestBool;
-	public static ConfigEntry<int>? TestInt;
-	public static ConfigEntry<string>? TestString;
-	public static ConfigEntry<int>? CallbackCount;
-	private static Messenger? _messenger;
-	private static Messenger? _unknownMessenger;
+	public static ConfigEntry<bool>? MyToggle;
+	public static Messenger? _messenger;
+	public static Messenger? _unknownMessenger;
 
 	public override void Load()
 	{
@@ -39,117 +36,15 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestObject), typeof(TestObject2)]);
-		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessenger");
-		Test();
-	}
+		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable)], [typeof(TestStruct), typeof(TestNestedStruct)]);
+		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
 
-	private void Test()
-	{
-		TestBool = Config.Bind("General", nameof(TestBool), false);
-		TestInt = Config.Bind("General", nameof(TestInt), 0);
-		TestString = Config.Bind("General", nameof(TestString), "Hello!");
-		CallbackCount = Config.Bind("General", nameof(CallbackCount), 0);
-		TestBool!.SettingChanged += (sender, args) =>
+		MyToggle = Config.Bind("General", "RunTests", false);
+		MyToggle!.SettingChanged += (sender, args) =>
 		{
-			_messenger!.Send(TestBool);
+			_messenger!.SendEmptyCommand("RunTests");
+			Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
 		};
-		_messenger!.Receive<int>("Test", (val) =>
-		{
-			TestInt!.Value = val;
-			_messenger.Send("Test", Engine.VersionNumber ?? "");
-		});
-		_messenger.Receive("Test", (str) =>
-		{
-			TestString!.Value = str;
-			_messenger.Send("Test");
-		});
-		_messenger.Receive("Test", () =>
-		{
-			CallbackCount!.Value += 1;
-		});
-
-		var cmd = new TestCommand();
-		cmd.Value = 2932;
-		cmd.Text = "Hello world";
-		cmd.Time = DateTime.Now;
-
-		_messenger.SendObject("TestCmd", cmd);
-
-		_messenger.Send("NullStr", null);
-
-		var testObj = new TestObject();
-		testObj.Value = 0xF8;
-		testObj.Obj = cmd;
-		_messenger.SendObject("TestObj", testObj);
-
-		_messenger.ReceiveObject<TestCommand>("TestCmd2", (cmd2) =>
-		{
-			Log!.LogInfo($"TestCommand: {cmd2.Value} {cmd2.Text} {cmd2.Time}");
-		});
-
-		base.Log.LogInfo($"Hello!");
-
-		_messenger.ReceiveObject<TestObject2>("TestObj2", (obj2) =>
-		{
-			Log!.LogInfo($"TestObject2: {obj2.Value}");
-		});
-
-		_messenger.Send("UnknownIdTest");
-
-		_unknownMessenger!.Send("Hello");
-	} 
-}
-
-class TestCommand : RendererCommand
-{
-	public ulong Value;
-	public string Text = "";
-	public DateTime Time;
-	public override void Pack(ref MemoryPacker packer)
-	{
-		packer.Write(Value);
-		packer.Write(Text);
-		packer.Write(Time);
-	}
-
-	public override void Unpack(ref MemoryUnpacker unpacker)
-	{
-		unpacker.Read(ref Value);
-		unpacker.Read(ref Text);
-		unpacker.Read(ref Time);
-	}
-}
-
-class TestObject : IMemoryPackable
-{
-	public byte Value;
-	public TestCommand? Obj;
-
-	public void Pack(ref MemoryPacker packer)
-	{
-		packer.Write(Value);
-		packer.WriteObject(Obj);
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
-		unpacker.Read(ref Value);
-		unpacker.ReadObject(ref Obj);
-	}
-}
-
-class TestObject2 : IMemoryPackable
-{
-	public uint Value;
-
-	public void Pack(ref MemoryPacker packer)
-	{
-		packer.Write(Value);
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
-		unpacker.Read(ref Value);
+		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
 	}
 }

@@ -106,12 +106,16 @@ internal sealed class StringCommand : IdentifiableCommand
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
+#pragma warning disable CS8604
 		packer.Write(String);
+#pragma warning restore
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
+#pragma warning disable CS8601
 		unpacker.Read(ref String);
+#pragma warning restore
 	}
 }

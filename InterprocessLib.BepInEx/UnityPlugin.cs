@@ -64,22 +64,22 @@ public partial class Messenger
 {
 	public void Send<T>(ConfigEntry<T> configEntry) where T : unmanaged
 	{
-		Send(configEntry.Definition.Key, configEntry.Value);
+		SendValue(configEntry.Definition.Key, configEntry.Value);
 	}
 
 	public void Send(ConfigEntry<string> configEntry)
 	{
-		Send(configEntry.Definition.Key, configEntry.Value);
+		SendString(configEntry.Definition.Key, configEntry.Value);
 	}
 
 	public void Receive<T>(ConfigEntry<T> configEntry, Action<T> callback) where T : unmanaged
 	{
-		Receive(configEntry.Definition.Key, callback);
+		ReceiveValue(configEntry.Definition.Key, callback);
 	}
 
-	public void Receive(ConfigEntry<string> configEntry, Action<string> callback)
+	public void Receive(ConfigEntry<string> configEntry, Action<string?> callback)
 	{
-		Receive(configEntry.Definition.Key, callback);
+		ReceiveString(configEntry.Definition.Key, callback);
 	}
 
 	internal static void Init()
@@ -98,8 +98,5 @@ public partial class Messenger
 
 		Host = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance);
 		Host.OnCommandReceived = OnCommandReceived;
-		Host.OnFailure = OnFailure;
-		Host.OnWarning = OnWarning;
-		Host.OnDebug = OnDebug;
 	}
 }

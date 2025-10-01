@@ -41,6 +41,8 @@ public partial class Messenger
 
 		_additionalPackableTypes = additionalPackableTypes;
 
+		_additionalValueTypes = additionalValueTypes;
+
 		if (IsInitialized)
 			Register();
 		else
@@ -110,16 +112,19 @@ public partial class Messenger
 			throw new InvalidOperationException("Already initialized!");
 	}
 
-	public void Send<T>(string id, T value) where T : unmanaged
+	public void SendValue<T>(string id, T value) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => Send(id, value));
+			RunPostInit(() => SendValue(id, value));
 			return;
 		}
+
+		if (!TypeManager.IsValueTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {value.GetType().Name} needs to be registered first!");
 
 		var command = new ValueCommand<T>();
 		command.Owner = _ownerId;
@@ -128,14 +133,14 @@ public partial class Messenger
 		Host!.SendCommand(command);
 	}
 
-	public void Send(string id, string str)
+	public void SendString(string id, string? str)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => Send(id, str));
+			RunPostInit(() => SendString(id, str));
 			return;
 		}
 
@@ -146,14 +151,14 @@ public partial class Messenger
 		Host!.SendCommand(command);
 	}
 
-	public void Send(string id)
+	public void SendEmptyCommand(string id)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => Send(id));
+			RunPostInit(() => SendEmptyCommand(id));
 			return;
 		}
 
@@ -163,7 +168,7 @@ public partial class Messenger
 		Host!.SendCommand(command);
 	}
 
-	public void SendObject<T>(string id, T obj) where T : class, IMemoryPackable, new()
+	public void SendObject<T>(string id, T? obj) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -174,8 +179,8 @@ public partial class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {obj.GetType().Name} needs to be registered first!");
+		if (!TypeManager.IsPackableTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		var wrapper = new WrapperCommand<T>();
 		wrapper.Object = obj;
@@ -185,49 +190,52 @@ public partial class Messenger
 		Host!.SendCommand(wrapper);
 	}
 
-	public void Receive<T>(string id, Action<T> callback) where T : unmanaged
+	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => Receive(id, callback));
+			RunPostInit(() => ReceiveValue(id, callback));
 			return;
 		}
+
+		if (!TypeManager.IsValueTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		Host!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
-	public void Receive(string id, Action<string> callback)
+	public void ReceiveString(string id, Action<string?> callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => Receive(id, callback));
+			RunPostInit(() => ReceiveString(id, callback));
 			return;
 		}
 
 		Host!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
-	public void Receive(string id, Action callback)
+	public void ReceiveEmptyCommand(string id, Action callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => Receive(id, callback));
+			RunPostInit(() => ReceiveEmptyCommand(id, callback));
 			return;
 		}
 
 		Host!.RegisterCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObject<T>(string id, Action<T?> callback) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -238,8 +246,9 @@ public partial class Messenger
 			return;
 		}
 
+		if (!TypeManager.IsPackableTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
 		Host!.RegisterWrapperCallback(_ownerId, id, callback);
 	}
-
-	
 }
