@@ -53,6 +53,8 @@
       <Private>False</Private>
     </Reference>
 	<Compile Include="../InterprocessLib/*.cs" />
+	<Compile Include="../Extra/BepInExShared.cs" />
+	<Compile Include="../Extra/FrooxEngineInit.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->

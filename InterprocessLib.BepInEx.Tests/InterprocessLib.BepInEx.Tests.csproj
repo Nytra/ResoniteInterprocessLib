@@ -44,6 +44,7 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
+	<Compile Include="../Extra/Tests.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->

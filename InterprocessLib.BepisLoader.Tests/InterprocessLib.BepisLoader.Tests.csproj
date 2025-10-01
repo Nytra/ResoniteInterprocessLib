@@ -52,6 +52,7 @@
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
       <Private>False</Private>
     </Reference>
+	<Compile Include="../Extra/Tests.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="InterprocessLib.BepisLoader">

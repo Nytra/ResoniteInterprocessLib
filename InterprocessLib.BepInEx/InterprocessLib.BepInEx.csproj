@@ -42,6 +42,8 @@
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
 	<Compile Include="../InterprocessLib/*.cs" />
+	<Compile Include="../Extra/BepInExShared.cs" />
+	<Compile Include="../Extra/UnityInit.cs" />
   </ItemGroup>
 
   <!-- Post-build copy to game plugins folder -->

@@ -3,8 +3,6 @@ using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
 using Elements.Core;
-using FrooxEngine;
-using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
