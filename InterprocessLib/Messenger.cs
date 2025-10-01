@@ -7,7 +7,7 @@ namespace InterprocessLib;
 /// </summary>
 public partial class Messenger
 {
-	internal static MessagingHost? _host;
+	private static MessagingHost? _host;
 
 	/// <summary>
 	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
