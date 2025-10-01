@@ -31,6 +31,12 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
+For BepisLoader or BepInEx, if you have a ConfigEntry in both processes with the same type and name, you can sync them like this:
+
+```
+messenger.SyncConfigEntry(MyConfigEntry);
+```
+
 You can also work with lists.
 
 ```
