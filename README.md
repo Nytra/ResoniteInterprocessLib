@@ -34,7 +34,7 @@ If you want to send more complex data such as custom memory-packable structs and
 There are two lists that can be provided: the first is for `IMemoryPackable` class types, and the second is for `unmanaged` value types.
 
 ```
-var messenger = new("UsingCustomTypes", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct)]);
+var messenger = new Messenger("UsingCustomTypes", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct)]);
 ```
 
 After doing this you can now send and receive those custom types.
