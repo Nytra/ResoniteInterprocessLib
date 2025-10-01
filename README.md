@@ -2,9 +2,9 @@
 
 A library for [Resonite](https://resonite.com/) that allows mods to send data to the renderer and back.
 
-The library itself only depends on `Renderite.Shared.dll`, meaning it could support other mod loaders e.g. MonkeyLoader.
+The library only depends on `Renderite.Shared`, meaning it could work with other mod loaders e.g. MonkeyLoader.
 
-BepisLoader and BepInEx projects are included because nothing else supports renderer modding at this time.
+BepisLoader and BepInEx projects are included.
 
 ## Installation (Manual)
 1. Install [BepisLoader](https://github.com/ResoniteModding/BepisLoader) and [BepInExRenderer](https://thunderstore.io/c/resonite/p/ResoniteModding/BepInExRenderer/) and [RenderiteHook](https://thunderstore.io/c/resonite/p/ResoniteModding/RenderiteHook/) for Resonite.
