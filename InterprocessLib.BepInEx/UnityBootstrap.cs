@@ -5,21 +5,23 @@ using Renderite.Unity;
 namespace InterprocessLib;
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.1")]
-internal class UnityPlugin : BaseUnityPlugin
+internal class UnityBootstrap : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 
 	void Awake()
 	{
 		Log = base.Logger;
-		//var harmony = new Harmony("Nytra.InterprocessLib.BepInEx");
-		//harmony.PatchAll();
 		Update();
 	}
 
 	void Update()
 	{
-		if (Messenger.Host is not null) return;
+		if (Messenger.Host is not null)
+		{
+			Destroy(this);
+			return;
+		}
 
 		if (RenderingManager.Instance is null) return;
 
@@ -32,6 +34,8 @@ internal class UnityPlugin : BaseUnityPlugin
 
 		UnityInit.Init();
 		Log!.LogInfo("Messenger initialized.");
+
+		Destroy(this);
 	}
 
 	private static void FailHandler(Exception ex)
@@ -49,17 +53,3 @@ internal class UnityPlugin : BaseUnityPlugin
 		Log!.LogDebug(msg);
 	}
 }
-
-//[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
-//class TypesPatch
-//{
-//	static bool Prefix(ref List<Type> types)
-//	{
-//		foreach (var type in TypeManager.NewTypes)
-//		{
-//			if (!types.Contains(type)) 
-//				types.Add(type);
-//		}
-//		return true;
-//	}
-//}

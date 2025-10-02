@@ -4,14 +4,12 @@ using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
 using FrooxEngine;
-using HarmonyLib;
-using Renderite.Shared;
 
 namespace InterprocessLib;
 
 [ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
-internal class Plugin : BasePlugin
+internal class BepisLoaderBootstrap : BasePlugin
 {
 	public static new ManualLogSource? Log;
 
@@ -37,20 +35,13 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		//HarmonyInstance.PatchAll();
-
 		if (Messenger.Host is null)
 		{
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnWarning = WarnHandler;
-			//Messenger.OnDebug = DebugHandler;
+			Messenger.OnDebug = DebugHandler;
 			Task.Run(PreInitLoop);
 		}
-
-		//BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
-		//{
-		//	Messenger.FinishInitialization();
-		//};
 	}
 
 	private static async void PreInitLoop()
@@ -81,19 +72,6 @@ internal class Plugin : BasePlugin
 
 	private static void DebugHandler(string msg)
 	{
-		Log!.LogInfo(msg);
+		Log!.LogDebug(msg);
 	}
 }
-
-//[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
-//class TypesPatch
-//{
-//	static bool Prefix(ref List<Type> types)
-//	{
-//		foreach(var type in TypeManager.NewTypes)
-//		{
-//			types.AddUnique(type);
-//		}
-//		return true;
-//	}
-//}

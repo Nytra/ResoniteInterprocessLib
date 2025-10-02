@@ -2,7 +2,7 @@
 
 namespace InterprocessLib;
 
-internal class RML_Mod : ResoniteMod
+internal class RML_Bootstrap : ResoniteMod
 {
 	public override string Name => "InterprocessLib.RML";
 
@@ -18,7 +18,7 @@ internal class RML_Mod : ResoniteMod
 		{
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnWarning = WarnHandler;
-			//Messenger.OnDebug = DebugHandler;
+			Messenger.OnDebug = DebugHandler;
 			FrooxEngineInit.Init();
 			Msg("Messenger initialized.");
 		}
@@ -36,7 +36,7 @@ internal class RML_Mod : ResoniteMod
 
 	private static void DebugHandler(string msg)
 	{
-		Msg(msg);
+		Debug(msg);
 	}
 }
 

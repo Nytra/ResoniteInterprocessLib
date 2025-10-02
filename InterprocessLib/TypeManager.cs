@@ -38,6 +38,7 @@ internal static class TypeManager
 		typeof(TimeSpan)
 	};
 
+	// Make sure this always happens first before adding other types?
 	internal static void InitializeCoreTypes()
 	{
 		if (_initializedCoreTypes) return;
