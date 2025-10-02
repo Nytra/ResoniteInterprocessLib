@@ -1,4 +1,4 @@
-﻿//#define DEBUG
+﻿#define DEBUG
 
 using Renderite.Shared;
 using ResoniteModLoader;

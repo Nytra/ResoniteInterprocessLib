@@ -18,7 +18,9 @@ internal class RML_Bootstrap : ResoniteMod
 		{
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnWarning = WarnHandler;
+#if DEBUG
 			Messenger.OnDebug = DebugHandler;
+#endif
 			FrooxEngineInit.Init();
 			Msg("Messenger initialized.");
 		}

@@ -37,11 +37,26 @@ internal class BepisLoaderBootstrap : BasePlugin
 
 		if (Messenger.Host is null)
 		{
-			Messenger.OnFailure = FailHandler;
-			Messenger.OnWarning = WarnHandler;
-			Messenger.OnDebug = DebugHandler;
-			Task.Run(PreInitLoop);
+			//Task.Run(PreInitLoop);
 		}
+
+		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
+		{ 
+			if (Messenger.Host is null)
+			{
+				Init();
+			}
+		};
+	}
+
+	private static void Init()
+	{
+		Messenger.OnFailure = FailHandler;
+		Messenger.OnWarning = WarnHandler;
+#if DEBUG
+			Messenger.OnDebug = DebugHandler;
+#endif
+		Log!.LogInfo("Messenger initialized.");
 	}
 
 	private static async void PreInitLoop()
@@ -55,8 +70,7 @@ internal class BepisLoaderBootstrap : BasePlugin
 		else
 		{
 			await Task.Delay(1); // This delay is needed otherwise it doesn't work
-			FrooxEngineInit.Init();
-			Log!.LogInfo("Messenger initialized.");
+			Init();
 		}
 	}
 
