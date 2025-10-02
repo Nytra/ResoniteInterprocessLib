@@ -3,8 +3,6 @@ using Renderite.Unity;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("InterprocessLib.BepInEx")]
-
 namespace InterprocessLib;
 
 internal static class UnityInit
@@ -42,6 +40,21 @@ internal static class UnityInit
 			{
 				throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 			}
+
+			Messenger.OnWarning = (msg) =>
+			{
+				UnityEngine.Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
+			};
+			Messenger.OnFailure = (ex) =>
+			{
+				UnityEngine.Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
+			};
+#if DEBUG
+			Messenger.OnDebug = (msg) => 
+			{
+				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
+			};
+#endif
 
 			Messenger.IsAuthority = false;
 			Messenger.Host = new(Messenger.IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
