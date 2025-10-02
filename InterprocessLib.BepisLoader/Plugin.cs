@@ -64,6 +64,7 @@ internal class Plugin : BasePlugin
 		{
 			await Task.Delay(1); // This delay is needed otherwise it doesn't work
 			Messenger.Init();
+			Log!.LogInfo("Messenger initialized.");
 		}
 	}
 

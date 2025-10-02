@@ -34,6 +34,7 @@ internal class UnityPlugin : BaseUnityPlugin
 #endif
 
 		Messenger.Init();
+		Log!.LogInfo("Messenger initialized.");
 
 		_initialized = true;
 	}

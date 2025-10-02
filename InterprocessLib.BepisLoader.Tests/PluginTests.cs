@@ -1,4 +1,6 @@
-﻿using BepInEx;
+﻿//#define DEBUG
+
+using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
