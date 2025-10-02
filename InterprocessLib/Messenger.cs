@@ -70,11 +70,11 @@ public partial class Messenger
 		_host!.RegisterOwner(_ownerId);
 		if (_additionalObjectTypes is not null)
 		{
-			TypeManager.InitObjectTypeList(_additionalObjectTypes);
+			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
 		}
 		if (_additionalValueTypes is not null)
 		{
-			TypeManager.InitValueTypeList(_additionalValueTypes);
+			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
 	}
 

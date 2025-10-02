@@ -7,7 +7,7 @@ using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
-#if USE_TESTS
+#if DEBUG
 
 [BepInExResoniteShim.ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
@@ -17,6 +17,7 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? RunTestsToggle;
 	public static Messenger? _messenger;
 	public static Messenger? _unknownMessenger;
+	public static Messenger? _another;
 	public static ConfigEntry<int>? SyncTest;
 	public static ConfigEntry<bool>? CheckSyncToggle;
 	public static ConfigEntry<int>? SyncTestOutput;
@@ -41,7 +42,8 @@ public class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct)]);
+		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+		_another = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
 
 		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);

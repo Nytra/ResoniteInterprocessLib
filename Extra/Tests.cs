@@ -1,5 +1,4 @@
 //#define TEST_COMPILATION
-#define USE_TESTS
 
 using Renderite.Shared;
 using System.Reflection;
@@ -34,6 +33,8 @@ public static class Tests
 		TestStringList();
 		TestObjectList();
 		TestVanillaObject();
+		TestVanillaStruct();
+		TestVanillaEnum();
 
 		try
 		{
@@ -67,6 +68,51 @@ public static class Tests
 		{
 			logCallback($"TestUnregisteredVanillaObject threw an exception: {ex.Message}");
 		}
+		try
+		{
+			TestUnregisteredVanillaValue();
+		}
+		catch (Exception ex)
+		{
+			logCallback($"TestUnregisteredVanillaValue threw an exception: {ex.Message}");
+		}
+	}
+
+	static void TestVanillaStruct()
+	{
+		_messenger!.ReceiveValue<HapticPointState>("TestVanillaStruct", (val) =>
+		{
+			_logCallback!($"TestVanillaStruct: {val.force} {val.temperature} {val.pain} {val.vibration}");
+
+		});
+		var val = new HapticPointState();
+		val.force = 8;
+		val.temperature = 4;
+		val.pain = 25;
+		val.vibration = 12;
+		_messenger.SendValue<HapticPointState>("TestVanillaStruct", val);
+	}
+
+	static void TestVanillaEnum()
+	{
+		_messenger!.ReceiveValue<ShadowType>("TestVanillaEnum", (val) =>
+		{
+			_logCallback!($"TestVanillaEnum: {val}");
+
+		});
+		var val = ShadowType.Soft;
+		_messenger.SendValue<ShadowType>("TestVanillaEnum", val);
+	}
+
+	static void TestUnregisteredVanillaValue()
+	{
+		_messenger!.ReceiveValue<Chirality>("TestUnregisteredVanillaValue", (val) =>
+		{
+			_logCallback!($"TestUnregisteredVanillaValue: {val}");
+
+		});
+		var val = Chirality.Right;
+		_messenger.SendValue<Chirality>("TestUnregisteredVanillaValue", val);
 	}
 
 	static void TestUnknownMessenger()

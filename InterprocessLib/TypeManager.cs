@@ -79,10 +79,20 @@ internal static class TypeManager
 		return _registeredValueTypes.Contains(typeof(T));
 	}
 
+	internal static bool IsValueTypeInitialized(Type t)
+	{
+		return _registeredValueTypes.Contains(t);
+	}
+
 	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 		return _registeredObjectTypes.Contains(type);
+	}
+
+	internal static bool IsObjectTypeInitialized(Type t)
+	{
+		return _registeredObjectTypes.Contains(t);
 	}
 
 	internal static void RegisterAdditionalValueType<T>() where T : unmanaged
