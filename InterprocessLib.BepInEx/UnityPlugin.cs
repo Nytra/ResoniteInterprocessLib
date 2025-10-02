@@ -4,7 +4,7 @@ using Renderite.Unity;
 
 namespace InterprocessLib;
 
-[BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.0")]
+[BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.1")]
 internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
@@ -21,6 +21,10 @@ internal class UnityPlugin : BaseUnityPlugin
 		if (_initialized) return;
 
 		if (RenderingManager.Instance is null) return;
+
+		// Sometimes it's bad to initialize too early
+		// Main engine sends MessengerReadyCommand at FrameIndex = 120, so it needs to be before then
+		if (RenderingManager.Instance.LastFrameIndex < 60) return;
 
 		Messenger.OnWarning = WarnHandler;
 		Messenger.OnFailure = FailHandler;

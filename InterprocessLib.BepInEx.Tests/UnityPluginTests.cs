@@ -7,7 +7,7 @@ namespace InterprocessLib.Tests;
 
 #if DEBUG
 
-[BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.0")]
+[BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.1")]
 public class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
