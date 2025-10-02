@@ -19,7 +19,6 @@
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-	<PluginTargetDir>$(GamePath)rml_mods</PluginTargetDir>
   </PropertyGroup>
   
   <ItemGroup Condition="!Exists('$(GamePath)')">
@@ -61,10 +60,10 @@
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
     
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

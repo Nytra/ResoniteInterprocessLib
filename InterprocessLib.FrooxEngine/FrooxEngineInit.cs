@@ -8,17 +8,15 @@ using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
-public partial class Messenger
+public static class FrooxEngineInit
 {
-	private const bool IsFrooxEngine = true;
-
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
 	}
-
-	internal static void Init()
+	public static void Init()
 	{
-		if (IsInitialized) return;
+		if (Messenger.Host is not null)
+			throw new InvalidOperationException("Messenger has already been initialized!");
 
 		if (Engine.Current?.RenderSystem is null)
 			throw new InvalidOperationException("Messenger is not ready to be used yet!");
@@ -28,6 +26,8 @@ public partial class Messenger
 		if (renderSystemMessagingHost is null)
 			throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
-		_host = new MessagingHost(IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, OnFailure, OnWarning, OnDebug);
+		Messenger.IsAuthority = true;
+		Messenger.Host = new MessagingHost(Messenger.IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+		Messenger.FinishInitialization();
 	}
 }

@@ -17,6 +17,8 @@ internal static class TypeManager
 
 	internal static List<Type> NewTypes = new();
 
+	private static List<Type> RegisteredTypesList => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+
 	private static Type[] _valueTypes =
 	{
 		typeof(bool),
@@ -35,11 +37,6 @@ internal static class TypeManager
 		typeof(DateTime),
 		typeof(TimeSpan)
 	};
-
-	static TypeManager()
-	{
-		InitializeCoreTypes();
-	}
 
 	internal static void InitializeCoreTypes()
 	{
@@ -63,6 +60,21 @@ internal static class TypeManager
 		}
 
 		_initializedCoreTypes = true;
+	}
+
+	private static void PushNewTypes()
+	{
+		// Trigger RendererCommand static constructor
+		var cmd = new EmptyCommand();
+
+		var list = new List<Type>();
+		list.AddRange(RegisteredTypesList);
+		foreach (var type in TypeManager.NewTypes)
+		{
+			if (!list.Contains(type))
+				list.Add(type);
+		}
+		IdentifiableCommand.InitNewTypes(list);
 	}
 
 	internal static void InitValueTypeList(List<Type> types)
@@ -93,8 +105,7 @@ internal static class TypeManager
 
 	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
-		var type = typeof(T);
-		return _registeredObjectTypes.Contains(type);
+		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
 	internal static bool IsObjectTypeInitialized(Type t)
@@ -121,6 +132,8 @@ internal static class TypeManager
 		NewTypes.AddRange([valueCommandType, valueListCommandType, valueHashSetCommandType]);
 
 		_registeredValueTypes.Add(type);
+
+		PushNewTypes();
 	}
 
 	internal static void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
@@ -145,5 +158,7 @@ internal static class TypeManager
 		NewTypes.AddRange([objectCommandType, objectListCommandType]);
 
 		_registeredObjectTypes.Add(type);
+
+		PushNewTypes();
 	}
 }

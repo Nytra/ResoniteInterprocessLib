@@ -33,5 +33,6 @@
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
 	<Compile Include="../InterprocessLib/*.cs" />
+	<Compile Include="../Extra/Tests.cs" />
   </ItemGroup>
 </Project>

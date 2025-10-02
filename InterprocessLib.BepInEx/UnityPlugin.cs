@@ -1,7 +1,5 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
-using HarmonyLib;
-using Renderite.Shared;
 using Renderite.Unity;
 
 namespace InterprocessLib;
@@ -10,19 +8,18 @@ namespace InterprocessLib;
 internal class UnityPlugin : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
-	private static bool _initialized;
 
 	void Awake()
 	{
 		Log = base.Logger;
-		var harmony = new Harmony("Nytra.InterprocessLib.BepInEx");
-		harmony.PatchAll();
+		//var harmony = new Harmony("Nytra.InterprocessLib.BepInEx");
+		//harmony.PatchAll();
 		Update();
 	}
 
 	void Update()
 	{
-		if (_initialized) return;
+		if (Messenger.Host is not null) return;
 
 		if (RenderingManager.Instance is null) return;
 
@@ -33,10 +30,8 @@ internal class UnityPlugin : BaseUnityPlugin
 		Messenger.OnDebug = DebugHandler;
 #endif
 
-		Messenger.Init();
+		UnityInit.Init();
 		Log!.LogInfo("Messenger initialized.");
-
-		_initialized = true;
 	}
 
 	private static void FailHandler(Exception ex)
@@ -55,16 +50,16 @@ internal class UnityPlugin : BaseUnityPlugin
 	}
 }
 
-[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
-class TypesPatch
-{
-	static bool Prefix(ref List<Type> types)
-	{
-		foreach (var type in TypeManager.NewTypes)
-		{
-			if (!types.Contains(type)) 
-				types.Add(type);
-		}
-		return true;
-	}
-}
+//[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
+//class TypesPatch
+//{
+//	static bool Prefix(ref List<Type> types)
+//	{
+//		foreach (var type in TypeManager.NewTypes)
+//		{
+//			if (!types.Contains(type)) 
+//				types.Add(type);
+//		}
+//		return true;
+//	}
+//}

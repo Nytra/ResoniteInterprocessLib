@@ -7,22 +7,22 @@ using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
-public partial class Messenger
+public static class UnityInit
 {
-	private const bool IsFrooxEngine = false;
-
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
-		if (IsInitialized) return;
+		if (Messenger.IsInitialized) return;
 
 		if (command is MessengerReadyCommand)
 		{
-			FinishInitialization();
+			Messenger.FinishInitialization();
 		}
 	}
-
-	internal static void Init()
+	public static void Init()
 	{
+		if (Messenger.Host is not null)
+			throw new InvalidOperationException("Messenger has already been initialized!");
+
 		if (RenderingManager.Instance is null)
 			throw new InvalidOperationException("Messenger is not ready to be used yet!");
 
@@ -35,6 +35,7 @@ public partial class Messenger
 			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
 		}
 
-		_host = new(IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, OnFailure, OnWarning, OnDebug);
+		Messenger.IsAuthority = false;
+		Messenger.Host = new(Messenger.IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 	}
 }

@@ -37,19 +37,20 @@ internal class Plugin : BasePlugin
 			}
 		};
 
-		HarmonyInstance.PatchAll();
+		//HarmonyInstance.PatchAll();
 
-		Task.Run(PreInitLoop);
-
-		Messenger.OnFailure = FailHandler;
-		Messenger.OnWarning = WarnHandler;
-
-		//Messenger.OnDebug = DebugHandler;
-
-		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
+		if (Messenger.Host is null)
 		{
-			Messenger.FinishInitialization();
-		};
+			Messenger.OnFailure = FailHandler;
+			Messenger.OnWarning = WarnHandler;
+			//Messenger.OnDebug = DebugHandler;
+			Task.Run(PreInitLoop);
+		}
+
+		//BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
+		//{
+		//	Messenger.FinishInitialization();
+		//};
 	}
 
 	private static async void PreInitLoop()
@@ -63,7 +64,7 @@ internal class Plugin : BasePlugin
 		else
 		{
 			await Task.Delay(1); // This delay is needed otherwise it doesn't work
-			Messenger.Init();
+			FrooxEngineInit.Init();
 			Log!.LogInfo("Messenger initialized.");
 		}
 	}
@@ -84,15 +85,15 @@ internal class Plugin : BasePlugin
 	}
 }
 
-[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
-class TypesPatch
-{
-	static bool Prefix(ref List<Type> types)
-	{
-		foreach(var type in TypeManager.NewTypes)
-		{
-			types.AddUnique(type);
-		}
-		return true;
-	}
-}
+//[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
+//class TypesPatch
+//{
+//	static bool Prefix(ref List<Type> types)
+//	{
+//		foreach(var type in TypeManager.NewTypes)
+//		{
+//			types.AddUnique(type);
+//		}
+//		return true;
+//	}
+//}

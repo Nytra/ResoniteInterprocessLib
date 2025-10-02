@@ -51,7 +51,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-	<Compile Include="../Extra/Tests.cs" />
 	<Reference Include="InterprocessLib.FrooxEngine">
 	  <HintPath>..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll</HintPath>
 	</Reference>
@@ -65,10 +64,10 @@
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
     
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_mods" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

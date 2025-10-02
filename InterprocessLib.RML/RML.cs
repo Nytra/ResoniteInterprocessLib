@@ -1,8 +1,4 @@
-﻿using Elements.Core;
-using FrooxEngine;
-using Renderite.Shared;
-using ResoniteModLoader;
-using System.Reflection;
+﻿using ResoniteModLoader;
 
 namespace InterprocessLib;
 
@@ -16,50 +12,17 @@ internal class RML_Mod : ResoniteMod
 
 	public override string Link => "https://github.com/Nytra/ResoniteInterprocessLib";
 
-	private static List<Type> CoreTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
-
 	public override void OnEngineInit()
 	{
-		//var harmony = new Harmony("owo.Nytra.InterprocessLib");
-		//harmony.PatchAll();
-
-		Messenger.OnFailure = FailHandler;
-		Messenger.OnWarning = WarnHandler;
-		//Messenger.OnDebug = DebugHandler;
-
-		if (Messenger.IsInitialized)
-			throw new Exception("Already initialized!");
-
-		//Task.Run(PreInitLoop);
-		Engine.Current.RunPostInit(() => 
+		if (Messenger.Host is null)
 		{
-			Messenger.Init();
-			var list = new List<Type>();
-			list.AddRange(CoreTypes);
-			foreach (var type in TypeManager.NewTypes)
-			{
-				list.AddUnique(type);
-			}
-			IdentifiableCommand.InitNewTypes(list);
+			Messenger.OnFailure = FailHandler;
+			Messenger.OnWarning = WarnHandler;
+			//Messenger.OnDebug = DebugHandler;
+			FrooxEngineInit.Init();
 			Msg("Messenger initialized.");
-			Messenger.FinishInitialization();
-		});
+		}
 	}
-
-	//private static async void PreInitLoop()
-	//{
-	//	var renderSystem = Engine.Current?.RenderSystem;
-	//	if (renderSystem is null)
-	//	{
-	//		await Task.Delay(1);
-	//		PreInitLoop();
-	//	}
-	//	else
-	//	{
-	//		await Task.Delay(1); // This delay is needed otherwise it doesn't work
-			
-	//	}
-	//}
 
 	private static void FailHandler(Exception ex)
 	{
@@ -81,7 +44,7 @@ public static class RML_Extensions
 {
 	private static Dictionary<ModConfigurationKey, bool> _syncStates = new();
 
-	public static void SyncConfigEntry<T>(this Messenger? messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
+	public static void SyncConfigEntry<T>(this Messenger messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
 	{
 		_syncStates[configEntry] = true;
 		if (Messenger.IsAuthority)
@@ -94,7 +57,7 @@ public static class RML_Extensions
 		messenger.ReceiveConfigEntry<T>(configEntry);
 	}
 
-	public static void SyncConfigEntry(this Messenger? messenger, ModConfigurationKey<string> configEntry)
+	public static void SyncConfigEntry(this Messenger messenger, ModConfigurationKey<string> configEntry)
 	{
 		_syncStates[configEntry] = true;
 		if (Messenger.IsAuthority)
@@ -107,17 +70,17 @@ public static class RML_Extensions
 		messenger.ReceiveConfigEntry(configEntry);
 	}
 
-	public static void SendConfigEntry<T>(this Messenger? messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
+	public static void SendConfigEntry<T>(this Messenger messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
 	{
 		messenger.SendValue(configEntry.Name, configEntry.Value);
 	}
 
-	public static void SendConfigEntry(this Messenger? messenger, ModConfigurationKey<string> configEntry)
+	public static void SendConfigEntry(this Messenger messenger, ModConfigurationKey<string> configEntry)
 	{
-		messenger.SendString(configEntry.Name, configEntry.Value);
+		messenger.SendString(configEntry.Name, configEntry.Value!);
 	}
 
-	public static void ReceiveConfigEntry<T>(this Messenger? messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
+	public static void ReceiveConfigEntry<T>(this Messenger messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
 	{
 		messenger.ReceiveValue<T>(configEntry.Name, (val) =>
 		{
@@ -127,7 +90,7 @@ public static class RML_Extensions
 		});
 	}
 
-	public static void ReceiveConfigEntry(this Messenger? messenger, ModConfigurationKey<string> configEntry)
+	public static void ReceiveConfigEntry(this Messenger messenger, ModConfigurationKey<string> configEntry)
 	{
 		messenger.ReceiveString(configEntry.Name, (str) =>
 		{

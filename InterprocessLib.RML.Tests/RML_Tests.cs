@@ -18,6 +18,8 @@ internal class RML_Tests : ResoniteMod
 	public override string Link => "https://github.com/Nytra/ResoniteInterprocessLib";
 
 	[AutoRegisterConfigKey]
+	private static ModConfigurationKey<bool> RunTestsToggle = new ModConfigurationKey<bool>("RunTestsToggle", "RunTestsToggle:", () => false);
+	[AutoRegisterConfigKey]
 	private static ModConfigurationKey<int> SyncTest = new ModConfigurationKey<int>("SyncTest", "CheckSyncToggle:", () => 0);
 	[AutoRegisterConfigKey]
 	private static ModConfigurationKey<bool> CheckSyncToggle = new ModConfigurationKey<bool>("CheckSyncToggle", "SyncTestOutput:", () => false);
@@ -25,8 +27,7 @@ internal class RML_Tests : ResoniteMod
 	private static ModConfigurationKey<int> SyncTestOutput = new ModConfigurationKey<int>("SyncTestOutput", "SyncTestOutput:", () => 0);
 	[AutoRegisterConfigKey]
 	private static ModConfigurationKey<bool> ResetToggle = new ModConfigurationKey<bool>("ResetToggle", "ResetToggle:", () => false);
-	[AutoRegisterConfigKey]
-	private static ModConfigurationKey<bool> RunTestsToggle = new ModConfigurationKey<bool>("RunTestsToggle", "RunTestsToggle:", () => false);
+	
 
 	public static Messenger? _messenger;
 	public static Messenger? _unknownMessenger;
