@@ -5,7 +5,7 @@ using Renderite.Unity;
 namespace InterprocessLib;
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx", "InterprocessLib.BepInEx", "1.0.1")]
-internal class UnityBootstrap : BaseUnityPlugin
+internal class BepInExBootstrap : BaseUnityPlugin
 {
 	public static ManualLogSource? Log;
 
