@@ -5,8 +5,6 @@ using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
-#if TESTS || DEBUG
-
 [BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.1")]
 public class UnityPlugin : BaseUnityPlugin
 {
@@ -19,6 +17,7 @@ public class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
+		Log.LogInfo("Hello!");
 		_messenger = new("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_anotherOne = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new("InterprocessLib.Tests.UnknownMessengerUnity");
@@ -39,5 +38,3 @@ public class UnityPlugin : BaseUnityPlugin
 		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
 	}
 }
-
-#endif

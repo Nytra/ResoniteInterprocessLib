@@ -54,8 +54,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-	<Reference Include="InterprocessLib.BepisLoader">
-      <HintPath>..\InterprocessLib.BepisLoader\bin\Release\InterprocessLib.BepisLoader.dll</HintPath>
+	<Reference Include="InterprocessLib.BepisLoader_Extensions">
+      <HintPath>..\InterprocessLib.BepisLoader_Extensions\bin\Release\InterprocessLib.BepisLoader_Extensions.dll</HintPath>
     </Reference>
 	<Reference Include="InterprocessLib.FrooxEngine">
 	  <HintPath>..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll</HintPath>
@@ -71,6 +71,9 @@
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
 	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	
+	<Copy SourceFiles="..\InterprocessLib.BepisLoader_Extensions\bin\Release\InterprocessLib.BepisLoader_Extensions.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

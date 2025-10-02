@@ -6,20 +6,17 @@
     <TargetFramework>net9.0</TargetFramework>
 	<Langversion>13</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.BepisLoader</PackageId>
-    <Product>InterprocessLib.BepisLoader</Product>
+    <PackageId>Nytra.InterprocessLib.BepisLoader_Extensions</PackageId>
+    <Product>InterprocessLib.BepisLoader_Extensions</Product>
     <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <CopyToPlugins>true</CopyToPlugins>
-    <ThunderstorePackable>true</ThunderstorePackable>
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-    <PluginTargetDir>$(GamePath)BepInEx\plugins\$(AssemblyName)</PluginTargetDir>
     <RestoreAdditionalProjectSources>
       https://nuget-modding.resonite.net/v3/index.json;
     </RestoreAdditionalProjectSources>
@@ -29,8 +26,6 @@
   <!-- Modding dependencies -->
   <ItemGroup>
     <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
-    <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" />
-    <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
   </ItemGroup>
   
   <ItemGroup Condition="!Exists('$(GamePath)')">
@@ -58,23 +53,9 @@
   </ItemGroup>
   
   <ItemGroup>
-    <Reference Include="BepisResoniteWrapper">
-      <HintPath>$(GamePath)BepInEx\plugins\ResoniteModding-BepisResoniteWrapper\BepisResoniteWrapper\BepisResoniteWrapper.dll</HintPath>
-    </Reference>
     <Reference Include="InterprocessLib.FrooxEngine">
       <HintPath>..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
 
-  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <ItemGroup>
-      <PluginFiles Include="$(TargetPath)" />
-    </ItemGroup>
-    
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
-	
-	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
-  </Target>
 </Project>

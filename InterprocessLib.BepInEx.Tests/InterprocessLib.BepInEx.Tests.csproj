@@ -30,8 +30,8 @@
     <Reference Include="BepInEx">
       <HintPath>$(GamePath)Renderer\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
-    <Reference Include="InterprocessLib.BepInEx">
-      <HintPath>..\InterprocessLib.BepInEx\bin\Release\InterprocessLib.BepInEx.dll</HintPath>
+    <Reference Include="InterprocessLib.BepInEx_Extensions">
+      <HintPath>..\InterprocessLib.BepInEx_Extensions\bin\Release\InterprocessLib.BepInEx_Extensions.dll</HintPath>
     </Reference>
     <Reference Include="InterprocessLib.Unity">
       <HintPath>..\InterprocessLib.Unity\bin\Release\InterprocessLib.Unity.dll</HintPath>
@@ -59,6 +59,9 @@
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
 	<Copy SourceFiles="..\InterprocessLib.Unity\bin\Release\InterprocessLib.Unity.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	
+	<Copy SourceFiles="..\InterprocessLib.BepInEx_Extensions\bin\Release\InterprocessLib.BepInEx_Extensions.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

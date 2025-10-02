@@ -2,46 +2,6 @@
 
 namespace InterprocessLib;
 
-//internal class RML_Bootstrap : ResoniteMod
-//{
-//	public override string Name => "InterprocessLib.RML";
-
-//	public override string Author => "Nytra";
-
-//	public override string Version => "1.0.1";
-
-//	public override string Link => "https://github.com/Nytra/ResoniteInterprocessLib";
-
-//	public override void OnEngineInit()
-//	{
-//		if (Messenger.Host is null)
-//		{
-//			Messenger.OnFailure = FailHandler;
-//			Messenger.OnWarning = WarnHandler;
-//#if DEBUG
-//			Messenger.OnDebug = DebugHandler;
-//#endif
-//			FrooxEngineInit.Init();
-//			Msg("Messenger initialized.");
-//		}
-//	}
-
-//	private static void FailHandler(Exception ex)
-//	{
-//		Error("Exception in InterprocessLib messaging host:\n" + ex.ToString());
-//	}
-
-//	private static void WarnHandler(string msg)
-//	{
-//		Warn(msg);
-//	}
-
-//	private static void DebugHandler(string msg)
-//	{
-//		Debug(msg);
-//	}
-//}
-
 public static class RML_Extensions
 {
 	private static Dictionary<ModConfigurationKey, bool> _syncStates = new();
