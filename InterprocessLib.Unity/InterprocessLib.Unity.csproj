@@ -36,4 +36,13 @@
 	<Compile Include="../InterprocessLib/*.cs" />
 	<Compile Include="../Extra/Tests.cs" />
   </ItemGroup>
+  
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <ItemGroup>
+      <PluginFiles Include="$(TargetPath)" />
+    </ItemGroup>
+	
+	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
+    <Message Text="Copied files to out dir" Importance="high" />
+  </Target>
 </Project>

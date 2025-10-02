@@ -31,10 +31,10 @@
       <HintPath>$(GamePath)Renderer\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
     <Reference Include="InterprocessLib.BepInEx_Extensions">
-      <HintPath>..\InterprocessLib.BepInEx_Extensions\bin\Release\InterprocessLib.BepInEx_Extensions.dll</HintPath>
+      <HintPath>..\out\InterprocessLib.BepInEx_Extensions.dll</HintPath>
     </Reference>
     <Reference Include="InterprocessLib.Unity">
-      <HintPath>..\InterprocessLib.Unity\bin\Release\InterprocessLib.Unity.dll</HintPath>
+      <HintPath>..\out\InterprocessLib.Unity.dll</HintPath>
     </Reference>
     <Reference Include="Renderite.Unity">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Unity.dll</HintPath>
@@ -55,13 +55,16 @@
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
     
+	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to out dir" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\InterprocessLib.Unity\bin\Release\InterprocessLib.Unity.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\out\InterprocessLib.Unity.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\InterprocessLib.BepInEx_Extensions\bin\Release\InterprocessLib.BepInEx_Extensions.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\out\InterprocessLib.BepInEx_Extensions.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

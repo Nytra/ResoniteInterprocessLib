@@ -52,7 +52,7 @@ internal static class UnityInit
 #if DEBUG
 			Messenger.OnDebug = (msg) => 
 			{
-				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
+				UnityEngine.Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
 			};
 #endif
 

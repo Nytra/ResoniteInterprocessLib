@@ -54,8 +54,17 @@
   
   <ItemGroup>
     <Reference Include="InterprocessLib.FrooxEngine">
-      <HintPath>..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll</HintPath>
+      <HintPath>..\out\InterprocessLib.FrooxEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
+  
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <ItemGroup>
+      <PluginFiles Include="$(TargetPath)" />
+    </ItemGroup>
+	
+	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
+    <Message Text="Copied files to out dir" Importance="high" />
+  </Target>
 
 </Project>
