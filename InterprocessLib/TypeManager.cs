@@ -15,7 +15,7 @@ internal static class TypeManager
 
 	internal static MethodInfo? RegisterObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	internal static List<Type> CoreTypesList => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+	internal static List<Type> NewTypes = new();
 
 	private static Type[] _valueTypes =
 	{
@@ -35,6 +35,11 @@ internal static class TypeManager
 		typeof(DateTime),
 		typeof(TimeSpan)
 	};
+
+	static TypeManager()
+	{
+		InitializeCoreTypes();
+	}
 
 	internal static void InitializeCoreTypes()
 	{
@@ -56,6 +61,8 @@ internal static class TypeManager
 				Messenger.OnWarning?.Invoke($"Could not register additional value type {valueType.Name}!\n{ex}");
 			}
 		}
+
+		_initializedCoreTypes = true;
 	}
 
 	internal static void InitValueTypeList(List<Type> types)
@@ -111,7 +118,7 @@ internal static class TypeManager
 
 		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
-		IdentifiableCommand.InitNewTypes([valueCommandType, valueListCommandType, valueHashSetCommandType]);
+		NewTypes.AddRange([valueCommandType, valueListCommandType, valueHashSetCommandType]);
 
 		_registeredValueTypes.Add(type);
 	}
@@ -126,16 +133,16 @@ internal static class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)) && !CoreTypesList.Contains(type))
+		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
 		{
-			IdentifiableCommand.InitNewTypes([type]);
+			NewTypes.Add(type);
 		}
 
 		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
 
 		var objectListCommandType = typeof(ObjectListCommand<>).MakeGenericType(type);
 
-		IdentifiableCommand.InitNewTypes([objectCommandType, objectListCommandType]);
+		NewTypes.AddRange([objectCommandType, objectListCommandType]);
 
 		_registeredObjectTypes.Add(type);
 	}

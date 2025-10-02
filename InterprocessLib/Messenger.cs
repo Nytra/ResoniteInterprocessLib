@@ -59,6 +59,15 @@ public partial class Messenger
 
 		_additionalValueTypes = additionalValueTypes;
 
+		if (_additionalObjectTypes is not null)
+		{
+			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
+		}
+		if (_additionalValueTypes is not null)
+		{
+			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
+		}
+
 		if (IsInitialized)
 			Register();
 		else
@@ -68,17 +77,9 @@ public partial class Messenger
 	private void Register()
 	{
 		_host!.RegisterOwner(_ownerId);
-		if (_additionalObjectTypes is not null)
-		{
-			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
-		}
-		if (_additionalValueTypes is not null)
-		{
-			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
-		}
 	}
 
-	private static void FinishInitialization()
+	internal static void FinishInitialization()
 	{
 		if (IsAuthority)
 			_host!.SendCommand(new MessengerReadyCommand());

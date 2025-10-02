@@ -1,5 +1,7 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
+using HarmonyLib;
+using Renderite.Shared;
 using Renderite.Unity;
 
 namespace InterprocessLib;
@@ -13,6 +15,8 @@ internal class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
+		var harmony = new Harmony("Nytra.InterprocessLib.BepInEx");
+		harmony.PatchAll();
 		Update();
 	}
 
@@ -21,10 +25,6 @@ internal class UnityPlugin : BaseUnityPlugin
 		if (_initialized) return;
 
 		if (RenderingManager.Instance is null) return;
-
-		// Sometimes it's bad to initialize too early
-		// Main engine sends MessengerReadyCommand at FrameIndex = 120, so it needs to be before then
-		if (RenderingManager.Instance.LastFrameIndex < 60) return;
 
 		Messenger.OnWarning = WarnHandler;
 		Messenger.OnFailure = FailHandler;
@@ -51,5 +51,19 @@ internal class UnityPlugin : BaseUnityPlugin
 	private static void DebugHandler(string msg)
 	{
 		Log!.LogDebug(msg);
+	}
+}
+
+[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
+class TypesPatch
+{
+	static bool Prefix(ref List<Type> types)
+	{
+		foreach (var type in TypeManager.NewTypes)
+		{
+			if (!types.Contains(type)) 
+				types.Add(type);
+		}
+		return true;
 	}
 }

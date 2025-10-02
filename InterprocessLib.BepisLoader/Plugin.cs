@@ -4,6 +4,8 @@ using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
 using FrooxEngine;
+using HarmonyLib;
+using Renderite.Shared;
 
 namespace InterprocessLib;
 
@@ -35,6 +37,10 @@ internal class Plugin : BasePlugin
 			}
 		};
 
+		HarmonyInstance.PatchAll();
+
+		Task.Run(PreInitLoop);
+
 		Messenger.OnFailure = FailHandler;
 		Messenger.OnWarning = WarnHandler;
 
@@ -42,21 +48,21 @@ internal class Plugin : BasePlugin
 
 		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => 
 		{
-			InitLoop();
+			Messenger.FinishInitialization();
 		};
 	}
 
-	// Sometimes OnEngineReady is too early to initialize
-	// FrameIndex = 120 is when the loading bar disappears
-	private static void InitLoop()
+	private static async void PreInitLoop()
 	{
 		var renderSystem = Engine.Current?.RenderSystem;
-		if (renderSystem is null || (renderSystem.HasRenderer && renderSystem.FrameIndex < 120))
+		if (renderSystem is null)
 		{
-			Engine.Current!.GlobalCoroutineManager.RunInUpdates(1, InitLoop);
+			await Task.Delay(1);
+			PreInitLoop();
 		}
 		else
 		{
+			await Task.Delay(1); // This delay is needed otherwise it doesn't work
 			Messenger.Init();
 		}
 	}
@@ -74,5 +80,18 @@ internal class Plugin : BasePlugin
 	private static void DebugHandler(string msg)
 	{
 		Log!.LogInfo(msg);
+	}
+}
+
+[HarmonyPatch(typeof(PolymorphicMemoryPackableEntity<RendererCommand>), "InitTypes")]
+class TypesPatch
+{
+	static bool Prefix(ref List<Type> types)
+	{
+		foreach(var type in TypeManager.NewTypes)
+		{
+			types.AddUnique(type);
+		}
+		return true;
 	}
 }

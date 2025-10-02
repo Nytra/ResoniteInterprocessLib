@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-public class MessagingHost
+internal class MessagingHost
 {
 	private struct OwnerData
 	{
@@ -93,6 +93,11 @@ public class MessagingHost
 		_ownerData[owner].ObjectListCallbacks[id] = callback;
 	}
 
+	static MessagingHost()
+	{
+		TypeManager.InitializeCoreTypes();
+	}
+
 	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler, Action<Exception>? failhandler, Action<string>? warnHandler, Action<string>? debugHandler)
 	{
 		IsAuthority = isAuthority;
@@ -103,8 +108,6 @@ public class MessagingHost
 		OnWarning = warnHandler;
 		OnFailure = failhandler;
 		OnCommandReceived = commandHandler;
-
-		TypeManager.InitializeCoreTypes();
 
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
