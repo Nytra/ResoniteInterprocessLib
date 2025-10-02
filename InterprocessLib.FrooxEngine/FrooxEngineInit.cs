@@ -26,24 +26,22 @@ internal static class FrooxEngineInit
 		}
 		else
 		{
-			//await Task.Delay(100);
-
 			var renderSystemMessagingHost = (RenderiteMessagingHost?)typeof(RenderSystem).GetField("_messagingHost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Engine.Current!.RenderSystem);
 			if (renderSystemMessagingHost is null)
 				throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
 			Messenger.OnWarning = (msg) => 
 			{
-				UniLog.Warning($"[InterprocessLib] {msg}");
+				UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
 			};
 			Messenger.OnFailure = (ex) => 
 			{ 
-				UniLog.Error($"[InterprocessLib] Error in InterprocessLib Messaging Host!\n{ex}");
+				UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
 			};
 			#if DEBUG
 			Messenger.OnDebug = (msg) => 
 			{
-				UniLog.Log($"[InterprocessLib][DEBUG] {msg}");
+				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
 			};
 			#endif
 			Messenger.IsAuthority = true;
