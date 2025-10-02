@@ -17,7 +17,6 @@ public class UnityPlugin : BaseUnityPlugin
 	void Awake()
 	{
 		Log = base.Logger;
-		Log.LogInfo("Hello!");
 		_messenger = new("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_anotherOne = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new("InterprocessLib.Tests.UnknownMessengerUnity");
