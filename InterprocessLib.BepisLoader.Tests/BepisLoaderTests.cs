@@ -1,6 +1,4 @@
-﻿//#define DEBUG
-
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
@@ -8,8 +6,6 @@ using Elements.Core;
 using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
-
-#if DEBUG
 
 [BepInExResoniteShim.ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
@@ -43,7 +39,6 @@ public class Plugin : BasePlugin
 					break;
 			}
 		};
-
 		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_another = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
@@ -76,5 +71,3 @@ public class Plugin : BasePlugin
 		});
 	}
 }
-
-#endif

@@ -6,8 +6,8 @@
     <TargetFramework>net9.0</TargetFramework>
 	<Langversion>13</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.BepisLoader.Tests</PackageId>
-    <Product>InterprocessLib.BepisLoader.Tests</Product>
+    <PackageId>Nytra.InterprocessLib.RML.Tests</PackageId>
+    <Product>InterprocessLib.RML.Tests</Product>
     <RootNamespace>InterprocessLib.Tests</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -19,19 +19,9 @@
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-    <PluginTargetDir>$(GamePath)BepInEx\plugins\$(AssemblyName)</PluginTargetDir>
-    <RestoreAdditionalProjectSources>
-      https://nuget-modding.resonite.net/v3/index.json;
-    </RestoreAdditionalProjectSources>
-    <Configurations>Debug;Release;Tests</Configurations>
+	<PluginTargetDir>$(GamePath)rml_mods</PluginTargetDir>
+	<Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
-
-  <!-- Modding dependencies -->
-  <ItemGroup>
-    <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
-    <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" />
-    <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
-  </ItemGroup>
   
   <!-- NuGet fallback stripped game references -->
   <ItemGroup Condition="!Exists('$(GamePath)')">
@@ -52,14 +42,22 @@
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
       <Private>False</Private>
     </Reference>
+	<Reference Include="ResoniteModLoader">
+      <HintPath>$(GamePath)Libraries/ResoniteModLoader.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+	<Reference Include="0Harmony">
+      <HintPath>$(GamePath)rml_libs/0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
-	<Reference Include="InterprocessLib.BepisLoader_Extensions">
-	  <HintPath>..\out\InterprocessLib.BepisLoader_Extensions.dll</HintPath>
-	</Reference>
 	<Reference Include="InterprocessLib.FrooxEngine">
 	  <HintPath>..\out\InterprocessLib.FrooxEngine.dll</HintPath>
 	</Reference>
+	<Reference Include="InterprocessLib.RML_Extensions">
+      <HintPath>..\out\InterprocessLib.RML_Extensions.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
@@ -70,13 +68,10 @@
 	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
     <Message Text="Copied plugin files to out dir" Importance="high" />
     
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_mods" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(GamePath)rml_mods" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\out\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied frooxengine lib to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
-	
-	<Copy SourceFiles="..\out\InterprocessLib.BepisLoader_Extensions.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied bepisloader extensions to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\out\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied frooxengine lib to $(GamePath)rml_libs" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

@@ -1,34 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.1</Version>
+    <Version>2.0.0</Version>
     <Authors>Nytra</Authors>
     <TargetFramework>net472</TargetFramework>
 	<LangVersion>12</LangVersion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.BepInEx</PackageId>
-    <Product>InterprocessLib.BepInEx</Product>
+    <PackageId>Nytra.InterprocessLib.Unity</PackageId>
+    <Product>InterprocessLib.Unity</Product>
     <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <CopyToPlugins>true</CopyToPlugins>
-    <ThunderstorePackable>true</ThunderstorePackable>
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-    <PluginTargetDir>$(GamePath)Renderer\BepInEx\plugins\$(AssemblyName)</PluginTargetDir>
+	<Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
   
   <ItemGroup>
-	<Reference Include="0Harmony">
-      <HintPath>$(GamePath)Renderer\BepInEx\core\0Harmony.dll</HintPath>
-    </Reference>
-    <Reference Include="BepInEx">
-      <HintPath>$(GamePath)Renderer\BepInEx\core\BepInEx.dll</HintPath>
-    </Reference>
     <Reference Include="Renderite.Unity">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Unity.dll</HintPath>
     </Reference>
@@ -42,17 +34,15 @@
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
 	<Compile Include="../InterprocessLib/*.cs" />
-	<Compile Include="../Extra/BepInExShared.cs" />
-	<Compile Include="../Extra/UnityInit.cs" />
+	<Compile Include="../Extra/Tests.cs" />
   </ItemGroup>
-
-  <!-- Post-build copy to game plugins folder -->
+  
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
-    
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	
+	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
+    <Message Text="Copied files to out dir" Importance="high" />
   </Target>
 </Project>

@@ -2,49 +2,49 @@ using BepInEx.Configuration;
 
 namespace InterprocessLib;
 
-public partial class Messenger
+public static class BepInExExtensions
 {
-	private Dictionary<ConfigEntryBase, bool> _syncStates = new();
+	private static Dictionary<ConfigEntryBase, bool> _syncStates = new();
 
-	public void SyncConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	public static void SyncConfigEntry<T>(this Messenger messenger, ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		_syncStates[configEntry] = true;
-		if (IsAuthority)
-			SendConfigEntry<T>(configEntry);
+		if (Messenger.IsAuthority)
+			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
-				SendConfigEntry<T>(configEntry);
+				messenger.SendConfigEntry<T>(configEntry);
 		};
-		ReceiveConfigEntry<T>(configEntry);
+		messenger.ReceiveConfigEntry<T>(configEntry);
 	}
 
-	public void SyncConfigEntry(ConfigEntry<string> configEntry)
+	public static void SyncConfigEntry(this Messenger messenger, ConfigEntry<string> configEntry)
 	{
 		_syncStates[configEntry] = true;
-		if (IsAuthority)
-			SendConfigEntry(configEntry);
+		if (Messenger.IsAuthority)
+			messenger.SendConfigEntry(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
-				SendConfigEntry(configEntry);
+				messenger.SendConfigEntry(configEntry);
 		};
-		ReceiveConfigEntry(configEntry);
+		messenger.ReceiveConfigEntry(configEntry);
 	}
 
-	public void SendConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	public static void SendConfigEntry<T>(this Messenger messenger, ConfigEntry<T> configEntry) where T : unmanaged
 	{
-		SendValue(configEntry.Definition.Key, configEntry.Value);
+		messenger.SendValue(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public void SendConfigEntry(ConfigEntry<string> configEntry)
+	public static void SendConfigEntry(this Messenger messenger, ConfigEntry<string> configEntry)
 	{
-		SendString(configEntry.Definition.Key, configEntry.Value);
+		messenger.SendString(configEntry.Definition.Key, configEntry.Value);
 	}
 
-	public void ReceiveConfigEntry<T>(ConfigEntry<T> configEntry) where T : unmanaged
+	public static void ReceiveConfigEntry<T>(this Messenger messenger, ConfigEntry<T> configEntry) where T : unmanaged
 	{
-		ReceiveValue<T>(configEntry.Definition.Key, (val) =>
+		messenger.ReceiveValue<T>(configEntry.Definition.Key, (val) =>
 		{
 			_syncStates[configEntry] = false;
 			configEntry.Value = val;
@@ -52,9 +52,9 @@ public partial class Messenger
 		});
 	}
 
-	public void ReceiveConfigEntry(ConfigEntry<string> configEntry)
+	public static void ReceiveConfigEntry(this Messenger messenger, ConfigEntry<string> configEntry)
 	{
-		ReceiveString(configEntry.Definition.Key, (str) =>
+		messenger.ReceiveString(configEntry.Definition.Key, (str) =>
 		{
 			_syncStates[configEntry] = false;
 			configEntry.Value = str!;

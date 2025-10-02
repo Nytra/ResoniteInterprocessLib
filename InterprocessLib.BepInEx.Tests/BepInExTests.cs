@@ -1,13 +1,9 @@
-﻿//#define DEBUG
-
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
-
-#if DEBUG
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.1")]
 public class UnityPlugin : BaseUnityPlugin
@@ -41,5 +37,3 @@ public class UnityPlugin : BaseUnityPlugin
 		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
 	}
 }
-
-#endif

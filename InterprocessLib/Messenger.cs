@@ -1,29 +1,34 @@
 ﻿using Renderite.Shared;
+using System.Runtime.InteropServices;
 
 namespace InterprocessLib;
 
 /// <summary>
 /// Simple interprocess messaging API.
 /// </summary>
-public partial class Messenger
+public class Messenger
 {
-	private static MessagingHost? _host;
+	internal static MessagingHost? Host;
 
 	/// <summary>
 	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
 	/// </summary>
-	public static bool IsInitialized => _host is not null && _postInitActions is null;
+	public static bool IsInitialized => Host is not null && _postInitActions is null;
 
 	/// <summary>
 	/// Does this process have authority over the other process.
 	/// </summary>
-	public const bool IsAuthority = IsFrooxEngine;
+	public static bool IsAuthority { get; internal set; }
+
+	internal static bool InitStarted = false;
 
 	internal static Action<Exception>? OnFailure;
 
 	internal static Action<string>? OnWarning;
 
+#pragma	warning disable CS0649
 	internal static Action<string>? OnDebug;
+#pragma warning restore
 
 	private static List<Action>? _postInitActions = new();
 
@@ -48,12 +53,7 @@ public partial class Messenger
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
-		if (_registeredOwnerIds.Contains(ownerId))
-			throw new ArgumentException($"Owner \"{ownerId}\" is already registered!");
-
 		_ownerId = ownerId;
-
-		_registeredOwnerIds.Add(ownerId);
 
 		_additionalObjectTypes = additionalObjectTypes;
 
@@ -68,21 +68,53 @@ public partial class Messenger
 			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
 
-		if (IsInitialized)
-			Register();
+		if (!_registeredOwnerIds.Contains(ownerId))
+		{
+			_registeredOwnerIds.Add(ownerId);
+
+			if (IsInitialized)
+				Register();
+			else
+				RunPostInit(Register);
+		}
 		else
-			RunPostInit(Register);
+		{
+			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process!");
+		}
+
+		if (Host is null && !InitStarted)
+		{
+			InitStarted = true;
+
+			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
+			if (frooxEngineInitType is not null)
+			{
+				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+			}
+			else
+			{
+				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
+				if (unityInitType is not null)
+				{
+					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+				}
+				else
+				{
+					throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
+				}
+			}
+		}
 	}
 
 	private void Register()
 	{
-		_host!.RegisterOwner(_ownerId);
+		Host!.RegisterOwner(_ownerId);
 	}
 
 	internal static void FinishInitialization()
 	{
 		if (IsAuthority)
-			_host!.SendCommand(new MessengerReadyCommand());
+			Host!.SendCommand(new MessengerReadyCommand());
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
@@ -127,7 +159,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Value = value;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void SendValueList<T>(string id, List<T> list) where T : unmanaged
@@ -148,7 +180,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void SendValueHashSet<T>(string id, HashSet<T> hashSet) where T : unmanaged
@@ -169,7 +201,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = hashSet;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void SendString(string id, string str)
@@ -187,7 +219,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.String = str;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void SendStringList(string id, List<string> list)
@@ -205,7 +237,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void SendEmptyCommand(string id)
@@ -222,7 +254,7 @@ public partial class Messenger
 		var command = new EmptyCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void SendObject<T>(string id, T? obj) where T : class, IMemoryPackable, new()
@@ -244,7 +276,7 @@ public partial class Messenger
 		wrapper.Owner = _ownerId;
 		wrapper.Id = id;
 
-		_host!.SendCommand(wrapper);
+		Host!.SendCommand(wrapper);
 	}
 
 	public void SendObjectList<T>(string id, List<T> list) where T : class, IMemoryPackable, new()
@@ -265,7 +297,7 @@ public partial class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
-		_host!.SendCommand(command);
+		Host!.SendCommand(command);
 	}
 
 	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
@@ -282,7 +314,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterValueCallback(_ownerId, id, callback);
+		Host!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveValueList<T>(string id, Action<List<T>> callback) where T : unmanaged
@@ -299,7 +331,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
+		Host!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
 
 	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>> callback) where T : unmanaged
@@ -316,7 +348,7 @@ public partial class Messenger
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
+		Host!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
 	public void ReceiveString(string id, Action<string?> callback)
@@ -330,7 +362,7 @@ public partial class Messenger
 			return;
 		}
 
-		_host!.RegisterStringCallback(_ownerId, id, callback);
+		Host!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveStringList(string id, Action<List<string>?>? callback)
@@ -344,7 +376,7 @@ public partial class Messenger
 			return;
 		}
 
-		_host!.RegisterStringListCallback(_ownerId, id, callback);
+		Host!.RegisterStringListCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveEmptyCommand(string id, Action callback)
@@ -358,7 +390,7 @@ public partial class Messenger
 			return;
 		}
 
-		_host!.RegisterEmptyCallback(_ownerId, id, callback);
+		Host!.RegisterEmptyCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
@@ -375,7 +407,7 @@ public partial class Messenger
 		if (!TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterObjectCallback(_ownerId, id, callback);
+		Host!.RegisterObjectCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveObjectList<T>(string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
@@ -392,6 +424,6 @@ public partial class Messenger
 		if (!TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		_host!.RegisterObjectListCallback(_ownerId, id, callback);
+		Host!.RegisterObjectListCallback(_ownerId, id, callback);
 	}
 }
