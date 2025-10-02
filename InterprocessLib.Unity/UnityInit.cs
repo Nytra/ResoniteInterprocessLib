@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
-public static class UnityInit
+internal static class UnityInit
 {
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{

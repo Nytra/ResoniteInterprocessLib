@@ -1,3 +1,4 @@
+using Elements.Core;
 using FrooxEngine;
 using Renderite.Shared;
 using System.Reflection;
@@ -8,7 +9,7 @@ using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
-public static class FrooxEngineInit
+internal static class FrooxEngineInit
 {
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
@@ -47,6 +48,20 @@ public static class FrooxEngineInit
 			if (renderSystemMessagingHost is null)
 				throw new InvalidOperationException("Engine is not configured to use a renderer!");
 
+			Messenger.OnWarning = (msg) => 
+			{
+				UniLog.Warning($"[InterprocessLib] {msg}");
+			};
+			Messenger.OnFailure = (ex) => 
+			{ 
+				UniLog.Error($"[InterprocessLib] Error in InterprocessLib Messaging Host!\n{ex}");
+			};
+			#if DEBUG
+			Messenger.OnDebug = (msg) => 
+			{
+				UniLog.Log($"[InterprocessLib][DEBUG] {msg}");
+			};
+			#endif
 			Messenger.IsAuthority = true;
 			Messenger.Host = new MessagingHost(Messenger.IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			Messenger.FinishInitialization();

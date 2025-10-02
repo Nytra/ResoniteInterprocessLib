@@ -84,14 +84,14 @@ public class Messenger
 			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
 			if (frooxEngineInitType is not null)
 			{
-				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, null);
 			}
 			else
 			{
 				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
 				if (unityInitType is not null)
 				{
-					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, null);
 				}
 				else
 				{
