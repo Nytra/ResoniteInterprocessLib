@@ -26,7 +26,9 @@ public class Messenger
 
 	internal static Action<string>? OnWarning;
 
+#pragma	warning disable CS0649
 	internal static Action<string>? OnDebug;
+#pragma warning restore
 
 	private static List<Action>? _postInitActions = new();
 

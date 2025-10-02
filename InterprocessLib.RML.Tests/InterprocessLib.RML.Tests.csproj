@@ -64,11 +64,14 @@
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
+	
+	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
+    <Message Text="Copied plugin files to out dir" Importance="high" />
     
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_mods" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(GamePath)rml_mods" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
 	<Copy SourceFiles="..\out\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied frooxengine lib to $(GamePath)rml_libs" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

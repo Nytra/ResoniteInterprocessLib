@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.1</Version>
+    <Version>1.0.0</Version>
     <Authors>Nytra</Authors>
     <TargetFramework>net9.0</TargetFramework>
 	<Langversion>13</Langversion>
@@ -60,6 +60,6 @@
     <Message Text="Copied files to out dir" Importance="high" />
     
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(GamePath)rml_libs" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

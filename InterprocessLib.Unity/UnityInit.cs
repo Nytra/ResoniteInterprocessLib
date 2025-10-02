@@ -1,7 +1,6 @@
 using Renderite.Shared;
 using Renderite.Unity;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
