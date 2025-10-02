@@ -20,6 +20,8 @@ public class Messenger
 	/// </summary>
 	public static bool IsAuthority { get; internal set; }
 
+	internal static bool InitStarted = false;
+
 	internal static Action<Exception>? OnFailure;
 
 	internal static Action<string>? OnWarning;
@@ -78,20 +80,21 @@ public class Messenger
 			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process!");
 		}
 
-		if (Host is null)
+		if (Host is null && !InitStarted)
 		{
-			OnWarning?.Invoke($"Environment Version: {Environment.Version}");
+			InitStarted = true;
+
 			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
 			if (frooxEngineInitType is not null)
 			{
-				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, null);
+				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
 			}
 			else
 			{
 				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
 				if (unityInitType is not null)
 				{
-					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, null);
+					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
 				}
 				else
 				{

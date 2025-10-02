@@ -55,8 +55,8 @@
 	<Reference Include="InterprocessLib.FrooxEngine">
 	  <HintPath>..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll</HintPath>
 	</Reference>
-	<Reference Include="InterprocessLib.RML">
-      <HintPath>..\InterprocessLib.RML\bin\Release\InterprocessLib.RML.dll</HintPath>
+	<Reference Include="InterprocessLib.RML_Extensions">
+      <HintPath>..\InterprocessLib.RML_Extensions\bin\Release\InterprocessLib.RML_Extensions.dll</HintPath>
     </Reference>
   </ItemGroup>
 

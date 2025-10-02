@@ -6,15 +6,14 @@
     <TargetFramework>net9.0</TargetFramework>
 	<Langversion>13</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.RML</PackageId>
-    <Product>InterprocessLib.RML</Product>
+    <PackageId>Nytra.InterprocessLib.RML_Extensions</PackageId>
+    <Product>InterprocessLib.RML_Extensions</Product>
     <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyToPlugins>true</CopyToPlugins>
-    <ThunderstorePackable>true</ThunderstorePackable>
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
@@ -42,10 +41,6 @@
     </Reference>
 	<Reference Include="ResoniteModLoader">
       <HintPath>$(GamePath)Libraries/ResoniteModLoader.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-	<Reference Include="0Harmony">
-      <HintPath>$(GamePath)rml_libs/0Harmony.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>

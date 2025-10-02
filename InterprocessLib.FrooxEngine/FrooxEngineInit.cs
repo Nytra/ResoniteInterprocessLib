@@ -42,7 +42,7 @@ internal static class FrooxEngineInit
 		}
 		else
 		{
-			await Task.Delay(1);
+			await Task.Delay(100);
 
 			var renderSystemMessagingHost = (RenderiteMessagingHost?)typeof(RenderSystem).GetField("_messagingHost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Engine.Current!.RenderSystem);
 			if (renderSystemMessagingHost is null)

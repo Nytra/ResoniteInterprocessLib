@@ -23,19 +23,28 @@ internal static class UnityInit
 		if (Messenger.Host is not null)
 			throw new InvalidOperationException("Messenger has already been initialized!");
 
+		Task.Run(InitLoop);
+	}
+	private static async void InitLoop()
+	{
 		if (RenderingManager.Instance is null)
-			throw new InvalidOperationException("Messenger is not ready to be used yet!");
-
-		var getConnectionParametersMethod = typeof(RenderingManager).GetMethod("GetConnectionParameters", BindingFlags.Instance | BindingFlags.NonPublic);
-
-		object[] parameters = { "", 0L };
-
-		if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
 		{
-			throw new ArgumentException("Could not get connection parameters from RenderingManager!");
+			await Task.Delay(1);
+			InitLoop();
 		}
+		else
+		{
+			var getConnectionParametersMethod = typeof(RenderingManager).GetMethod("GetConnectionParameters", BindingFlags.Instance | BindingFlags.NonPublic);
 
-		Messenger.IsAuthority = false;
-		Messenger.Host = new(Messenger.IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			object[] parameters = { "", 0L };
+
+			if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
+			{
+				throw new ArgumentException("Could not get connection parameters from RenderingManager!");
+			}
+
+			Messenger.IsAuthority = false;
+			Messenger.Host = new(Messenger.IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+		}
 	}
 }
