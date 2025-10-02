@@ -1,13 +1,11 @@
-﻿#define DEBUG
-
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
-#if DEBUG
+#if TESTS || DEBUG
 
 [BepInPlugin("Nytra.InterprocessLib.BepInEx.Tests", "InterprocessLib.BepInEx.Tests", "1.0.1")]
 public class UnityPlugin : BaseUnityPlugin

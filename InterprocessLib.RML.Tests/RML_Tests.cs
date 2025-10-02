@@ -1,11 +1,9 @@
-﻿#define DEBUG
-
-using Renderite.Shared;
+﻿using Renderite.Shared;
 using ResoniteModLoader;
 
 namespace InterprocessLib.Tests;
 
-#if DEBUG
+#if TESTS || DEBUG
 
 internal class RML_Tests : ResoniteMod
 {

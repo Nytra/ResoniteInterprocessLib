@@ -23,6 +23,7 @@
     <RestoreAdditionalProjectSources>
       https://nuget-modding.resonite.net/v3/index.json;
     </RestoreAdditionalProjectSources>
+    <Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
 
   <!-- Modding dependencies -->

@@ -1,6 +1,4 @@
-﻿#define DEBUG
-
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
@@ -9,7 +7,7 @@ using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
-#if DEBUG
+#if TESTS || DEBUG
 
 [BepInExResoniteShim.ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
