@@ -1,4 +1,5 @@
 ﻿using Renderite.Shared;
+using System.Runtime.InteropServices;
 
 namespace InterprocessLib;
 
@@ -75,6 +76,28 @@ public class Messenger
 		else
 		{
 			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process!");
+		}
+
+		if (Host is null)
+		{
+			OnWarning?.Invoke($"Environment Version: {Environment.Version}");
+			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
+			if (frooxEngineInitType is not null)
+			{
+				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+			}
+			else
+			{
+				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
+				if (unityInitType is not null)
+				{
+					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+				}
+				else
+				{
+					throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
+				}
+			}
 		}
 	}
 
