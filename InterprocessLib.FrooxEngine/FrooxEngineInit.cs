@@ -1,6 +1,10 @@
 using FrooxEngine;
 using Renderite.Shared;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("InterprocessLib.BepisLoader")]
+[assembly: InternalsVisibleTo("InterprocessLib.RML")]
 
 namespace InterprocessLib;
 

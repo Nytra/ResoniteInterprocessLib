@@ -54,18 +54,23 @@
   </ItemGroup>
   <ItemGroup>
 	<Compile Include="../Extra/Tests.cs" />
-    <Reference Include="InterprocessLib.BepisLoader">
+	<Reference Include="InterprocessLib.BepisLoader">
       <HintPath>..\InterprocessLib.BepisLoader\bin\Release\InterprocessLib.BepisLoader.dll</HintPath>
     </Reference>
+	<Reference Include="InterprocessLib.FrooxEngine">
+	  <HintPath>..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll</HintPath>
+	</Reference>
   </ItemGroup>
 
-  <!-- Post-build copy to game plugins folder -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
     
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	
+	<Copy SourceFiles="..\InterprocessLib.FrooxEngine\bin\Release\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

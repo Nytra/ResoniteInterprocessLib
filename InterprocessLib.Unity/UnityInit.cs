@@ -1,6 +1,9 @@
 using Renderite.Shared;
 using Renderite.Unity;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("InterprocessLib.BepInEx")]
 
 namespace InterprocessLib;
 

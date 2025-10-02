@@ -11,6 +11,11 @@ internal abstract class IdentifiableCommand : RendererCommand
 	internal string Owner = "";
 	public string Id = "";
 
+	public static void InitNewTypes(List<Type> types)
+	{
+		InitTypes(types);
+	}
+
 	public override void Pack(ref MemoryPacker packer)
 	{
 		packer.Write(Owner);

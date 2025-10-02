@@ -29,6 +29,9 @@
     <Reference Include="BepInEx">
       <HintPath>$(GamePath)Renderer\BepInEx\core\BepInEx.dll</HintPath>
     </Reference>
+    <Reference Include="InterprocessLib.Unity">
+      <HintPath>..\InterprocessLib.Unity\bin\Release\InterprocessLib.Unity.dll</HintPath>
+    </Reference>
     <Reference Include="Renderite.Unity">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Unity.dll</HintPath>
     </Reference>
@@ -41,18 +44,18 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
-	<Compile Include="../InterprocessLib/*.cs" />
 	<Compile Include="../Extra/BepInExShared.cs" />
-	<Compile Include="../Extra/UnityInit.cs" />
   </ItemGroup>
 
-  <!-- Post-build copy to game plugins folder -->
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
     
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	
+	<Copy SourceFiles="..\InterprocessLib.Unity\bin\Release\InterprocessLib.Unity.dll" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>
