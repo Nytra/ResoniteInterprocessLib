@@ -90,7 +90,7 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 	{
 		base.Pack(ref packer);
 #pragma warning disable CS8604
-		packer.WriteValueList<ICollection<T>, T>(Values);
+		packer.WriteValueList<C, T>(Values);
 #pragma warning restore
 	}
 
