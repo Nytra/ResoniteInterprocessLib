@@ -33,8 +33,7 @@
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
-	<Compile Include="../InterprocessLib/*.cs" />
-	<Compile Include="../Extra/Tests.cs" />
+	<Compile Include="../InterprocessLib.Shared/*.cs" />
   </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

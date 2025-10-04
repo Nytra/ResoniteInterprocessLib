@@ -41,8 +41,7 @@
   </ItemGroup>
   
   <ItemGroup>
-	<Compile Include="../InterprocessLib/*.cs" />
-	<Compile Include="../Extra/Tests.cs" />
+	<Compile Include="../InterprocessLib.Shared/*.cs" />
   </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">

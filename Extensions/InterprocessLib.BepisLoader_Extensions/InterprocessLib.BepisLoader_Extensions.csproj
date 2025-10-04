@@ -1,29 +1,33 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.1</Version>
+    <Version>1.0.0</Version>
     <Authors>Nytra</Authors>
     <TargetFramework>net9.0</TargetFramework>
 	<Langversion>13</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.RML.Tests</PackageId>
-    <Product>InterprocessLib.RML.Tests</Product>
-    <RootNamespace>InterprocessLib.Tests</RootNamespace>
+    <PackageId>Nytra.InterprocessLib.BepisLoader_Extensions</PackageId>
+    <Product>InterprocessLib.BepisLoader_Extensions</Product>
+    <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <CopyToPlugins>true</CopyToPlugins>
-    <ThunderstorePackable>true</ThunderstorePackable>
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-	<PluginTargetDir>$(GamePath)rml_mods</PluginTargetDir>
-	<Configurations>Debug;Release;Tests</Configurations>
+    <RestoreAdditionalProjectSources>
+      https://nuget-modding.resonite.net/v3/index.json;
+    </RestoreAdditionalProjectSources>
+    <Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
+
+  <!-- Modding dependencies -->
+  <ItemGroup>
+    <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
+  </ItemGroup>
   
-  <!-- NuGet fallback stripped game references -->
   <ItemGroup Condition="!Exists('$(GamePath)')">
     <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
   </ItemGroup>
@@ -42,36 +46,25 @@
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
       <Private>False</Private>
     </Reference>
-	<Reference Include="ResoniteModLoader">
-      <HintPath>$(GamePath)Libraries/ResoniteModLoader.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-	<Reference Include="0Harmony">
-      <HintPath>$(GamePath)rml_libs/0Harmony.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
   </ItemGroup>
+  
   <ItemGroup>
-	<Reference Include="InterprocessLib.FrooxEngine">
-	  <HintPath>..\out\InterprocessLib.FrooxEngine.dll</HintPath>
-	</Reference>
-	<Reference Include="InterprocessLib.RML_Extensions">
-      <HintPath>..\out\InterprocessLib.RML_Extensions.dll</HintPath>
+	<Compile Include="../BepInExShared.cs" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="InterprocessLib.FrooxEngine">
+      <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
-
+  
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
 	
-	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
-    <Message Text="Copied plugin files to out dir" Importance="high" />
-    
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_mods" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(GamePath)rml_mods" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
-	
-	<Copy SourceFiles="..\out\InterprocessLib.FrooxEngine.dll" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied frooxengine lib to $(GamePath)rml_libs" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+    <Message Text="Copied files to out dir" Importance="high" />
   </Target>
+
 </Project>

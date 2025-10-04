@@ -3,7 +3,7 @@ using ResoniteModLoader;
 
 namespace InterprocessLib.Tests;
 
-internal class RML_Tests : ResoniteMod
+public class RML_Tests : ResoniteMod
 {
 	public override string Name => "InterprocessLib.RML.Tests";
 
@@ -31,8 +31,6 @@ internal class RML_Tests : ResoniteMod
 
 	public override void OnEngineInit()
 	{
-		Msg("Hello!");
-
 		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_another = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
