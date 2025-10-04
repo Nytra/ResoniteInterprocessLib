@@ -8,19 +8,30 @@ namespace InterprocessLib;
 /// </summary>
 public class Messenger
 {
-	internal static MessagingHost? Host;
+	internal static MessagingHost? DefaultHost;
+
+	private MessagingHost? CustomHost;
+
+	private MessagingHost? Host => CustomHost ?? DefaultHost;
 
 	/// <summary>
 	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
 	/// </summary>
-	public static bool IsInitialized => Host is not null && _postInitActions is null;
+	public static bool IsInitialized => DefaultHost is not null && _postInitActions is null;
+
+	private bool IsNotReady => CustomHost is null && !Messenger.IsInitialized;
 
 	/// <summary>
 	/// Does this process have authority over the other process.
 	/// </summary>
-	public static bool IsAuthority { get; internal set; }
+	//public static bool IsAuthority { get; internal set; }
 
-	internal static bool InitStarted = false;
+	/// <summary>
+	/// Does this process have authority over the other process.
+	/// </summary>
+	public bool? IsAuthority => Host?.IsAuthority;
+
+	internal static bool DefaultHostInitStarted = false;
 
 	internal static Action<Exception>? OnFailure;
 
@@ -73,18 +84,18 @@ public class Messenger
 			_registeredOwnerIds.Add(ownerId);
 
 			if (IsInitialized)
-				Register();
+				RegisterWithDefaultHost();
 			else
-				RunPostInit(Register);
+				RunPostDefaultHostInit(RegisterWithDefaultHost);
 		}
 		else
 		{
 			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process!");
 		}
 
-		if (Host is null && !InitStarted)
+		if (DefaultHost is null && !DefaultHostInitStarted)
 		{
-			InitStarted = true;
+			DefaultHostInitStarted = true;
 
 			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
 			if (frooxEngineInitType is not null)
@@ -106,15 +117,50 @@ public class Messenger
 		}
 	}
 
-	private void Register()
+	internal Messenger(string ownerId, MessagingHost customHost, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
-		Host!.RegisterOwner(_ownerId);
+		if (ownerId is null)
+			throw new ArgumentNullException(nameof(ownerId));
+
+		if (customHost is null)
+			throw new ArgumentNullException(nameof(customHost));
+
+		CustomHost = customHost;
+
+		_ownerId = ownerId;
+
+		_additionalObjectTypes = additionalObjectTypes;
+
+		_additionalValueTypes = additionalValueTypes;
+
+		if (_additionalObjectTypes is not null)
+		{
+			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
+		}
+		if (_additionalValueTypes is not null)
+		{
+			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
+		}
+
+		if (!CustomHost.HasOwner(ownerId))
+		{
+			CustomHost!.RegisterOwner(_ownerId);
+		}
+		else
+		{
+			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process for a custom host with queue name: {CustomHost.QueueName}");
+		}
 	}
 
-	internal static void FinishInitialization()
+	private void RegisterWithDefaultHost()
 	{
-		if (IsAuthority)
-			Host!.SendCommand(new MessengerReadyCommand());
+		DefaultHost!.RegisterOwner(_ownerId);
+	}
+
+	internal static void FinishDefaultHostInitialization()
+	{
+		if (DefaultHost!.IsAuthority)
+			DefaultHost.SendCommand(new MessengerReadyCommand());
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
@@ -131,9 +177,9 @@ public class Messenger
 		}
 	}
 
-	private static void RunPostInit(Action act)
+	private static void RunPostDefaultHostInit(Action act)
 	{
-		if (!IsInitialized)
+		if (!Messenger.IsInitialized)
 		{
 			_postInitActions!.Add(act);
 		}
@@ -146,9 +192,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendValue(id, value));
+			RunPostDefaultHostInit(() => SendValue(id, value));
 			return;
 		}
 
@@ -167,9 +213,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendValueList(id, list));
+			RunPostDefaultHostInit(() => SendValueList(id, list));
 			return;
 		}
 
@@ -188,9 +234,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendValueHashSet(id, hashSet));
+			RunPostDefaultHostInit(() => SendValueHashSet(id, hashSet));
 			return;
 		}
 
@@ -209,9 +255,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendString(id, str));
+			RunPostDefaultHostInit(() => SendString(id, str));
 			return;
 		}
 
@@ -227,9 +273,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendStringList(id, list));
+			RunPostDefaultHostInit(() => SendStringList(id, list));
 			return;
 		}
 
@@ -245,9 +291,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendEmptyCommand(id));
+			RunPostDefaultHostInit(() => SendEmptyCommand(id));
 			return;
 		}
 
@@ -262,9 +308,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendObject(id, obj));
+			RunPostDefaultHostInit(() => SendObject(id, obj));
 			return;
 		}
 
@@ -284,9 +330,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => SendObjectList(id, list));
+			RunPostDefaultHostInit(() => SendObjectList(id, list));
 			return;
 		}
 
@@ -305,9 +351,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveValue(id, callback));
+			RunPostDefaultHostInit(() => ReceiveValue(id, callback));
 			return;
 		}
 
@@ -322,9 +368,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveValueList(id, callback));
+			RunPostDefaultHostInit(() => ReceiveValueList(id, callback));
 			return;
 		}
 
@@ -339,9 +385,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveValueHashSet(id, callback));
+			RunPostDefaultHostInit(() => ReceiveValueHashSet(id, callback));
 			return;
 		}
 
@@ -356,9 +402,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveString(id, callback));
+			RunPostDefaultHostInit(() => ReceiveString(id, callback));
 			return;
 		}
 
@@ -370,9 +416,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveStringList(id, callback));
+			RunPostDefaultHostInit(() => ReceiveStringList(id, callback));
 			return;
 		}
 
@@ -384,9 +430,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveEmptyCommand(id, callback));
+			RunPostDefaultHostInit(() => ReceiveEmptyCommand(id, callback));
 			return;
 		}
 
@@ -398,9 +444,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveObject(id, callback));
+			RunPostDefaultHostInit(() => ReceiveObject(id, callback));
 			return;
 		}
 
@@ -415,9 +461,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
+		if (IsNotReady)
 		{
-			RunPostInit(() => ReceiveObjectList(id, callback));
+			RunPostDefaultHostInit(() => ReceiveObjectList(id, callback));
 			return;
 		}
 

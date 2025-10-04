@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-internal class MessagingHost
+public class MessagingHost
 {
 	private struct OwnerData
 	{
@@ -56,6 +56,11 @@ internal class MessagingHost
 	{
 		var ownerData = new OwnerData();
 		_ownerData.Add(ownerName, ownerData);
+	}
+
+	public bool HasOwner(string ownerName)
+	{
+		return _ownerData.ContainsKey(ownerName);
 	}
 
 	public void RegisterValueCallback<T>(string owner, string id, Action<T> callback) where T : unmanaged

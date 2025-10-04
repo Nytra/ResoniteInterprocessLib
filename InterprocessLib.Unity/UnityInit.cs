@@ -12,12 +12,12 @@ internal static class UnityInit
 
 		if (command is MessengerReadyCommand)
 		{
-			Messenger.FinishInitialization();
+			Messenger.FinishDefaultHostInitialization();
 		}
 	}
 	public static void Init()
 	{
-		if (Messenger.Host is not null)
+		if (Messenger.DefaultHost is not null)
 			throw new InvalidOperationException("Messenger has already been initialized!");
 
 		Task.Run(InitLoop);
@@ -55,8 +55,7 @@ internal static class UnityInit
 			};
 #endif
 
-			Messenger.IsAuthority = false;
-			Messenger.Host = new(Messenger.IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			Messenger.DefaultHost = new(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 		}
 	}
 }

@@ -9,7 +9,7 @@ public static class BepInExExtensions
 	public static void SyncConfigEntry<T>(this Messenger messenger, ConfigEntry<T> configEntry) where T : unmanaged
 	{
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
+		if (messenger.IsAuthority == true)
 			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
@@ -22,7 +22,7 @@ public static class BepInExExtensions
 	public static void SyncConfigEntry(this Messenger messenger, ConfigEntry<string> configEntry)
 	{
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
+		if (messenger.IsAuthority == true)
 			messenger.SendConfigEntry(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{

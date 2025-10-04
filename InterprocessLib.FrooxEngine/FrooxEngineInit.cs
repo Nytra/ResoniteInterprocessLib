@@ -12,7 +12,7 @@ internal static class FrooxEngineInit
 	}
 	public static void Init()
 	{
-		if (Messenger.Host is not null)
+		if (Messenger.DefaultHost is not null)
 			throw new InvalidOperationException("Messenger has already been initialized!");
 
 		Task.Run(InitLoop);
@@ -40,15 +40,15 @@ internal static class FrooxEngineInit
 			{ 
 				UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
 			};
-			#if DEBUG
+#if DEBUG
 			Messenger.OnDebug = (msg) => 
 			{
 				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
 			};
-			#endif
-			Messenger.IsAuthority = true;
-			Messenger.Host = new MessagingHost(Messenger.IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			Messenger.FinishInitialization();
+#endif
+
+			Messenger.DefaultHost = new MessagingHost(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			Messenger.FinishDefaultHostInitialization();
 		}
 	}
 }
