@@ -49,8 +49,6 @@ public class Messenger
 
 	internal static List<Action>? _defaultBackendPostInitActions = new();
 
-	private static object _lockObj = new();
-
 	private string _ownerId;
 
 	//private static HashSet<string> _defaultBackendRegisteredOwnerIds = new();
@@ -143,23 +141,7 @@ public class Messenger
 
 		_additionalValueTypes = additionalValueTypes;
 
-		if (!_customBackend.HasOwner(ownerId))
-		{
-			Register();
-		}
-		else
-		{
-			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process for a custom backend with queue name: {_customBackend.QueueName}");
-		}
-
-		if (_additionalObjectTypes is not null)
-		{
-			_customBackend.TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !_customBackend.TypeManager.IsObjectTypeInitialized(t)).ToList());
-		}
-		if (_additionalValueTypes is not null)
-		{
-			_customBackend.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !_customBackend.TypeManager.IsValueTypeInitialized(t)).ToList());
-		}
+		Register();
 	}
 
 	private void RunPostInit(Action act)

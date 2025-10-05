@@ -48,7 +48,9 @@ internal class TypeManager
 
 		var list = new List<Type>();
 		list.AddRange(CurrentRendererCommandTypes);
-		list.Add(typeof(WrapperCommand));
+		var wrapperType = typeof(WrapperCommand);
+		if (!list.Contains(wrapperType))
+			list.Add(wrapperType);
 
 		WrapperCommand.InitNewTypes(list);
 	}
@@ -167,10 +169,7 @@ internal class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<IdentifiableCommand>)))
-		{
-			_newTypes.Add(type);
-		}
+		_newTypes.Add(type);
 
 		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
 

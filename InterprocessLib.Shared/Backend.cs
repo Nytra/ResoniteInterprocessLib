@@ -290,7 +290,7 @@ public class MessagingBackend
 
 	private void CommandHandler(RendererCommand wrappedCommand, int messageSize)
 	{
-		var command = ((WrapperCommand)wrappedCommand).Wrapped;
+		var command = ((WrapperCommand)wrappedCommand).PackedObject;
 
 		OnDebug?.Invoke($"Received {command?.ToString() ?? command?.GetType().Name ?? "NULL"}");
 
@@ -367,7 +367,7 @@ public class MessagingBackend
 
 		var wrapper = new WrapperCommand();
 		wrapper.QueueName = QueueName;
-		wrapper.Wrapped = command;
+		wrapper.PackedObject = command;
 
 		_primary.SendCommand(wrapper);
 	}
