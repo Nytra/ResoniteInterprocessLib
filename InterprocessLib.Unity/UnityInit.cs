@@ -51,7 +51,7 @@ internal static class UnityInit
 			};
 #endif
 
-			var host = new MessagingBackend(false, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var host = new MessagingBackend(false, (string)parameters[0] + "InterprocessLib", (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			Messenger.SetDefaultBackend(host);
 			host.Initialize();
 		}

@@ -1,23 +1,26 @@
 using Renderite.Shared;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace InterprocessLib;
 
-internal static class TypeManager
+internal class TypeManager
 {
-	private static readonly HashSet<Type> _registeredObjectTypes = new();
+	private readonly HashSet<Type> _registeredObjectTypes = new();
 
-	private static readonly HashSet<Type> _registeredValueTypes = new();
+	private readonly HashSet<Type> _registeredValueTypes = new();
 
-	private static bool _initializedCoreTypes = false;
+	private bool _initializedCoreTypes = false;
 
-	private static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Static);
+	private static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Instance);
 
-	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
+	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Instance);
 
-	private static List<Type> _newTypes = new();
+	private List<Type> _newTypes = new();
 
 	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+
+	private static Dictionary<string, TypeManager> _typeManagers = new();
 
 	private static Type[] _valueTypes =
 	{
@@ -40,15 +43,33 @@ internal static class TypeManager
 
 	static TypeManager()
 	{
+		// Trigger RendererCommand static constructor
+		new WrapperCommand();
+
+		var list = new List<Type>();
+		list.AddRange(CurrentRendererCommandTypes);
+		list.Add(typeof(WrapperCommand));
+
+		WrapperCommand.InitNewTypes(list);
+	}
+
+	internal TypeManager(string queueName)
+	{
+		_typeManagers.Add(queueName, this);
 		InitializeCoreTypes();
 	}
 
-	internal static void InitializeCoreTypes()
+	internal static TypeManager GetTypeManager(string queueName)
+	{
+		return _typeManagers[queueName];
+	}
+
+	internal void InitializeCoreTypes()
 	{
 		if (_initializedCoreTypes) return;
 
 		RegisterAdditionalObjectType<MessengerReadyCommand>();
-		RegisterAdditionalObjectType<EmptyCommand>();
+		RegisterAdditionalObjectType<IdentifiableCommand>();
 		RegisterAdditionalObjectType<StringCommand>();
 		RegisterAdditionalObjectType<StringListCommand>();
 
@@ -56,7 +77,7 @@ internal static class TypeManager
 		{
 			try
 			{
-				_registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+				_registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(this, null);
 			}
 			catch (Exception ex)
 			{
@@ -64,68 +85,58 @@ internal static class TypeManager
 			}
 		}
 
-		PushNewTypes();
-
 		_initializedCoreTypes = true;
 	}
 
-	private static void PushNewTypes()
+	internal Type GetTypeFromIndex(int index)
 	{
-		// Trigger RendererCommand static constructor
-		new EmptyCommand();
-
-		var list = new List<Type>();
-		list.AddRange(CurrentRendererCommandTypes);
-		foreach (var type in _newTypes)
-		{
-			if (!list.Contains(type))
-				list.Add(type);
-		}
-
-		IdentifiableCommand.InitNewTypes(list);
+		return _newTypes[index];
 	}
 
-	internal static void InitValueTypeList(List<Type> types)
+	internal int GetTypeIndex(Type type)
+	{
+		return _newTypes.IndexOf(type);
+	}
+
+	internal void InitValueTypeList(List<Type> types)
 	{
 		Messenger.OnDebug?.Invoke($"Registering additional value types: {string.Join(",", types.Select(t => t.Name))}");
 		foreach (var type in types)
 		{
-			_registerValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+			_registerValueTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 		}
-		PushNewTypes();
 	}
 
-	internal static void InitObjectTypeList(List<Type> types)
+	internal void InitObjectTypeList(List<Type> types)
 	{
 		Messenger.OnDebug?.Invoke($"Registering additional object types: {string.Join(",", types.Select(t => t.Name))}");
 		foreach (var type in types)
 		{
-			_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+			_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 		}
-		PushNewTypes();
 	}
 
-	internal static bool IsValueTypeInitialized<T>() where T : unmanaged
+	internal bool IsValueTypeInitialized<T>() where T : unmanaged
 	{
 		return _registeredValueTypes.Contains(typeof(T));
 	}
 
-	internal static bool IsValueTypeInitialized(Type t)
+	internal bool IsValueTypeInitialized(Type t)
 	{
 		return _registeredValueTypes.Contains(t);
 	}
 
-	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
+	internal bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
-	internal static bool IsObjectTypeInitialized(Type t)
+	internal bool IsObjectTypeInitialized(Type t)
 	{
 		return _registeredObjectTypes.Contains(t);
 	}
 
-	private static void RegisterAdditionalValueType<T>() where T : unmanaged
+	private void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
 		var type = typeof(T);
 
@@ -146,7 +157,7 @@ internal static class TypeManager
 		_registeredValueTypes.Add(type);
 	}
 
-	private static void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
+	private void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 
@@ -156,7 +167,7 @@ internal static class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
+		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<IdentifiableCommand>)))
 		{
 			_newTypes.Add(type);
 		}

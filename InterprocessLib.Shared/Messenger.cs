@@ -49,6 +49,8 @@ public class Messenger
 
 	internal static List<Action>? _defaultBackendPostInitActions = new();
 
+	private static object _lockObj = new();
+
 	private string _ownerId;
 
 	//private static HashSet<string> _defaultBackendRegisteredOwnerIds = new();
@@ -76,16 +78,7 @@ public class Messenger
 
 		_additionalValueTypes = additionalValueTypes;
 
-		if (_additionalObjectTypes is not null)
-		{
-			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
-		}
-		if (_additionalValueTypes is not null)
-		{
-			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
-		}
-
-		if (_defaultBackend?.IsInitialized != true)
+		if (_defaultBackend is null)
 		{
 			DefaultBackendRunPostInit(() =>
 			{
@@ -150,22 +143,22 @@ public class Messenger
 
 		_additionalValueTypes = additionalValueTypes;
 
-		if (_additionalObjectTypes is not null)
-		{
-			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
-		}
-		if (_additionalValueTypes is not null)
-		{
-			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
-		}
-
-		if (!Backend!.HasOwner(ownerId))
+		if (!_customBackend.HasOwner(ownerId))
 		{
 			Register();
 		}
 		else
 		{
-			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process for a custom backend with queue name: {Backend.QueueName}");
+			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process for a custom backend with queue name: {_customBackend.QueueName}");
+		}
+
+		if (_additionalObjectTypes is not null)
+		{
+			_customBackend.TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !_customBackend.TypeManager.IsObjectTypeInitialized(t)).ToList());
+		}
+		if (_additionalValueTypes is not null)
+		{
+			_customBackend.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !_customBackend.TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
 	}
 
@@ -185,6 +178,15 @@ public class Messenger
 		}
 		else
 			Backend.RegisterOwner(_ownerId);
+
+		if (_additionalObjectTypes is not null)
+		{
+			Backend.TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !Backend.TypeManager.IsObjectTypeInitialized(t)).ToList());
+		}
+		if (_additionalValueTypes is not null)
+		{
+			Backend.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !Backend.TypeManager.IsValueTypeInitialized(t)).ToList());
+		}
 	}
 
 	private static void DefaultBackendRunPostInit(Action act)
@@ -208,7 +210,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsValueTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {value.GetType().Name} needs to be registered first!");
 
 		var command = new ValueCommand<T>();
@@ -229,7 +231,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsValueTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		var command = new ValueCollectionCommand<List<T>, T>();
@@ -250,7 +252,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsValueTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		var command = new ValueCollectionCommand<HashSet<T>, T>();
@@ -307,7 +309,7 @@ public class Messenger
 			return;
 		}
 
-		var command = new EmptyCommand();
+		var command = new IdentifiableCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
 		Backend!.SendCommand(command);
@@ -324,7 +326,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsObjectTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		var wrapper = new ObjectCommand<T>();
@@ -346,7 +348,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsObjectTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		var command = new ObjectListCommand<T>();
@@ -367,7 +369,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsValueTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		Backend!.RegisterValueCallback(_ownerId, id, callback);
@@ -384,7 +386,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsValueTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		Backend!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
@@ -401,7 +403,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsValueTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		Backend!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
@@ -460,7 +462,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsObjectTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		Backend!.RegisterObjectCallback(_ownerId, id, callback);
@@ -477,7 +479,7 @@ public class Messenger
 			return;
 		}
 
-		if (!TypeManager.IsObjectTypeInitialized<T>())
+		if (!Backend!.TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		Backend!.RegisterObjectListCallback(_ownerId, id, callback);

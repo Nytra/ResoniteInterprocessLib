@@ -1,5 +1,6 @@
 using Renderite.Shared;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
@@ -42,7 +43,7 @@ public class MessagingBackend
 
 	private static MethodInfo? _handleObjectListCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleObjectListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private RenderCommandHandler? OnCommandReceived { get; }
+	//private RenderCommandHandler? OnCommandReceived { get; }
 
 	private Action<string>? OnWarning { get; }
 
@@ -60,13 +61,17 @@ public class MessagingBackend
 
 	internal List<Action>? _postInitActions = new();
 
+	internal TypeManager TypeManager;
+
 	public void Initialize()
 	{
 		if (IsInitialized)
 			throw new InvalidOperationException("Already initialized!");
 
 		if (!IsAuthority)
+		{
 			SendCommand(new MessengerReadyCommand());
+		}
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
@@ -142,23 +147,25 @@ public class MessagingBackend
 		_ownerData[owner].ObjectListCallbacks[id] = callback;
 	}
 
-	static MessagingBackend()
-	{
-		TypeManager.InitializeCoreTypes();
-	}
+	//static MessagingBackend()
+	//{
+	//	TypeManager.InitializeCoreTypes();
+	//}
 
 	public MessagingBackend(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
 		IsAuthority = isAuthority;
-		QueueName = queueName + "InterprocessLib";
+		QueueName = queueName;
 		QueueCapacity = queueCapacity;
 
 		OnDebug = debugHandler;
 		OnWarning = warnHandler;
 		OnFailure = failhandler;
-		OnCommandReceived = commandHandler;
+		//OnCommandReceived = commandHandler;
 
 		_postInitCallback = postInitCallback;
+
+		TypeManager = new(QueueName);
 
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
@@ -236,7 +243,7 @@ public class MessagingBackend
 		}
 	}
 
-	private void HandleEmptyCommand(EmptyCommand command)
+	private void HandleEmptyCommand(IdentifiableCommand command)
 	{
 		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out var callback))
 		{
@@ -281,9 +288,11 @@ public class MessagingBackend
 		}
 	}
 
-	private void CommandHandler(RendererCommand command, int messageSize)
+	private void CommandHandler(RendererCommand wrappedCommand, int messageSize)
 	{
-		OnDebug?.Invoke($"Received {command}");
+		var command = ((WrapperCommand)wrappedCommand).Wrapped;
+
+		OnDebug?.Invoke($"Received {command?.ToString() ?? command?.GetType().Name ?? "NULL"}");
 
 		if (!IsInitialized && command is MessengerReadyCommand)
 		{
@@ -291,7 +300,7 @@ public class MessagingBackend
 			return;
 		}
 
-		OnCommandReceived?.Invoke(command, messageSize);
+		//OnCommandReceived?.Invoke(command, messageSize);
 
 		if (command is IdentifiableCommand identifiableCommand)
 		{
@@ -340,21 +349,26 @@ public class MessagingBackend
 				case StringCommand:
 					HandleStringCommand((StringCommand)command);
 					break;
-				case EmptyCommand:
-					HandleEmptyCommand((EmptyCommand)command);
+				case IdentifiableCommand:
+					HandleEmptyCommand((IdentifiableCommand)command);
 					break;
-				case IdentifiableCommand unknownCommand:
-					OnWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {command.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
-					break;
+				//case IdentifiableCommand unknownCommand:
+				//	OnWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {command.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
+				//	break;
 				default:
 					break;
 			}
 		}
 	}
 
-	public void SendCommand(RendererCommand command)
+	public void SendCommand(IMemoryPackable command)
 	{
 		OnDebug?.Invoke($"Sending {command}");
-		_primary.SendCommand(command);
+
+		var wrapper = new WrapperCommand();
+		wrapper.QueueName = QueueName;
+		wrapper.Wrapped = command;
+
+		_primary.SendCommand(wrapper);
 	}
 }

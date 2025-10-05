@@ -1,20 +1,23 @@
 using Renderite.Shared;
 using System.Collections;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace InterprocessLib;
 
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
 
-internal abstract class IdentifiableCommand : RendererCommand
+public class IdentifiableCommand : PolymorphicMemoryPackableEntity<IdentifiableCommand>
 {
 	internal string Owner = "";
 	public string Id = "";
+	public int Type;
 
-	public static void InitNewTypes(List<Type> types)
-	{
-		InitTypes(types);
-	}
+	//public static void InitNewTypes(List<Type> types)
+	//{
+	//	InitTypes(types);
+	//}
 
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -68,15 +71,15 @@ internal abstract class ObjectCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class EmptyCommand : IdentifiableCommand
-{
-	// owo
+//internal sealed class EmptyCommand : IdentifiableCommand
+//{
+//	// owo
 
-	public override string ToString()
-	{
-		return $"EmptyCommand:{Owner}:{Id}";
-	}
-}
+//	public override string ToString()
+//	{
+//		return $"EmptyCommand:{Owner}:{Id}";
+//	}
+//}
 
 internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : unmanaged
 {
@@ -219,7 +222,7 @@ internal sealed class StringCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class MessengerReadyCommand : RendererCommand
+internal sealed class MessengerReadyCommand : IdentifiableCommand
 {
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -232,5 +235,48 @@ internal sealed class MessengerReadyCommand : RendererCommand
 	public override string ToString()
 	{
 		return $"MessengerReadyCommand";
+	}
+}
+
+internal class WrapperCommand : RendererCommand
+{
+	public string? QueueName;
+	public int Type;
+	public IMemoryPackable? Wrapped;
+
+	public static void InitNewTypes(List<Type> types)
+	{
+		InitTypes(types);
+	}
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+#pragma warning disable CS8604
+		packer.Write(QueueName);
+#pragma warning restore
+		packer.Write(Wrapped is null ? -1 : TypeManager.GetTypeManager(QueueName).GetTypeIndex(Wrapped.GetType()));
+		packer.WriteObject(Wrapped);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+#pragma warning disable CS8601
+		unpacker.Read(ref QueueName);
+#pragma warning restore
+		unpacker.Read(ref Type);
+
+		if (Type == -1)
+		{
+			Wrapped = null;
+			return;
+		}
+
+		var type = TypeManager.GetTypeManager(QueueName).GetTypeFromIndex(Type);
+		
+		if (unpacker.Read<bool>())
+		{
+			Wrapped = (IMemoryPackable?)Activator.CreateInstance(type);
+			Wrapped?.Unpack(ref unpacker);
+		}
 	}
 }

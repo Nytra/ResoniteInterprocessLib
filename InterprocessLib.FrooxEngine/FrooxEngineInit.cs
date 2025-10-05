@@ -49,7 +49,7 @@ internal static class FrooxEngineInit
 			};
 #endif
 
-			var host = new MessagingBackend(true, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var host = new MessagingBackend(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			Messenger.SetDefaultBackend(host);
 			// The authority process automatically initializes when it receives a MessengerReadyCommand from the non-authority process
 		}
