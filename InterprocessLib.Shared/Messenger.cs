@@ -51,7 +51,7 @@ public class Messenger
 
 	private string _ownerId;
 
-	private static HashSet<string> _defaultBackendRegisteredOwnerIds = new();
+	//private static HashSet<string> _defaultBackendRegisteredOwnerIds = new();
 
 	private List<Type>? _additionalObjectTypes;
 

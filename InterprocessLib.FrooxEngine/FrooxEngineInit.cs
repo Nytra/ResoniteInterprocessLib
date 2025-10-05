@@ -13,7 +13,7 @@ internal static class FrooxEngineInit
 	public static void Init()
 	{
 		if (Messenger.DefaultBackendInitStarted)
-			throw new InvalidOperationException("Messenger default host initialization has already been started!");
+			throw new InvalidOperationException("Messenger default backend initialization has already been started!");
 
 		Messenger.DefaultBackendInitStarted = true;
 
@@ -40,7 +40,7 @@ internal static class FrooxEngineInit
 			};
 			Messenger.OnFailure = (ex) => 
 			{ 
-				UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
+				UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Backend!\n{ex}");
 			};
 #if DEBUG
 			Messenger.OnDebug = (msg) => 

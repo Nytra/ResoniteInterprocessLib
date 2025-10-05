@@ -26,18 +26,18 @@ namespace InterprocessLibStandaloneTest
 
 		private static void FailHandler(Exception ex)
 		{
-			Console.WriteLine($"[Custom Messaging Host] [ERROR] Exception in custom messaging host: {ex}");
+			Console.WriteLine($"[InterprocessLib.Tests] [ERROR] Exception in custom messaging backend: {ex}");
 		}
 
 		private static void WarnHandler(string msg)
 		{
-			Console.WriteLine($"[Custom Messaging Host] [WARN] {msg}");
+			Console.WriteLine($"[InterprocessLib.Tests] [WARN] {msg}");
 		}
 
 		private static void DebugHandler(string msg)
 		{
 #if DEBUG
-			Console.WriteLine($"[Custom Messaging Host] [DEBUG] {msg}");
+			Console.WriteLine($"[InterprocessLib.Tests] [DEBUG] {msg}");
 #endif
 		}
 
