@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-public class MessagingHost
+public class MessagingBackend
 {
 	private struct OwnerData
 	{
@@ -34,13 +34,13 @@ public class MessagingHost
 
 	private MessagingManager _primary;
 
-	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleObjectListCommandMethod = typeof(MessagingHost).GetMethod(nameof(HandleObjectListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleObjectListCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleObjectListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	private RenderCommandHandler? OnCommandReceived { get; }
 
@@ -51,6 +51,50 @@ public class MessagingHost
 	private Action<Exception>? OnFailure { get; }
 
 	private Dictionary<string, OwnerData> _ownerData = new();
+
+	private Action? _postInitCallback;
+
+	public bool IsAlive { get; private set; }
+
+	public bool IsInitialized => _postInitActions is null;
+
+	internal List<Action>? _postInitActions = new();
+
+	public void Initialize()
+	{
+		if (IsInitialized)
+			throw new InvalidOperationException("Already initialized!");
+
+		if (!IsAuthority)
+			SendCommand(new MessengerReadyCommand());
+
+		var actions = _postInitActions!.ToArray();
+		_postInitActions = null;
+		foreach (var action in actions)
+		{
+			try
+			{
+				action();
+			}
+			catch (Exception ex)
+			{
+				OnWarning?.Invoke($"Exception running post-init action:\n{ex}");
+			}
+		}
+
+		_postInitCallback?.Invoke();
+		_postInitCallback = null;
+	}
+
+	internal void RunPostInit(Action act)
+	{
+		if (!IsInitialized)
+		{
+			_postInitActions!.Add(act);
+		}
+		else
+			throw new InvalidOperationException("Already initialized!");
+	}
 
 	public void RegisterOwner(string ownerName)
 	{
@@ -98,12 +142,12 @@ public class MessagingHost
 		_ownerData[owner].ObjectListCallbacks[id] = callback;
 	}
 
-	static MessagingHost()
+	static MessagingBackend()
 	{
 		TypeManager.InitializeCoreTypes();
 	}
 
-	public MessagingHost(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler, Action<Exception>? failhandler, Action<string>? warnHandler, Action<string>? debugHandler)
+	public MessagingBackend(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
 		IsAuthority = isAuthority;
 		QueueName = queueName + "InterprocessLib";
@@ -114,10 +158,13 @@ public class MessagingHost
 		OnFailure = failhandler;
 		OnCommandReceived = commandHandler;
 
+		_postInitCallback = postInitCallback;
+
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = (ex) => 
-		{ 
+		{
+			IsAlive = false;
 			OnFailure?.Invoke(ex);
 		};
 		_primary.WarningHandler = (msg) =>
@@ -126,6 +173,7 @@ public class MessagingHost
 		};
 
 		_primary.Connect(queueName, isAuthority, queueCapacity);
+		IsAlive = true;
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -236,6 +284,12 @@ public class MessagingHost
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
 		OnDebug?.Invoke($"Received {command}");
+
+		if (!IsInitialized && command is MessengerReadyCommand)
+		{
+			Initialize();
+			return;
+		}
 
 		OnCommandReceived?.Invoke(command, messageSize);
 

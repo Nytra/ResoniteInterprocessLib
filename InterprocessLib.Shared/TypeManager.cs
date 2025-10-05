@@ -11,13 +11,13 @@ internal static class TypeManager
 
 	private static bool _initializedCoreTypes = false;
 
-	internal static MethodInfo? RegisterValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Static);
+	private static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	internal static MethodInfo? RegisterObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
+	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
 
-	internal static List<Type> NewTypes = new();
+	private static List<Type> _newTypes = new();
 
-	private static List<Type> RegisteredTypesList => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
 	private static Type[] _valueTypes =
 	{
@@ -38,7 +38,11 @@ internal static class TypeManager
 		typeof(TimeSpan)
 	};
 
-	// Make sure this always happens first before adding other types?
+	static TypeManager()
+	{
+		InitializeCoreTypes();
+	}
+
 	internal static void InitializeCoreTypes()
 	{
 		if (_initializedCoreTypes) return;
@@ -52,7 +56,7 @@ internal static class TypeManager
 		{
 			try
 			{
-				RegisterValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+				_registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
 			}
 			catch (Exception ex)
 			{
@@ -60,38 +64,45 @@ internal static class TypeManager
 			}
 		}
 
+		PushNewTypes();
+
 		_initializedCoreTypes = true;
 	}
 
 	private static void PushNewTypes()
 	{
 		// Trigger RendererCommand static constructor
-		var cmd = new EmptyCommand();
+		new EmptyCommand();
 
 		var list = new List<Type>();
-		list.AddRange(RegisteredTypesList);
-		foreach (var type in TypeManager.NewTypes)
+		list.AddRange(CurrentRendererCommandTypes);
+		foreach (var type in _newTypes)
 		{
 			if (!list.Contains(type))
 				list.Add(type);
 		}
+
 		IdentifiableCommand.InitNewTypes(list);
 	}
 
 	internal static void InitValueTypeList(List<Type> types)
 	{
+		Messenger.OnDebug?.Invoke($"Registering additional value types: {string.Join(",", types.Select(t => t.Name))}");
 		foreach (var type in types)
 		{
-			RegisterValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+			_registerValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
 		}
+		PushNewTypes();
 	}
 
 	internal static void InitObjectTypeList(List<Type> types)
 	{
+		Messenger.OnDebug?.Invoke($"Registering additional object types: {string.Join(",", types.Select(t => t.Name))}");
 		foreach (var type in types)
 		{
-			RegisterObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+			_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
 		}
+		PushNewTypes();
 	}
 
 	internal static bool IsValueTypeInitialized<T>() where T : unmanaged
@@ -114,7 +125,7 @@ internal static class TypeManager
 		return _registeredObjectTypes.Contains(t);
 	}
 
-	internal static void RegisterAdditionalValueType<T>() where T : unmanaged
+	private static void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
 		var type = typeof(T);
 
@@ -130,14 +141,12 @@ internal static class TypeManager
 
 		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
-		NewTypes.AddRange([valueCommandType, valueListCommandType, valueHashSetCommandType]);
+		_newTypes.AddRange([valueCommandType, valueListCommandType, valueHashSetCommandType]);
 
 		_registeredValueTypes.Add(type);
-
-		PushNewTypes();
 	}
 
-	internal static void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
+	private static void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 
@@ -149,17 +158,15 @@ internal static class TypeManager
 
 		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
 		{
-			NewTypes.Add(type);
+			_newTypes.Add(type);
 		}
 
 		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
 
 		var objectListCommandType = typeof(ObjectListCommand<>).MakeGenericType(type);
 
-		NewTypes.AddRange([objectCommandType, objectListCommandType]);
+		_newTypes.AddRange([objectCommandType, objectListCommandType]);
 
 		_registeredObjectTypes.Add(type);
-
-		PushNewTypes();
 	}
 }

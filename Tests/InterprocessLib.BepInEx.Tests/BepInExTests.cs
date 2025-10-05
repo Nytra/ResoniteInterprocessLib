@@ -24,7 +24,9 @@ public class UnityPlugin : BaseUnityPlugin
 		_messenger.SyncConfigEntry(SyncTest);
 		_messenger!.ReceiveEmptyCommand("RunTests", () =>
 		{
-			Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
+			Tests.RunTests(_messenger, Log!.LogInfo);
+			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
+			Tests.RunTests(_anotherOne, Log!.LogInfo);
 		});
 		_messenger.ReceiveEmptyCommand("CheckSync", () => 
 		{ 
@@ -34,6 +36,8 @@ public class UnityPlugin : BaseUnityPlugin
 		{ 
 			SyncTest.Value = 0;
 		});
-		Tests.RunTests(_messenger, _unknownMessenger!, Log!.LogInfo);
+		Tests.RunTests(_messenger, Log!.LogInfo);
+		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
+		Tests.RunTests(_anotherOne, Log!.LogInfo);
 	}
 }

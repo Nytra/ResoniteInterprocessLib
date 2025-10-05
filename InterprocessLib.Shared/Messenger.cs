@@ -1,5 +1,4 @@
 ﻿using Renderite.Shared;
-using System.Runtime.InteropServices;
 
 namespace InterprocessLib;
 
@@ -8,44 +7,51 @@ namespace InterprocessLib;
 /// </summary>
 public class Messenger
 {
-	internal static MessagingHost? DefaultHost;
+	private static MessagingBackend? _defaultBackend;
 
-	private MessagingHost? CustomHost;
+	private MessagingBackend? _customBackend;
 
-	private MessagingHost? Host => CustomHost ?? DefaultHost;
+	private MessagingBackend? Backend => _customBackend ?? _defaultBackend;
 
 	/// <summary>
-	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
+	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the non-authority process sends the <see cref="MessengerReadyCommand"/>.
 	/// </summary>
-	public static bool IsInitialized => DefaultHost is not null && _postInitActions is null;
-
-	private bool IsNotReady => CustomHost is null && !Messenger.IsInitialized;
+	public bool IsInitialized => Backend?.IsInitialized == true;
 
 	/// <summary>
 	/// Does this process have authority over the other process.
 	/// </summary>
-	//public static bool IsAuthority { get; internal set; }
+	public bool? IsAuthority => Backend?.IsAuthority;
 
 	/// <summary>
-	/// Does this process have authority over the other process.
+	/// Is the interprocess connection still available
 	/// </summary>
-	public bool? IsAuthority => Host?.IsAuthority;
+	public bool? IsAlive => Backend?.IsAlive;
 
-	internal static bool DefaultHostInitStarted = false;
+	internal static bool DefaultBackendInitStarted = false;
 
-	internal static Action<Exception>? OnFailure;
+	/// <summary>
+	/// Called when the backend connection has a critical error
+	/// </summary>
+	public static Action<Exception>? OnFailure;
 
-	internal static Action<string>? OnWarning;
+	/// <summary>
+	/// Called when something potentially bad/unexpected happens
+	/// </summary>
+	public static Action<string>? OnWarning;
 
-#pragma	warning disable CS0649
-	internal static Action<string>? OnDebug;
+	/// <summary>
+	/// Called with additional debugging information
+	/// </summary>
+#pragma warning disable CS0649
+	public static Action<string>? OnDebug;
 #pragma warning restore
 
-	private static List<Action>? _postInitActions = new();
+	internal static List<Action>? _defaultBackendPostInitActions = new();
 
 	private string _ownerId;
 
-	private static HashSet<string> _registeredOwnerIds = new();
+	private static HashSet<string> _defaultBackendRegisteredOwnerIds = new();
 
 	private List<Type>? _additionalObjectTypes;
 
@@ -58,7 +64,7 @@ public class Messenger
 	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
 	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
 	/// <exception cref="ArgumentNullException"></exception>
-	/// <exception cref="ArgumentException"></exception>
+	/// <exception cref="EntryPointNotFoundException"></exception>
 	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
@@ -79,24 +85,20 @@ public class Messenger
 			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
 
-		if (!_registeredOwnerIds.Contains(ownerId))
+		if (_defaultBackend?.IsInitialized != true)
 		{
-			_registeredOwnerIds.Add(ownerId);
-
-			if (IsInitialized)
-				RegisterWithDefaultHost();
-			else
-				RunPostDefaultHostInit(RegisterWithDefaultHost);
+			DefaultBackendRunPostInit(() =>
+			{
+				Register();
+			});
 		}
 		else
 		{
-			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process!");
+			Register();
 		}
 
-		if (DefaultHost is null && !DefaultHostInitStarted)
+		if (_defaultBackend is null && !DefaultBackendInitStarted)
 		{
-			DefaultHostInitStarted = true;
-
 			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
 			if (frooxEngineInitType is not null)
 			{
@@ -117,15 +119,30 @@ public class Messenger
 		}
 	}
 
-	internal Messenger(string ownerId, MessagingHost customHost, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
+	internal static void SetDefaultBackend(MessagingBackend backend)
+	{
+		_defaultBackend = backend;
+		_defaultBackend._postInitActions = _defaultBackendPostInitActions;
+		_defaultBackendPostInitActions = null;
+	}
+
+	/// <summary>
+	/// Creates an instance with a unique owner and a custom backend
+	/// </summary>
+	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
+	/// /// <param name="customBackend">Custom messaging backend. Allows connecting to any custom process.</param>
+	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
+	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
+	/// <exception cref="ArgumentNullException"></exception>
+	public Messenger(string ownerId, MessagingBackend customBackend, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
-		if (customHost is null)
-			throw new ArgumentNullException(nameof(customHost));
+		if (customBackend is null)
+			throw new ArgumentNullException(nameof(customBackend));
 
-		CustomHost = customHost;
+		_customBackend = customBackend;
 
 		_ownerId = ownerId;
 
@@ -142,49 +159,42 @@ public class Messenger
 			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
 
-		if (!CustomHost.HasOwner(ownerId))
+		if (!Backend!.HasOwner(ownerId))
 		{
-			CustomHost!.RegisterOwner(_ownerId);
+			Register();
 		}
 		else
 		{
-			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process for a custom host with queue name: {CustomHost.QueueName}");
+			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process for a custom backend with queue name: {Backend.QueueName}");
 		}
 	}
 
-	private void RegisterWithDefaultHost()
+	private void RunPostInit(Action act)
 	{
-		DefaultHost!.RegisterOwner(_ownerId);
+		if (Backend is null)
+			DefaultBackendRunPostInit(act);
+		else
+			Backend.RunPostInit(act);
 	}
 
-	internal static void FinishDefaultHostInitialization()
+	private void Register()
 	{
-		if (DefaultHost!.IsAuthority)
-			DefaultHost.SendCommand(new MessengerReadyCommand());
-
-		var actions = _postInitActions!.ToArray();
-		_postInitActions = null;
-		foreach (var action in actions)
+		if (Backend!.HasOwner(_ownerId))
 		{
-			try
-			{
-				action();
-			}
-			catch (Exception ex)
-			{
-				OnWarning?.Invoke($"Exception running post-init action:\n{ex}");
-			}
-		}
-	}
-
-	private static void RunPostDefaultHostInit(Action act)
-	{
-		if (!Messenger.IsInitialized)
-		{
-			_postInitActions!.Add(act);
+			OnWarning?.Invoke($"Owner {_ownerId} has already been registered in this process for messaging backend with queue name: {Backend.QueueName}");
 		}
 		else
-			throw new InvalidOperationException("Already initialized!");
+			Backend.RegisterOwner(_ownerId);
+	}
+
+	private static void DefaultBackendRunPostInit(Action act)
+	{
+		if (_defaultBackend?.IsInitialized != true)
+		{
+			_defaultBackendPostInitActions!.Add(act);
+		}
+		else
+			throw new InvalidOperationException("Default host already initialized!");
 	}
 
 	public void SendValue<T>(string id, T value) where T : unmanaged
@@ -192,9 +202,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendValue(id, value));
+			RunPostInit(() => SendValue(id, value));
 			return;
 		}
 
@@ -205,7 +215,7 @@ public class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Value = value;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void SendValueList<T>(string id, List<T> list) where T : unmanaged
@@ -213,9 +223,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendValueList(id, list));
+			RunPostInit(() => SendValueList(id, list));
 			return;
 		}
 
@@ -226,7 +236,7 @@ public class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void SendValueHashSet<T>(string id, HashSet<T> hashSet) where T : unmanaged
@@ -234,9 +244,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendValueHashSet(id, hashSet));
+			RunPostInit(() => SendValueHashSet(id, hashSet));
 			return;
 		}
 
@@ -247,7 +257,7 @@ public class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = hashSet;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void SendString(string id, string str)
@@ -255,9 +265,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendString(id, str));
+			RunPostInit(() => SendString(id, str));
 			return;
 		}
 
@@ -265,7 +275,7 @@ public class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.String = str;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void SendStringList(string id, List<string> list)
@@ -273,9 +283,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendStringList(id, list));
+			RunPostInit(() => SendStringList(id, list));
 			return;
 		}
 
@@ -283,7 +293,7 @@ public class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void SendEmptyCommand(string id)
@@ -291,16 +301,16 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendEmptyCommand(id));
+			RunPostInit(() => SendEmptyCommand(id));
 			return;
 		}
 
 		var command = new EmptyCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void SendObject<T>(string id, T? obj) where T : class, IMemoryPackable, new()
@@ -308,9 +318,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendObject(id, obj));
+			RunPostInit(() => SendObject(id, obj));
 			return;
 		}
 
@@ -322,7 +332,7 @@ public class Messenger
 		wrapper.Owner = _ownerId;
 		wrapper.Id = id;
 
-		Host!.SendCommand(wrapper);
+		Backend!.SendCommand(wrapper);
 	}
 
 	public void SendObjectList<T>(string id, List<T> list) where T : class, IMemoryPackable, new()
@@ -330,9 +340,9 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => SendObjectList(id, list));
+			RunPostInit(() => SendObjectList(id, list));
 			return;
 		}
 
@@ -343,7 +353,7 @@ public class Messenger
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Values = list;
-		Host!.SendCommand(command);
+		Backend!.SendCommand(command);
 	}
 
 	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
@@ -351,16 +361,16 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveValue(id, callback));
+			RunPostInit(() => ReceiveValue(id, callback));
 			return;
 		}
 
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterValueCallback(_ownerId, id, callback);
+		Backend!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveValueList<T>(string id, Action<List<T>> callback) where T : unmanaged
@@ -368,16 +378,16 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveValueList(id, callback));
+			RunPostInit(() => ReceiveValueList(id, callback));
 			return;
 		}
 
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
+		Backend!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
 
 	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>> callback) where T : unmanaged
@@ -385,16 +395,16 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveValueHashSet(id, callback));
+			RunPostInit(() => ReceiveValueHashSet(id, callback));
 			return;
 		}
 
 		if (!TypeManager.IsValueTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
+		Backend!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
 	public void ReceiveString(string id, Action<string?> callback)
@@ -402,13 +412,13 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if(!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveString(id, callback));
+			RunPostInit(() => ReceiveString(id, callback));
 			return;
 		}
 
-		Host!.RegisterStringCallback(_ownerId, id, callback);
+		Backend!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveStringList(string id, Action<List<string>?>? callback)
@@ -416,13 +426,13 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveStringList(id, callback));
+			RunPostInit(() => ReceiveStringList(id, callback));
 			return;
 		}
 
-		Host!.RegisterStringListCallback(_ownerId, id, callback);
+		Backend!.RegisterStringListCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveEmptyCommand(string id, Action callback)
@@ -430,13 +440,13 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveEmptyCommand(id, callback));
+			RunPostInit(() => ReceiveEmptyCommand(id, callback));
 			return;
 		}
 
-		Host!.RegisterEmptyCallback(_ownerId, id, callback);
+		Backend!.RegisterEmptyCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
@@ -444,16 +454,16 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveObject(id, callback));
+			RunPostInit(() => ReceiveObject(id, callback));
 			return;
 		}
 
 		if (!TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterObjectCallback(_ownerId, id, callback);
+		Backend!.RegisterObjectCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveObjectList<T>(string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
@@ -461,15 +471,15 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsNotReady)
+		if (!IsInitialized)
 		{
-			RunPostDefaultHostInit(() => ReceiveObjectList(id, callback));
+			RunPostInit(() => ReceiveObjectList(id, callback));
 			return;
 		}
 
 		if (!TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		Host!.RegisterObjectListCallback(_ownerId, id, callback);
+		Backend!.RegisterObjectListCallback(_ownerId, id, callback);
 	}
 }

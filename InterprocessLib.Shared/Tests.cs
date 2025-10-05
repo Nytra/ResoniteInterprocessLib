@@ -8,16 +8,13 @@ namespace InterprocessLib.Tests;
 public static class Tests
 {
 	private static Messenger? _messenger;
-	private static Messenger? _unknownMessenger;
 	private static Action<string>? _logCallback;
 
-	public static void RunTests(Messenger messenger, Messenger unknownMessenger, Action<string> logCallback)
+	public static void RunTests(Messenger messenger, Action<string> logCallback)
 	{
 		_messenger = messenger;
-		_unknownMessenger = unknownMessenger;
 		_logCallback = logCallback;
 
-		TestUnknownMessenger();
 		TestUnknownCommandId();
 		TestNullString();
 		TestEmptyCommand();
@@ -113,11 +110,6 @@ public static class Tests
 		});
 		var val = Chirality.Right;
 		_messenger.SendValue<Chirality>("TestUnregisteredVanillaValue", val);
-	}
-
-	static void TestUnknownMessenger()
-	{
-		_unknownMessenger!.SendEmptyCommand("UnknownMessengerTest");
 	}
 
 	static void TestUnknownCommandId()

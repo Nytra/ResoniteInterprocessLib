@@ -35,14 +35,18 @@ public class RML_Tests : ResoniteMod
 		_another = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
 
-		Tests.RunTests(_messenger, _unknownMessenger!, Msg);
+		Tests.RunTests(_messenger, Msg);
+		Tests.RunTests(_unknownMessenger, Msg);
+		Tests.RunTests(_another, Msg);
 
 		_messenger.SyncConfigEntry(SyncTest);
 
 		RunTestsToggle!.OnChanged += (object? newValue) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
-			Tests.RunTests(_messenger, _unknownMessenger!, Msg);
+			Tests.RunTests(_messenger, Msg);
+			Tests.RunTests(_unknownMessenger, Msg);
+			Tests.RunTests(_another, Msg);
 		};
 		CheckSyncToggle!.OnChanged += (object? newValue) =>
 		{
