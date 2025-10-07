@@ -59,14 +59,15 @@ namespace InterprocessLibStandaloneTest
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnDebug = DebugHandler;
 
-			var customHost = new MessagingBackend(false, queueName!, 1024 * 1024, new MyPool(), CommandHandler, FailHandler, WarnHandler, DebugHandler);
-			customHost.Initialize();
+			//var customHost = new MessagingBackend(false, queueName!, 1024 * 1024, new MyPool(), CommandHandler, FailHandler, WarnHandler, DebugHandler);
+			
+			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!, 1024*1024, new MyPool(), [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 
-			var messenger = new Messenger("InterprocessLib.Tests", customHost, [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+			//customHost.Connect();
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			Thread.Sleep(15000);
+			Thread.Sleep(30000);
 		}
     }
 }

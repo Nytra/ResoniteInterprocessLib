@@ -12,10 +12,10 @@ internal static class FrooxEngineInit
 	}
 	public static void Init()
 	{
-		if (Messenger.DefaultBackendInitStarted)
+		if (Messenger.DefaultInitStarted)
 			throw new InvalidOperationException("Messenger default backend initialization has already been started!");
 
-		Messenger.DefaultBackendInitStarted = true;
+		Messenger.DefaultInitStarted = true;
 
 		Task.Run(InitLoop);
 	}
@@ -49,8 +49,9 @@ internal static class FrooxEngineInit
 			};
 #endif
 
-			var host = new MessagingBackend(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			Messenger.SetDefaultBackend(host);
+			var host = new MessagingSystem(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			Messenger.SetDefaultSystem(host);
+			host.Connect();
 			// The authority process automatically initializes when it receives a MessengerReadyCommand from the non-authority process
 		}
 	}

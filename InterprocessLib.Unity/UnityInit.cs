@@ -11,10 +11,10 @@ internal static class UnityInit
 	}
 	public static void Init()
 	{
-		if (Messenger.DefaultBackendInitStarted)
+		if (Messenger.DefaultInitStarted)
 			throw new InvalidOperationException("Messenger default host initialization has already been started!");
 
-		Messenger.DefaultBackendInitStarted = true;
+		Messenger.DefaultInitStarted = true;
 
 		Task.Run(InitLoop);
 	}
@@ -51,9 +51,9 @@ internal static class UnityInit
 			};
 #endif
 
-			var host = new MessagingBackend(false, (string)parameters[0] + "InterprocessLib", (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			Messenger.SetDefaultBackend(host);
-			host.Initialize();
+			var host = new MessagingSystem(false, (string)parameters[0] + "InterprocessLib", (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			Messenger.SetDefaultSystem(host);
+			host.Connect();
 		}
 	}
 }

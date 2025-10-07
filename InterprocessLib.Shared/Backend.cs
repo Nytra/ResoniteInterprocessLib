@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
-public class MessagingBackend
+internal class MessagingSystem
 {
 	private struct OwnerData
 	{
@@ -35,43 +35,59 @@ public class MessagingBackend
 
 	private MessagingManager _primary;
 
-	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleObjectListCommandMethod = typeof(MessagingBackend).GetMethod(nameof(HandleObjectListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleObjectListCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	//private RenderCommandHandler? OnCommandReceived { get; }
+	private RenderCommandHandler? _onCommandReceived { get; }
 
-	private Action<string>? OnWarning { get; }
+	private Action<string>? _onWarning { get; }
 
-	private Action<string>? OnDebug { get; }
+	private Action<string>? _onDebug { get; }
 
-	private Action<Exception>? OnFailure { get; }
+	private Action<Exception>? _onFailure { get; }
 
 	private Dictionary<string, OwnerData> _ownerData = new();
 
 	private Action? _postInitCallback;
 
-	public bool IsAlive { get; private set; }
+	public bool IsConnected { get; private set; }
 
 	public bool IsInitialized => _postInitActions is null;
 
-	internal List<Action>? _postInitActions = new();
+	private List<Action>? _postInitActions = new();
 
 	internal TypeManager TypeManager;
 
-	public void Initialize()
+	private static Dictionary<string, MessagingSystem> _backends = new();
+
+	internal IMemoryPackerEntityPool Pool { get; private set; }
+
+	internal void SetPostInitActions(List<Action>? actions)
+	{
+		_postInitActions = actions;
+	}
+
+	public void Connect()
+	{
+		_primary.Connect(QueueName, IsAuthority, QueueCapacity);
+		IsConnected = true;
+
+		if (!IsAuthority)
+			Initialize();
+	}
+
+	private void Initialize()
 	{
 		if (IsInitialized)
 			throw new InvalidOperationException("Already initialized!");
 
 		if (!IsAuthority)
-		{
-			SendCommand(new MessengerReadyCommand());
-		}
+			SendPackable(new MessengerReadyCommand());
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
@@ -83,7 +99,7 @@ public class MessagingBackend
 			}
 			catch (Exception ex)
 			{
-				OnWarning?.Invoke($"Exception running post-init action:\n{ex}");
+				_onWarning?.Invoke($"Exception running post-init action:\n{ex}");
 			}
 		}
 
@@ -147,40 +163,42 @@ public class MessagingBackend
 		_ownerData[owner].ObjectListCallbacks[id] = callback;
 	}
 
-	//static MessagingBackend()
-	//{
-	//	TypeManager.InitializeCoreTypes();
-	//}
-
-	public MessagingBackend(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
+	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
 		IsAuthority = isAuthority;
 		QueueName = queueName;
 		QueueCapacity = queueCapacity;
 
-		OnDebug = debugHandler;
-		OnWarning = warnHandler;
-		OnFailure = failhandler;
-		//OnCommandReceived = commandHandler;
+		_onDebug = debugHandler;
+		_onWarning = warnHandler;
+		_onFailure = failhandler;
+		_onCommandReceived = commandHandler;
 
 		_postInitCallback = postInitCallback;
 
 		TypeManager = new(QueueName);
 
+		Pool = pool;
+
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = (ex) => 
 		{
-			IsAlive = false;
-			OnFailure?.Invoke(ex);
+			IsConnected = false;
+			_onFailure?.Invoke(ex);
 		};
 		_primary.WarningHandler = (msg) =>
 		{
-			OnWarning?.Invoke(msg);
+			_onWarning?.Invoke(msg);
 		};
 
-		_primary.Connect(queueName, isAuthority, queueCapacity);
-		IsAlive = true;
+		_backends.Add(QueueName, this);
+	}
+
+	internal static MessagingSystem? TryGet(string queueName)
+	{
+		if (_backends.TryGetValue(queueName, out var backend)) return backend;
+		return null;
 	}
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
@@ -194,7 +212,7 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"ValueCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"ValueCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -209,7 +227,7 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -224,7 +242,7 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"StringCommand with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"StringCommand with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -239,7 +257,7 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"StringListCommand with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"StringListCommand with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -254,7 +272,7 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"EmptyCommand with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"EmptyCommand with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -269,7 +287,7 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"ObjectCommand<{command.ObjectType.Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"ObjectCommand<{command.ObjectType.Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -284,40 +302,43 @@ public class MessagingBackend
 		}
 		else
 		{
-			OnWarning?.Invoke($"ObjectListCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+			_onWarning?.Invoke($"ObjectListCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
-	private void CommandHandler(RendererCommand wrappedCommand, int messageSize)
+	private void CommandHandler(RendererCommand command, int messageSize)
 	{
-		var command = ((WrapperCommand)wrappedCommand).PackedObject;
+		_onCommandReceived?.Invoke(command, messageSize);
 
-		OnDebug?.Invoke($"Received {command?.ToString() ?? command?.GetType().Name ?? "NULL"}");
+		IMemoryPackable? packable = null;
+		if (command is WrapperCommand wrapperCommand)
+		{
+			packable = wrapperCommand.Packable;
+			_onDebug?.Invoke($"Received {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
+		}
 
-		if (!IsInitialized && command is MessengerReadyCommand)
+		if (!IsInitialized && packable is MessengerReadyCommand)
 		{
 			Initialize();
 			return;
 		}
 
-		//OnCommandReceived?.Invoke(command, messageSize);
-
-		if (command is IdentifiableCommand identifiableCommand)
+		if (packable is IdentifiableCommand identifiableCommand)
 		{
 			if (!_ownerData.TryGetValue(identifiableCommand.Owner, out var data))
 			{
-				OnWarning?.Invoke($"Owner \"{identifiableCommand.Owner}\" is not registered!");
+				_onWarning?.Invoke($"Owner \"{identifiableCommand.Owner}\" is not registered!");
 				return;
 			}
 		}
 
-		if (command is ValueCommand valueCommand)
+		if (packable is ValueCommand valueCommand)
 		{
 			var valueType = valueCommand.ValueType;
 			var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
-			typedMethod.Invoke(this, [command]);
+			typedMethod.Invoke(this, [packable]);
 		}
-		else if (command is CollectionCommand collectionCommand)
+		else if (packable is CollectionCommand collectionCommand)
 		{
 			var innerDataType = collectionCommand.InnerDataType;
 			if (innerDataType == typeof(string))
@@ -328,46 +349,43 @@ public class MessagingBackend
 			{
 				var collectionType = collectionCommand.CollectionType;
 				var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
-				typedMethod.Invoke(this, [command]);
+				typedMethod.Invoke(this, [packable]);
 			}
 			else
 			{
 				var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(innerDataType);
-				typedMethod.Invoke(this, [command]);
+				typedMethod.Invoke(this, [packable]);
 			}
 		}
-		else if (command is ObjectCommand objectCommand)
+		else if (packable is ObjectCommand objectCommand)
 		{
 			var objectType = objectCommand.ObjectType;
 			var typedMethod = _handleObjectCommandMethod!.MakeGenericMethod(objectType);
-			typedMethod.Invoke(this, [command]);
+			typedMethod.Invoke(this, [packable]);
 		}
 		else
 		{
-			switch (command)
+			switch (packable)
 			{
 				case StringCommand:
-					HandleStringCommand((StringCommand)command);
+					HandleStringCommand((StringCommand)packable);
 					break;
 				case IdentifiableCommand:
-					HandleEmptyCommand((IdentifiableCommand)command);
+					HandleEmptyCommand((IdentifiableCommand)packable);
 					break;
-				//case IdentifiableCommand unknownCommand:
-				//	OnWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {command.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
-				//	break;
 				default:
 					break;
 			}
 		}
 	}
 
-	public void SendCommand(IMemoryPackable command)
+	public void SendPackable(IMemoryPackable? packable)
 	{
-		OnDebug?.Invoke($"Sending {command}");
+		_onDebug?.Invoke($"Sending packable: {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
 
 		var wrapper = new WrapperCommand();
 		wrapper.QueueName = QueueName;
-		wrapper.PackedObject = command;
+		wrapper.Packable = packable;
 
 		_primary.SendCommand(wrapper);
 	}

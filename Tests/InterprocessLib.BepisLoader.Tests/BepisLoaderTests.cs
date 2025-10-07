@@ -38,7 +38,8 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<int>? SyncTestOutput;
 	public static ConfigEntry<bool>? ResetToggle;
 
-	private static MessagingBackend? _customBackend;
+	//private static MessagingBackend? _customBackend;
+	public static Messenger? _customMessenger;
 	public static ConfigEntry<bool>? SpawnProcessToggle;
 	private static Random _rand = new();
 #pragma warning disable CS0169 
@@ -69,15 +70,24 @@ public class Plugin : BasePlugin
 #if TEST_SPAWN_PROCESS
 		_customQueueName ??= $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
-		_customBackend ??= new MessagingBackend(true, _customQueueName, 1024 * 1024, new MyPool(), CommandHandler, FailHandler, WarnHandler, DebugHandler);
-		var customHostMessenger = new Messenger("InterprocessLib.Tests", _customBackend, [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+		//_customBackend ??= new MessagingBackend(true, _customQueueName, 1024 * 1024, new MyPool(), CommandHandler, FailHandler, WarnHandler, DebugHandler);
+		//_customBackend.Connect();
+		_customMessenger ??= new Messenger("InterprocessLib.Tests", true, _customQueueName, 1024*1024, new MyPool(), [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		var process = new Process();
-		process.StartInfo.FileName = @"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\Release\net9.0\InterprocessLib.Standalone.Tests.exe";
+
+		string projectConfiguration;
+#if DEBUG
+		projectConfiguration = "Debug";
+#else
+		projectConfiguration = "Release";
+#endif
+
+		process.StartInfo.FileName = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net9.0\InterprocessLib.Standalone.Tests.exe";
 		process.StartInfo.Arguments = _customQueueName;
 		process.StartInfo.UseShellExecute = true; // Run in a new window
 		process.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
 		process.Start();
-		Tests.RunTests(customHostMessenger, Log!.LogInfo);
+		Tests.RunTests(_customMessenger, Log!.LogInfo);
 #endif
 	}
 

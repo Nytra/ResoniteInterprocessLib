@@ -222,11 +222,14 @@ internal sealed class MessengerReadyCommand : IdentifiableCommand
 	}
 }
 
-internal class WrapperCommand : RendererCommand 
+internal sealed class WrapperCommand : RendererCommand
 {
 	public int TypeIndex;
 	public string? QueueName;
-	public IMemoryPackable? PackedObject;
+	public IMemoryPackable? Packable;
+
+	static MethodInfo? _borrowMethod = typeof(WrapperCommand).GetMethod("Borrow", BindingFlags.Static | BindingFlags.NonPublic);
+	static MethodInfo? _returnMethod = typeof(WrapperCommand).GetMethod("Return", BindingFlags.Static | BindingFlags.NonPublic);
 
 	public static void InitNewTypes(List<Type> types)
 	{
@@ -235,7 +238,9 @@ internal class WrapperCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		var type = PackedObject is null ? -1 : TypeManager.GetTypeManager(QueueName!).GetTypeIndex(PackedObject.GetType());
+		var packedType = Packable?.GetType();
+		var backend = MessagingSystem.TryGet(QueueName!);
+		var type = Packable is null ? -1 : backend!.TypeManager.GetTypeIndex(packedType!);
 		packer.Write(type);
 
 		if (type == -1)
@@ -245,7 +250,9 @@ internal class WrapperCommand : RendererCommand
 		packer.Write(QueueName);
 #pragma warning restore
 
-		PackedObject!.Pack(ref packer);
+		Packable!.Pack(ref packer);
+
+		_returnMethod!.MakeGenericMethod(packedType!).Invoke(null, [backend!.Pool, Packable]);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -254,7 +261,7 @@ internal class WrapperCommand : RendererCommand
 
 		if (TypeIndex == -1)
 		{
-			PackedObject = null;
+			Packable = null;
 			return;
 		}
 
@@ -262,9 +269,21 @@ internal class WrapperCommand : RendererCommand
 		unpacker.Read(ref QueueName);
 #pragma warning restore
 
-		var type = TypeManager.GetTypeManager(QueueName).GetTypeFromIndex(TypeIndex);
+		var backend = MessagingSystem.TryGet(QueueName);
+		var type = backend!.TypeManager.GetTypeFromIndex(TypeIndex);
 
-		PackedObject = (IMemoryPackable?)Activator.CreateInstance(type);
-		PackedObject!.Unpack(ref unpacker);
+		Packable = (IMemoryPackable?)_borrowMethod!.MakeGenericMethod(type).Invoke(null, [backend.Pool]);
+
+		Packable!.Unpack(ref unpacker);
+	}
+
+	private static IMemoryPackable? Borrow<T>(IMemoryPackerEntityPool pool) where T : class, IMemoryPackable, new()
+	{
+		return pool.Borrow<T>();
+	}
+
+	private static void Return<T>(IMemoryPackerEntityPool pool, T obj) where T : class, IMemoryPackable, new()
+	{
+		pool.Return<T>(obj);
 	}
 }
