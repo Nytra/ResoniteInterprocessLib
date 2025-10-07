@@ -31,7 +31,7 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
-For BepisLoader, BepInEx or RML, if you have a ConfigEntry/ModConfigurationKey in both processes with the same type and name, you can sync them like this:
+For BepisLoader and BepInEx, if you have a ConfigEntry/ModConfigurationKey in both processes with the same type and name, you can sync them like this:
 
 ```
 messenger.SyncConfigEntry(MyConfigEntry);
