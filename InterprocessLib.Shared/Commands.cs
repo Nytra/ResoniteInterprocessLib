@@ -8,7 +8,7 @@ namespace InterprocessLib;
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
 
-public class IdentifiableCommand : IMemoryPackable
+internal class IdentifiableCommand : IMemoryPackable
 {
 	internal string Owner = "";
 	public string Id = "";
@@ -228,8 +228,8 @@ internal sealed class WrapperCommand : RendererCommand
 	public string? QueueName;
 	public IMemoryPackable? Packable;
 
-	static MethodInfo? _borrowMethod = typeof(WrapperCommand).GetMethod("Borrow", BindingFlags.Static | BindingFlags.NonPublic);
-	static MethodInfo? _returnMethod = typeof(WrapperCommand).GetMethod("Return", BindingFlags.Static | BindingFlags.NonPublic);
+	//static MethodInfo? _borrowMethod = typeof(WrapperCommand).GetMethod("Borrow", BindingFlags.Static | BindingFlags.NonPublic);
+	//static MethodInfo? _returnMethod = typeof(WrapperCommand).GetMethod("Return", BindingFlags.Static | BindingFlags.NonPublic);
 
 	public static void InitNewTypes(List<Type> types)
 	{
@@ -252,7 +252,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 		Packable!.Pack(ref packer);
 
-		_returnMethod!.MakeGenericMethod(packedType!).Invoke(null, [backend!.Pool, Packable]);
+		backend!.TypeManager.Return(packedType!, Packable);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -272,18 +272,8 @@ internal sealed class WrapperCommand : RendererCommand
 		var backend = MessagingSystem.TryGet(QueueName);
 		var type = backend!.TypeManager.GetTypeFromIndex(TypeIndex);
 
-		Packable = (IMemoryPackable?)_borrowMethod!.MakeGenericMethod(type).Invoke(null, [backend.Pool]);
+		Packable = backend.TypeManager.Borrow(type);
 
 		Packable!.Unpack(ref unpacker);
-	}
-
-	private static IMemoryPackable? Borrow<T>(IMemoryPackerEntityPool pool) where T : class, IMemoryPackable, new()
-	{
-		return pool.Borrow<T>();
-	}
-
-	private static void Return<T>(IMemoryPackerEntityPool pool, T obj) where T : class, IMemoryPackable, new()
-	{
-		pool.Return<T>(obj);
 	}
 }

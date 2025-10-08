@@ -176,7 +176,7 @@ internal class MessagingSystem
 
 		_postInitCallback = postInitCallback;
 
-		TypeManager = new(QueueName);
+		TypeManager = new(QueueName, pool);
 
 		Pool = pool;
 

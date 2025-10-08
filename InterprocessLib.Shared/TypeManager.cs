@@ -1,5 +1,4 @@
 using Renderite.Shared;
-using System.Collections.Generic;
 using System.Reflection;
 
 namespace InterprocessLib;
@@ -21,6 +20,17 @@ internal class TypeManager
 	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
 	private static Dictionary<string, TypeManager> _typeManagers = new();
+
+	private List<Func<IMemoryPackable>> _borrowers = new();
+
+	private List<Action<IMemoryPackable>> _returners = new();
+
+	private Dictionary<Type, int> _typeToIndex = new();
+
+	private IMemoryPackerEntityPool _pool;
+
+	private static MethodInfo? _borrowMethod = typeof(TypeManager).GetMethod("Borrow", BindingFlags.Instance | BindingFlags.NonPublic, null, [], null);
+	private static MethodInfo? _returnMethod = typeof(TypeManager).GetMethod("Return", BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null);
 
 	private static Type[] _valueTypes =
 	{
@@ -55,9 +65,10 @@ internal class TypeManager
 		WrapperCommand.InitNewTypes(list);
 	}
 
-	internal TypeManager(string queueName)
+	internal TypeManager(string queueName, IMemoryPackerEntityPool pool)
 	{
 		_typeManagers.Add(queueName, this);
+		_pool = pool;
 		InitializeCoreTypes();
 	}
 
@@ -97,7 +108,7 @@ internal class TypeManager
 
 	internal int GetTypeIndex(Type type)
 	{
-		return _newTypes.IndexOf(type);
+		return _typeToIndex[type];
 	}
 
 	internal void InitValueTypeList(List<Type> types)
@@ -154,9 +165,9 @@ internal class TypeManager
 
 		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
-		_newTypes.AddRange([valueCommandType, valueListCommandType, valueHashSetCommandType]);
-
 		_registeredValueTypes.Add(type);
+
+		PushNewTypes([valueCommandType, valueListCommandType, valueHashSetCommandType]);
 	}
 
 	private void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
@@ -169,14 +180,43 @@ internal class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		_newTypes.Add(type);
-
 		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
 
 		var objectListCommandType = typeof(ObjectListCommand<>).MakeGenericType(type);
 
-		_newTypes.AddRange([objectCommandType, objectListCommandType]);
-
 		_registeredObjectTypes.Add(type);
+
+		PushNewTypes([type, objectCommandType, objectListCommandType]);
+	}
+
+	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()
+	{
+		return _pool.Borrow<T>();
+	}
+
+	private void Return<T>(IMemoryPackable obj) where T : class, IMemoryPackable, new()
+	{
+		_pool.Return((T)obj);
+	}
+
+	internal IMemoryPackable Borrow(Type type)
+	{
+		return _borrowers[_typeToIndex[type]]();
+	}
+
+	internal void Return(Type type, object obj)
+	{
+		_returners[_typeToIndex[type]]((IMemoryPackable)obj);
+	}
+
+	private void PushNewTypes(List<Type> types)
+	{
+		foreach (var type in types)
+		{
+			_newTypes.Add(type);
+			_borrowers.Add((Func<IMemoryPackable>)_borrowMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Func<IMemoryPackable>), this));
+			_returners.Add((Action<IMemoryPackable>)_returnMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Action<IMemoryPackable>), this));
+			_typeToIndex[type] = _newTypes.Count - 1;
+		}
 	}
 }
