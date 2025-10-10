@@ -1,4 +1,4 @@
-﻿#define TEST_SPAWN_PROCESS
+﻿//#define TEST_SPAWN_PROCESS
 
 using BepInEx;
 using BepInEx.Configuration;
@@ -9,19 +9,6 @@ using Renderite.Shared;
 using System.Diagnostics;
 
 namespace InterprocessLib.Tests;
-
-class MyPool : IMemoryPackerEntityPool
-{
-	T IMemoryPackerEntityPool.Borrow<T>()
-	{
-		return Pool<T>.Borrow();
-	}
-
-	void IMemoryPackerEntityPool.Return<T>(T value)
-	{
-		Pool<T>.ReturnCleaned(ref value);
-	}
-}
 
 [BepInExResoniteShim.ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
@@ -70,9 +57,7 @@ public class Plugin : BasePlugin
 #if TEST_SPAWN_PROCESS
 		_customQueueName ??= $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
-		//_customBackend ??= new MessagingBackend(true, _customQueueName, 1024 * 1024, new MyPool(), CommandHandler, FailHandler, WarnHandler, DebugHandler);
-		//_customBackend.Connect();
-		_customMessenger ??= new Messenger("InterprocessLib.Tests", true, _customQueueName, 1024*1024, new MyPool(), [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+		_customMessenger ??= new Messenger("InterprocessLib.Tests", true, _customQueueName, additionalObjectTypes: [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], additionalValueTypes: [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		var process = new Process();
 
 		string projectConfiguration;
@@ -117,6 +102,7 @@ public class Plugin : BasePlugin
 		Tests.RunTests(_messenger, Log!.LogInfo);
 		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
 		Tests.RunTests(_another, Log!.LogInfo);
+
 		SpawnProcess();
 
 		SyncTest = Config.Bind("General", "SyncTest", 34);

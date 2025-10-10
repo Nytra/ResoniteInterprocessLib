@@ -8,7 +8,7 @@ namespace InterprocessLib;
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
 
-internal class IdentifiableCommand : IMemoryPackable
+internal abstract class IdentifiableCommand : IMemoryPackable
 {
 	internal string Owner = "";
 	public string Id = "";
@@ -62,6 +62,16 @@ internal abstract class ObjectCommand : IdentifiableCommand
 	public override string ToString()
 	{
 		return $"ObjectCommand<{ObjectType.Name}>:{Owner}:{Id}:{UntypedObject?.ToString() ?? "NULL"}";
+	}
+}
+
+internal sealed class EmptyCommand : IdentifiableCommand
+{
+	// owo
+
+	public override string ToString()
+	{
+		return $"EmptyCommand:{Owner}:{Id}";
 	}
 }
 
@@ -239,7 +249,7 @@ internal sealed class WrapperCommand : RendererCommand
 	public override void Pack(ref MemoryPacker packer)
 	{
 		var packedType = Packable?.GetType();
-		var backend = MessagingSystem.TryGet(QueueName!);
+		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName!);
 		var type = Packable is null ? -1 : backend!.TypeManager.GetTypeIndex(packedType!);
 		packer.Write(type);
 
@@ -269,7 +279,7 @@ internal sealed class WrapperCommand : RendererCommand
 		unpacker.Read(ref QueueName);
 #pragma warning restore
 
-		var backend = MessagingSystem.TryGet(QueueName);
+		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName);
 		var type = backend!.TypeManager.GetTypeFromIndex(TypeIndex);
 
 		Packable = backend.TypeManager.Borrow(type);

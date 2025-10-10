@@ -1,6 +1,5 @@
 using Renderite.Shared;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
@@ -74,6 +73,9 @@ internal class MessagingSystem
 
 	public void Connect()
 	{
+		if (IsConnected)
+			throw new InvalidOperationException("Already connected!");
+
 		_primary.Connect(QueueName, IsAuthority, QueueCapacity);
 		IsConnected = true;
 
@@ -195,7 +197,7 @@ internal class MessagingSystem
 		_backends.Add(QueueName, this);
 	}
 
-	internal static MessagingSystem? TryGet(string queueName)
+	internal static MessagingSystem? TryGetRegisteredSystem(string queueName)
 	{
 		if (_backends.TryGetValue(queueName, out var backend)) return backend;
 		return null;
@@ -261,7 +263,7 @@ internal class MessagingSystem
 		}
 	}
 
-	private void HandleEmptyCommand(IdentifiableCommand command)
+	private void HandleEmptyCommand(EmptyCommand command)
 	{
 		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out var callback))
 		{
@@ -370,8 +372,11 @@ internal class MessagingSystem
 				case StringCommand:
 					HandleStringCommand((StringCommand)packable);
 					break;
-				case IdentifiableCommand:
-					HandleEmptyCommand((IdentifiableCommand)packable);
+				case EmptyCommand:
+					HandleEmptyCommand((EmptyCommand)packable);
+					break;
+				case IdentifiableCommand unknownCommand:
+					_onWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {unknownCommand.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
 					break;
 				default:
 					break;

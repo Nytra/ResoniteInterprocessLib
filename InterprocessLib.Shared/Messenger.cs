@@ -21,7 +21,7 @@ public class Messenger
 	/// <summary>
 	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the non-authority process sends the <see cref="MessengerReadyCommand"/>.
 	/// </summary>
-	private bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
+	public bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
 
 	/// <summary>
 	/// Does this process have authority over the other process.
@@ -52,7 +52,9 @@ public class Messenger
 	public static Action<string>? OnDebug;
 #pragma warning restore
 
-	internal static List<Action>? _defaultPostInitActions = new();
+	private static List<Action>? _defaultPostInitActions = new();
+
+	private static List<Action>? _defaultPreInitActions = new();
 
 	private string _ownerId;
 
@@ -83,7 +85,7 @@ public class Messenger
 
 		if (_defaultSystem is null)
 		{
-			DefaultRunPostInit(() =>
+			DefaultRunPreInit(() =>
 			{
 				Register();
 			});
@@ -115,29 +117,47 @@ public class Messenger
 		}
 	}
 
-	internal static void SetDefaultSystem(MessagingSystem system)
-	{
-		_defaultSystem = system;
-		_defaultSystem.SetPostInitActions(_defaultPostInitActions);
-		_defaultPostInitActions = null;
-	}
-
 	/// <summary>
-	/// Creates an instance with a unique owner and a custom backend that can connect to any process
+	/// Creates an instance with a unique owner and connects to a custom queue so you can talk to any process
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
-	/// /// <param name="customBackend">Custom messaging backend. Allows connecting to any custom process.</param>
+	/// <param name="isAuthority">Does this process have authority over the other process? The authority process should always be started first.</param>
+	/// <param name="queueName">Custom queue name. Should match the other process.</param>
+	/// <param name="pool">Custom pool for borrowing and returning memory-packable types.</param>
+	/// <param name="queueCapacity">Capacity for the custom queue in bytes.</param>
 	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
 	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
 	/// <exception cref="ArgumentNullException"></exception>
-	public Messenger(string ownerId, bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
+	public Messenger(string ownerId, bool isAuthority, string queueName, IMemoryPackerEntityPool? pool = null, long queueCapacity = 1024*1024, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
-		if (MessagingSystem.TryGet(queueName) is not MessagingSystem existingSystem)
+		IMemoryPackerEntityPool? actualPool = pool;
+		if (actualPool is null)
 		{
-			_customSystem = new MessagingSystem(isAuthority, queueName, queueCapacity, pool, null, OnFailure, OnWarning, OnDebug);
+			var frooxEnginePoolType = Type.GetType("InterprocessLib.FrooxEnginePool");
+			if (frooxEnginePoolType is not null)
+			{
+				actualPool = (IMemoryPackerEntityPool)frooxEnginePoolType.GetField("Instance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
+			}
+			else
+			{
+				var unityPoolType = Type.GetType("Renderite.Unity.PackerMemoryPool");
+				if (unityPoolType is not null)
+				{
+					actualPool = (IMemoryPackerEntityPool)unityPoolType.GetField("Instance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
+				}
+				else
+				{
+					throw new EntryPointNotFoundException("Could not find default IMemoryPackerEntityPool!");
+				}
+			}
+		}
+
+		if (MessagingSystem.TryGetRegisteredSystem(queueName) is not MessagingSystem existingSystem)
+		{
+			_customSystem = new MessagingSystem(isAuthority, queueName, queueCapacity, actualPool, null, OnFailure, OnWarning, OnDebug);
 		}
 		else
 		{
@@ -154,6 +174,25 @@ public class Messenger
 
 		if (!_customSystem!.IsConnected)
 			_customSystem.Connect();
+	}
+
+	internal static void SetDefaultSystem(MessagingSystem system)
+	{
+		_defaultSystem = system;
+		_defaultSystem.SetPostInitActions(_defaultPostInitActions);
+		_defaultPostInitActions = null;
+		foreach (var act in _defaultPreInitActions!)
+		{
+			try
+			{
+				act();
+			}
+			catch (Exception ex)
+			{
+				OnWarning?.Invoke($"Exception running pre-init action:\n{ex}");
+			}
+		}
+		_defaultPreInitActions = null;
 	}
 
 	private void RunPostInit(Action act)
@@ -181,6 +220,16 @@ public class Messenger
 		{
 			CurrentSystem.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !CurrentSystem.TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
+	}
+
+	private static void DefaultRunPreInit(Action act)
+	{
+		if (_defaultSystem is null)
+		{
+			_defaultPreInitActions!.Add(act);
+		}
+		else
+			throw new InvalidOperationException("Default host already did pre-init!");
 	}
 
 	private static void DefaultRunPostInit(Action act)
@@ -303,7 +352,7 @@ public class Messenger
 			return;
 		}
 
-		var command = new IdentifiableCommand();
+		var command = new EmptyCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
 		CurrentSystem!.SendPackable(command);

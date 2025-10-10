@@ -5,19 +5,6 @@ using Renderite.Shared;
 
 namespace InterprocessLibStandaloneTest
 {
-	class MyPool : IMemoryPackerEntityPool
-	{
-		T IMemoryPackerEntityPool.Borrow<T>()
-		{
-			return Pool<T>.Borrow();
-		}
-
-		void IMemoryPackerEntityPool.Return<T>(T value)
-		{
-			Pool<T>.ReturnCleaned(ref value);
-		}
-	}
-
 	internal class Program
     {
 		private static void CommandHandler(RendererCommand command, int messageSize)
@@ -58,12 +45,8 @@ namespace InterprocessLibStandaloneTest
 			Messenger.OnWarning = WarnHandler;
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnDebug = DebugHandler;
-
-			//var customHost = new MessagingBackend(false, queueName!, 1024 * 1024, new MyPool(), CommandHandler, FailHandler, WarnHandler, DebugHandler);
 			
-			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!, 1024*1024, new MyPool(), [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
-
-			//customHost.Connect();
+			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!, additionalObjectTypes: [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], additionalValueTypes: [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 
 			Tests.RunTests(messenger, Console.WriteLine);
 

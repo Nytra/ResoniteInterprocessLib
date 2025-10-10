@@ -5,6 +5,21 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
+internal class FrooxEnginePool : IMemoryPackerEntityPool
+{
+	public static readonly FrooxEnginePool Instance = new();
+
+	T IMemoryPackerEntityPool.Borrow<T>()
+	{
+		return Pool<T>.Borrow();
+	}
+
+	void IMemoryPackerEntityPool.Return<T>(T value)
+	{
+		Pool<T>.ReturnCleaned(ref value);
+	}
+}
+
 internal static class FrooxEngineInit
 {
 	private static void CommandHandler(RendererCommand command, int messageSize)
@@ -49,7 +64,7 @@ internal static class FrooxEngineInit
 			};
 #endif
 
-			var host = new MessagingSystem(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var host = new MessagingSystem(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, FrooxEnginePool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			Messenger.SetDefaultSystem(host);
 			host.Connect();
 			// The authority process automatically initializes when it receives a MessengerReadyCommand from the non-authority process

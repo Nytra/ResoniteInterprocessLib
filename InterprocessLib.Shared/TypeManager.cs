@@ -82,7 +82,7 @@ internal class TypeManager
 		if (_initializedCoreTypes) return;
 
 		RegisterAdditionalObjectType<MessengerReadyCommand>();
-		RegisterAdditionalObjectType<IdentifiableCommand>();
+		RegisterAdditionalObjectType<EmptyCommand>();
 		RegisterAdditionalObjectType<StringCommand>();
 		RegisterAdditionalObjectType<StringListCommand>();
 
@@ -204,9 +204,9 @@ internal class TypeManager
 		return _borrowers[_typeToIndex[type]]();
 	}
 
-	internal void Return(Type type, object obj)
+	internal void Return(Type type, IMemoryPackable obj)
 	{
-		_returners[_typeToIndex[type]]((IMemoryPackable)obj);
+		_returners[_typeToIndex[type]](obj);
 	}
 
 	private void PushNewTypes(List<Type> types)
