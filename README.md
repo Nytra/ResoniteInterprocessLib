@@ -4,7 +4,7 @@ A library for [Resonite](https://resonite.com/) that allows mods to send data to
 
 The library only depends on `Renderite.Shared`, meaning it could work with other mod loaders e.g. MonkeyLoader.
 
-BepisLoader and BepInEx projects are included.
+BepisLoader, BepInEx and RML example projects are included in the Tests folder.
 
 ## Usage
 
@@ -31,7 +31,7 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
-For BepisLoader or BepInEx, if you have a ConfigEntry in both processes with the same type and name, you can sync them like this:
+For BepisLoader and BepInEx, if you have a ConfigEntry/ModConfigurationKey in both processes with the same type and name, you can sync them like this:
 
 ```
 messenger.SyncConfigEntry(MyConfigEntry);
@@ -83,14 +83,16 @@ messenger.ReceiveObject<TestCommand>("TestCustomRendererCommand", (recvCmd) =>
 
 For more examples you can check the tests files: 
 
-https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Extra/Tests.cs
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.Shared/Tests.cs
 
-https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.BepInEx.Tests/UnityPluginTests.cs
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.BepInEx.Tests/BepInExTests.cs
 
-https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.BepisLoader.Tests/PluginTests.cs
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.BepisLoader.Tests/BepisLoaderTests.cs
+
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.RML.Tests/RML_Tests.cs
 
 ## Installation (Manual)
-1. Install [BepisLoader](https://github.com/ResoniteModding/BepisLoader) and [BepInExRenderer](https://thunderstore.io/c/resonite/p/ResoniteModding/BepInExRenderer/) and [RenderiteHook](https://thunderstore.io/c/resonite/p/ResoniteModding/RenderiteHook/) for Resonite.
+1. Install [BepisLoader](https://thunderstore.io/c/resonite/p/ResoniteModding/BepisLoader/) and [BepInExRenderer](https://thunderstore.io/c/resonite/p/ResoniteModding/BepInExRenderer/) and [RenderiteHook](https://thunderstore.io/c/resonite/p/ResoniteModding/RenderiteHook/) for Resonite.
 2. Download the latest release ZIP file (e.g., `Nytra-InterprocessLib-1.0.0.zip`) from the [Releases](https://github.com/Nytra/ResoniteInterprocessLib/releases) page.
 3. Extract the ZIP and copy the `plugins` folder to your BepInEx folder in your Resonite installation directory and the renderer directory:
    - **Default location:** `C:\Program Files (x86)\Steam\steamapps\common\Resonite\BepInEx\`

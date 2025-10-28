@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.0.1] - 28-10-2025
+
+- Fixed folder structure of the Thunderstore package
+
 ## [2.0.0] - 02-10-2025
 
 - Changed the library initialization to no longer need dedicated bootstrapper mods, now it can instantiate on its own whenever it's called
