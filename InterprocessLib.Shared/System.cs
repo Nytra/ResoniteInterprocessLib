@@ -17,6 +17,7 @@ internal class MessagingSystem
 
 		public readonly Dictionary<string, object?> ValueCollectionCallbacks = new();
 
+		// not string?, because FrooxEngine just takes string
 		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
 
 		public readonly Dictionary<string, object?> ObjectListCallbacks = new();
@@ -60,7 +61,7 @@ internal class MessagingSystem
 
 	private List<Action>? _postInitActions = new();
 
-	internal TypeManager TypeManager;
+	internal TypeManager TypeManager; 
 
 	private static Dictionary<string, MessagingSystem> _backends = new();
 
