@@ -1,5 +1,7 @@
 using Renderite.Shared;
+using System;
 using System.Collections;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -10,6 +12,7 @@ namespace InterprocessLib;
 
 internal abstract class IdentifiableCommand : IMemoryPackable
 {
+	internal MessagingSystem? System;
 	internal string Owner = "";
 	public string Id = "";
 
@@ -86,17 +89,55 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-#pragma warning disable CS8604
-		packer.WriteValueList<C, T>(Values);
-#pragma warning restore
+		packer.WriteValueList<C, T>(Values!);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-#pragma warning disable CS8601
-		unpacker.ReadValueList<C, T>(ref Values);
-#pragma warning restore
+		unpacker.ReadValueList<C, T>(ref Values!);
+	}
+}
+
+internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanaged
+{
+	public T[]? Values;
+
+	public override IEnumerable? UntypedCollection => Values;
+	public override Type InnerDataType => typeof(T);
+	public override Type CollectionType => typeof(T[]);
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
+		if (Values is null)
+		{
+			packer.Write(-1);
+			return;
+		}
+		int len = Values.Length;
+		packer.Write(len);
+		Span<T> data = packer.Access<T>(len);
+		Values.CopyTo(data);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		base.Unpack(ref unpacker);
+		int len = 0;
+		unpacker.Read(ref len);
+		if (len == -1)
+		{
+			Values = null;
+			return;
+		}
+		Values = new T[len]; // ToDo: use pool borrowing here?
+		for (int i = 0; i < len; i++)
+		{
+			T val = default;
+			unpacker.Read(ref val);
+			Values[i] = val;
+		}
 	}
 }
 
@@ -111,17 +152,13 @@ internal sealed class StringListCommand : CollectionCommand
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-#pragma warning disable CS8604
-		packer.WriteStringList(Values);
-#pragma warning restore
+		packer.WriteStringList(Values!);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-#pragma warning disable CS8601
-		unpacker.ReadStringList(ref Values);
-#pragma warning restore
+		unpacker.ReadStringList(ref Values!);
 	}
 }
 
@@ -136,17 +173,57 @@ internal sealed class ObjectListCommand<T> : CollectionCommand where T : class, 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-#pragma warning disable CS8604
-		packer.WriteObjectList(Values);
-#pragma warning restore
+		packer.WriteObjectList(Values!);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-#pragma warning disable CS8601
-		unpacker.ReadObjectList(ref Values);
-#pragma warning restore
+		unpacker.ReadObjectList(ref Values!);
+	}
+}
+
+internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class, IMemoryPackable, new()
+{
+	public T[]? Objects;
+
+	public override IEnumerable? UntypedCollection => Objects;
+	public override Type InnerDataType => typeof(T);
+	public override Type CollectionType => typeof(T[]);
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
+		if (Objects is null)
+		{
+			packer.Write(-1);
+			return;
+		}
+		int len = Objects.Length;
+		packer.Write(len);
+		foreach (var obj in Objects)
+		{
+			obj.Pack(ref packer);
+		}
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		base.Unpack(ref unpacker);
+		int len = 0;
+		unpacker.Read(ref len);
+		if (len == -1)
+		{
+			Objects = null;
+			return;
+		}
+		Objects = new T[len]; // ToDo: use pool borrowing here?
+		for (int i = 0; i < len; i++)
+		{
+			T obj = (T)(System?.TypeManager.Borrow(typeof(T)) ?? new T());
+			obj.Unpack(ref unpacker);
+			Objects[i] = obj;
+		}
 	}
 }
 
@@ -197,17 +274,13 @@ internal sealed class StringCommand : IdentifiableCommand
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-#pragma warning disable CS8604
-		packer.Write(String);
-#pragma warning restore
+		packer.Write(String!);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-#pragma warning disable CS8601
-		unpacker.Read(ref String);
-#pragma warning restore
+		unpacker.Read(ref String!);
 	}
 
 	public override string ToString()
@@ -238,9 +311,6 @@ internal sealed class WrapperCommand : RendererCommand
 	public string? QueueName;
 	public IMemoryPackable? Packable;
 
-	//static MethodInfo? _borrowMethod = typeof(WrapperCommand).GetMethod("Borrow", BindingFlags.Static | BindingFlags.NonPublic);
-	//static MethodInfo? _returnMethod = typeof(WrapperCommand).GetMethod("Return", BindingFlags.Static | BindingFlags.NonPublic);
-
 	public static void InitNewTypes(List<Type> types)
 	{
 		InitTypes(types);
@@ -256,9 +326,10 @@ internal sealed class WrapperCommand : RendererCommand
 		if (type == -1)
 			return;
 
-#pragma warning disable CS8604
-		packer.Write(QueueName);
-#pragma warning restore
+		packer.Write(QueueName!);
+
+		if (Packable is IdentifiableCommand identifiableCommand)
+			identifiableCommand.System = backend;
 
 		Packable!.Pack(ref packer);
 
@@ -275,14 +346,15 @@ internal sealed class WrapperCommand : RendererCommand
 			return;
 		}
 
-#pragma warning disable CS8601
-		unpacker.Read(ref QueueName);
-#pragma warning restore
+		unpacker.Read(ref QueueName!);
 
 		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName);
 		var type = backend!.TypeManager.GetTypeFromIndex(TypeIndex);
 
 		Packable = backend.TypeManager.Borrow(type);
+
+		if (Packable is IdentifiableCommand identifiableCommand)
+			identifiableCommand.System = backend;
 
 		Packable!.Unpack(ref unpacker);
 	}

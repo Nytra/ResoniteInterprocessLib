@@ -17,7 +17,7 @@ internal class MessagingSystem
 
 		public readonly Dictionary<string, object?> ValueCollectionCallbacks = new();
 
-		// not string?, because FrooxEngine just takes string
+		// not List<string?>, because FrooxEngine just takes List<string>
 		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
 
 		public readonly Dictionary<string, object?> ObjectListCallbacks = new();
@@ -65,10 +65,13 @@ internal class MessagingSystem
 
 	private static Dictionary<string, MessagingSystem> _backends = new();
 
-	internal IMemoryPackerEntityPool Pool { get; private set; }
+	private IMemoryPackerEntityPool _pool;
 
 	internal void SetPostInitActions(List<Action>? actions)
 	{
+		if (IsInitialized)
+			throw new InvalidOperationException("Already initialized!");
+
 		_postInitActions = actions;
 	}
 
@@ -94,6 +97,7 @@ internal class MessagingSystem
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
+
 		foreach (var action in actions)
 		{
 			try
@@ -181,7 +185,7 @@ internal class MessagingSystem
 
 		TypeManager = new(QueueName, pool);
 
-		Pool = pool;
+		_pool = pool;
 
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
@@ -319,11 +323,23 @@ internal class MessagingSystem
 			packable = wrapperCommand.Packable;
 			_onDebug?.Invoke($"Received {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
 		}
-
-		if (!IsInitialized && packable is MessengerReadyCommand)
+		else
 		{
-			Initialize();
+			_onWarning?.Invoke($"Received an unexpected RendererCommand type! {command?.ToString() ?? command?.GetType().Name ?? "NULL"}");
 			return;
+		}
+
+		if (!IsInitialized)
+		{
+			if (packable is MessengerReadyCommand)
+			{
+				Initialize();
+				return;
+			}
+			else
+			{
+				throw new InvalidDataException($"The first command needs to be the MessengerReadyCommand when not initialized!");
+			}
 		}
 
 		if (packable is IdentifiableCommand identifiableCommand)
@@ -333,55 +349,60 @@ internal class MessagingSystem
 				_onWarning?.Invoke($"Owner \"{identifiableCommand.Owner}\" is not registered!");
 				return;
 			}
-		}
-
-		if (packable is ValueCommand valueCommand)
-		{
-			var valueType = valueCommand.ValueType;
-			var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
-			typedMethod.Invoke(this, [packable]);
-		}
-		else if (packable is CollectionCommand collectionCommand)
-		{
-			var innerDataType = collectionCommand.InnerDataType;
-			if (innerDataType == typeof(string))
+			if (packable is ValueCommand valueCommand)
 			{
-				HandleStringListCommand((StringListCommand)collectionCommand);
+				var valueType = valueCommand.ValueType;
+				var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
+				typedMethod.Invoke(this, [packable]);
 			}
-			else if (innerDataType.IsValueType)
+			else if (packable is CollectionCommand collectionCommand)
 			{
-				var collectionType = collectionCommand.CollectionType;
-				var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
+				var innerDataType = collectionCommand.InnerDataType;
+				if (innerDataType == typeof(string))
+				{
+					HandleStringListCommand((StringListCommand)collectionCommand);
+				}
+				else if (innerDataType.IsValueType)
+				{
+					var collectionType = collectionCommand.CollectionType;
+					var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
+					typedMethod.Invoke(this, [packable]);
+				}
+				else
+				{
+					var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(innerDataType);
+					typedMethod.Invoke(this, [packable]);
+				}
+			}
+			else if (packable is ObjectCommand objectCommand)
+			{
+				var objectType = objectCommand.ObjectType;
+				var typedMethod = _handleObjectCommandMethod!.MakeGenericMethod(objectType);
 				typedMethod.Invoke(this, [packable]);
 			}
 			else
 			{
-				var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(innerDataType);
-				typedMethod.Invoke(this, [packable]);
+				switch (packable)
+				{
+					case StringCommand:
+						HandleStringCommand((StringCommand)packable);
+						break;
+					case EmptyCommand:
+						HandleEmptyCommand((EmptyCommand)packable);
+						break;
+					case IdentifiableCommand unknownCommand:
+						_onWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {unknownCommand.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
+						break;
+					default:
+						break;
+				}
 			}
-		}
-		else if (packable is ObjectCommand objectCommand)
-		{
-			var objectType = objectCommand.ObjectType;
-			var typedMethod = _handleObjectCommandMethod!.MakeGenericMethod(objectType);
-			typedMethod.Invoke(this, [packable]);
 		}
 		else
 		{
-			switch (packable)
-			{
-				case StringCommand:
-					HandleStringCommand((StringCommand)packable);
-					break;
-				case EmptyCommand:
-					HandleEmptyCommand((EmptyCommand)packable);
-					break;
-				case IdentifiableCommand unknownCommand:
-					_onWarning?.Invoke($"Received unrecognized IdentifiableCommand of type {unknownCommand.GetType().Name}: {unknownCommand.Owner}:{unknownCommand.Id}");
-					break;
-				default:
-					break;
-			}
+			// packable is not identifiable, has no owner
+			// right now this should never happen
+			// but in the future maybe it can be handled with a custom user-supplied callback
 		}
 	}
 

@@ -16,22 +16,22 @@ public class Messenger
 	/// <summary>
 	/// If this messenger has a underlying messaging system assigned to it, or has it not been created yet
 	/// </summary>
-	public bool HasSystem => CurrentSystem is not null;
+	//public bool HasSystem => CurrentSystem is not null;
 
 	/// <summary>
-	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the non-authority process sends the <see cref="MessengerReadyCommand"/>.
+	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the non-authority process initializes its interprocess connection.
 	/// </summary>
 	public bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
 
 	/// <summary>
 	/// Does this process have authority over the other process.
 	/// </summary>
-	public bool IsAuthority => CurrentSystem?.IsAuthority ?? false;
+	public bool? IsAuthority => CurrentSystem?.IsAuthority;
 
 	/// <summary>
-	/// Is the interprocess connection still available
+	/// Is the interprocess connection available, this will be false if there has been a fatal error in the interprocess queue
 	/// </summary>
-	public bool IsConnected => CurrentSystem?.IsConnected ?? false;
+	public bool? IsConnected => CurrentSystem?.IsConnected;
 
 	internal static bool DefaultInitStarted = false;
 
@@ -48,9 +48,7 @@ public class Messenger
 	/// <summary>
 	/// Called with additional debugging information
 	/// </summary>
-#pragma warning disable CS0649
 	public static Action<string>? OnDebug;
-#pragma warning restore
 
 	private static List<Action>? _defaultPostInitActions = new();
 
@@ -128,6 +126,7 @@ public class Messenger
 	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
 	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
 	/// <exception cref="ArgumentNullException"></exception>
+	/// <exception cref="EntryPointNotFoundException"></exception>
 	public Messenger(string ownerId, bool isAuthority, string queueName, IMemoryPackerEntityPool? pool = null, long queueCapacity = 1024*1024, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
