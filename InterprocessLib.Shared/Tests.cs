@@ -75,6 +75,12 @@ public static class Tests
 		}
 	}
 
+	static void TestValueArray()
+	{
+		//var test = new ValueCollectionCommand<int[], int>();
+		//_messenger.ReceiveValueList<>
+	}
+
 	static void TestVanillaStruct()
 	{
 		_messenger!.ReceiveValue<HapticPointState>("TestVanillaStruct", (val) =>

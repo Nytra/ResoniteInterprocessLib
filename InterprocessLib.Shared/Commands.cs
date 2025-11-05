@@ -78,7 +78,22 @@ internal sealed class EmptyCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : unmanaged
+internal sealed class EnumerableCommand : CollectionCommand
+{
+	public IEnumerable? Enumerable;
+
+	public override IEnumerable? UntypedCollection => Enumerable;
+
+	public override Type InnerDataType => Enumerable!.GetEnumerator().Current.GetType();
+
+	public override Type CollectionType => Enumerable!.GetType();
+}
+
+internal abstract class ValueCollectionCommand : CollectionCommand
+{
+}
+
+internal sealed class ValueCollectionCommand<C, T> : ValueCollectionCommand where C : ICollection<T>, new() where T : unmanaged
 {
 	public C? Values;
 
@@ -99,7 +114,7 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 	}
 }
 
-internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanaged
+internal sealed class ValueArrayCommand<T> : ValueCollectionCommand where T : unmanaged
 {
 	public T[]? Values;
 
@@ -162,28 +177,32 @@ internal sealed class StringListCommand : CollectionCommand
 	}
 }
 
-internal sealed class ObjectListCommand<T> : CollectionCommand where T : class, IMemoryPackable, new()
+internal abstract class ObjectCollectionCommand : CollectionCommand
 {
-	public List<T>? Values;
+}
 
-	public override IEnumerable? UntypedCollection => Values;
+internal sealed class ObjectListCommand<T> : ObjectCollectionCommand where T : class, IMemoryPackable, new()
+{
+	public List<T>? Objects;
+
+	public override IEnumerable? UntypedCollection => Objects;
 	public override Type InnerDataType => typeof(T);
 	public override Type CollectionType => typeof(List<T>);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		packer.WriteObjectList(Values!);
+		packer.WriteObjectList(Objects!);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-		unpacker.ReadObjectList(ref Values!);
+		unpacker.ReadObjectList(ref Objects!);
 	}
 }
 
-internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class, IMemoryPackable, new()
+internal sealed class ObjectArrayCommand<T> : ObjectCollectionCommand where T : class, IMemoryPackable, new()
 {
 	public T[]? Objects;
 

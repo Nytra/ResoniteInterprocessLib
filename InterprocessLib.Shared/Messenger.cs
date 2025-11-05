@@ -396,7 +396,7 @@ public class Messenger
 		var command = new ObjectListCommand<T>();
 		command.Owner = _ownerId;
 		command.Id = id;
-		command.Values = list;
+		command.Objects = list;
 		CurrentSystem!.SendPackable(command);
 	}
 

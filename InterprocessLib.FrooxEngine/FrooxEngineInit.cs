@@ -66,6 +66,7 @@ internal static class FrooxEngineInit
 
 			var host = new MessagingSystem(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, FrooxEnginePool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			Messenger.SetDefaultSystem(host);
+			Engine.Current.OnShutdown += host.Dispose;
 			host.Connect();
 			// The authority process automatically initializes when it receives a MessengerReadyCommand from the non-authority process
 		}

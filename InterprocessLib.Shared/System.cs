@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-internal class MessagingSystem
+internal class MessagingSystem : IDisposable
 {
 	private struct OwnerData
 	{
@@ -20,7 +20,11 @@ internal class MessagingSystem
 		// not List<string?>, because FrooxEngine just takes List<string>
 		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
 
-		public readonly Dictionary<string, object?> ObjectListCallbacks = new();
+		//public readonly Dictionary<string, object?> ObjectListCallbacks = new();
+
+		//public readonly Dictionary<string, object?> ObjectArrayCallbacks = new();
+
+		public readonly Dictionary<string, object?> ObjectCollectionCallbacks = new();
 
 		public OwnerData()
 		{
@@ -145,6 +149,11 @@ internal class MessagingSystem
 		_ownerData[owner].ValueCollectionCallbacks[id] = callback;
 	}
 
+	public void RegisterValueArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : unmanaged
+	{
+		_ownerData[owner].ValueCollectionCallbacks[id] = callback;
+	}
+
 	public void RegisterStringCallback(string owner, string id, Action<string?> callback)
 	{
 		_ownerData[owner].StringCallbacks[id] = callback;
@@ -167,7 +176,12 @@ internal class MessagingSystem
 
 	public void RegisterObjectListCallback<T>(string owner, string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
 	{
-		_ownerData[owner].ObjectListCallbacks[id] = callback;
+		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
+	}
+
+	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : class, IMemoryPackable, new()
+	{
+		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
 	}
 
 	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
@@ -200,6 +214,11 @@ internal class MessagingSystem
 		};
 
 		_backends.Add(QueueName, this);
+	}
+
+	public void Dispose()
+	{
+		_primary.Dispose();
 	}
 
 	internal static MessagingSystem? TryGetRegisteredSystem(string queueName)
@@ -300,16 +319,31 @@ internal class MessagingSystem
 
 	private void HandleObjectListCommand<T>(ObjectListCommand<T> command) where T : class, IMemoryPackable, new()
 	{
-		if (_ownerData[command.Owner].ObjectListCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner].ObjectCollectionCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
-				((Action<List<T>?>)callback).Invoke(command.Values);
+				((Action<List<T>?>)callback).Invoke(command.Objects);
 			}
 		}
 		else
 		{
 			_onWarning?.Invoke($"ObjectListCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+		}
+	}
+
+	private void HandleObjectArrayCommand<T>(ObjectArrayCommand<T> command) where T : class, IMemoryPackable, new()
+	{
+		if (_ownerData[command.Owner].ObjectCollectionCallbacks.TryGetValue(command.Id, out var callback))
+		{
+			if (callback != null)
+			{
+				((Action<T[]?>)callback).Invoke(command.Objects);
+			}
+		}
+		else
+		{
+			_onWarning?.Invoke($"ObjectArrayCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
