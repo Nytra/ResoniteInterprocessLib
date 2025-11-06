@@ -85,6 +85,7 @@ internal class TypeManager
 		RegisterAdditionalObjectType<EmptyCommand>();
 		RegisterAdditionalObjectType<StringCommand>();
 		RegisterAdditionalObjectType<StringListCommand>();
+		RegisterAdditionalObjectType<TypeCommand>();
 
 		foreach (var valueType in TypeManager._valueTypes)
 		{
@@ -161,13 +162,15 @@ internal class TypeManager
 
 		var valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
 
+		var valueArrayCommandType = typeof(ValueArrayCommand<>).MakeGenericType(type);
+
 		var valueListCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
 
 		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
 		_registeredValueTypes.Add(type);
 
-		PushNewTypes([valueCommandType, valueListCommandType, valueHashSetCommandType]);
+		PushNewTypes([valueCommandType, valueArrayCommandType, valueListCommandType, valueHashSetCommandType]);
 	}
 
 	private void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
@@ -182,11 +185,15 @@ internal class TypeManager
 
 		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
 
-		var objectListCommandType = typeof(ObjectListCommand<>).MakeGenericType(type);
+		var objectArrayCommandType = typeof(ObjectArrayCommand<>).MakeGenericType(type);
+
+		var objectListCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
+
+		var objectHashSetCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
 		_registeredObjectTypes.Add(type);
 
-		PushNewTypes([type, objectCommandType, objectListCommandType]);
+		PushNewTypes([type, objectCommandType, objectArrayCommandType, objectListCommandType, objectHashSetCommandType]);
 	}
 
 	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()

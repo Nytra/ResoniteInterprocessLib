@@ -15,14 +15,14 @@ internal class MessagingSystem : IDisposable
 
 		public readonly Dictionary<string, object?> ObjectCallbacks = new();
 
+		public readonly Dictionary<string, object?> ValueArrayCallbacks = new();
+
 		public readonly Dictionary<string, object?> ValueCollectionCallbacks = new();
 
 		// not List<string?>, because FrooxEngine just takes List<string>
 		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
 
-		//public readonly Dictionary<string, object?> ObjectListCallbacks = new();
-
-		//public readonly Dictionary<string, object?> ObjectArrayCallbacks = new();
+		public readonly Dictionary<string, object?> ObjectArrayCallbacks = new();
 
 		public readonly Dictionary<string, object?> ObjectCollectionCallbacks = new();
 
@@ -37,15 +37,19 @@ internal class MessagingSystem : IDisposable
 
 	public long QueueCapacity { get; }
 
-	private MessagingManager _primary;
+	private MessagingManager? _primary;
 
 	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
+	private static MethodInfo? _handleValueArrayCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueArrayCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+
 	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
-	private static MethodInfo? _handleObjectListCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectListCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static MethodInfo? _handleObjectCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+
+	private static MethodInfo? _handleObjectArrayCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectArrayCommand), BindingFlags.Instance | BindingFlags.NonPublic);
 
 	private RenderCommandHandler? _onCommandReceived { get; }
 
@@ -84,7 +88,7 @@ internal class MessagingSystem : IDisposable
 		if (IsConnected)
 			throw new InvalidOperationException("Already connected!");
 
-		_primary.Connect(QueueName, IsAuthority, QueueCapacity);
+		_primary!.Connect(QueueName, IsAuthority, QueueCapacity);
 		IsConnected = true;
 
 		if (!IsAuthority)
@@ -151,7 +155,7 @@ internal class MessagingSystem : IDisposable
 
 	public void RegisterValueArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : unmanaged
 	{
-		_ownerData[owner].ValueCollectionCallbacks[id] = callback;
+		_ownerData[owner].ValueArrayCallbacks[id] = callback;
 	}
 
 	public void RegisterStringCallback(string owner, string id, Action<string?> callback)
@@ -174,12 +178,17 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].ObjectCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectListCallback<T>(string owner, string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
-	{
-		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
-	}
+	//public void RegisterObjectListCallback<T>(string owner, string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
+	//{
+	//	_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
+	//}
 
 	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : class, IMemoryPackable, new()
+	{
+		_ownerData[owner].ObjectArrayCallbacks[id] = callback;
+	}
+
+	public void RegisterObjectCollectionCallback<C, T>(string owner, string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
 	}
@@ -205,7 +214,7 @@ internal class MessagingSystem : IDisposable
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = (ex) => 
 		{
-			IsConnected = false;
+			Dispose();
 			_onFailure?.Invoke(ex);
 		};
 		_primary.WarningHandler = (msg) =>
@@ -218,7 +227,9 @@ internal class MessagingSystem : IDisposable
 
 	public void Dispose()
 	{
-		_primary.Dispose();
+		_primary?.Dispose();
+		_primary = null!;
+		IsConnected = false;
 	}
 
 	internal static MessagingSystem? TryGetRegisteredSystem(string queueName)
@@ -254,6 +265,21 @@ internal class MessagingSystem : IDisposable
 		else
 		{
 			_onWarning?.Invoke($"ValueCollectionCommand<{typeof(C).Name}, {typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+		}
+	}
+
+	private void HandleValueArrayCommand<T>(ValueArrayCommand<T> command) where T : unmanaged
+	{
+		if (_ownerData[command.Owner].ValueArrayCallbacks.TryGetValue(command.Id, out var callback))
+		{
+			if (callback != null)
+			{
+				((Action<T[]?>)callback).Invoke(command.Values);
+			}
+		}
+		else
+		{
+			_onWarning?.Invoke($"ValueArrayCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -317,24 +343,9 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
-	private void HandleObjectListCommand<T>(ObjectListCommand<T> command) where T : class, IMemoryPackable, new()
-	{
-		if (_ownerData[command.Owner].ObjectCollectionCallbacks.TryGetValue(command.Id, out var callback))
-		{
-			if (callback != null)
-			{
-				((Action<List<T>?>)callback).Invoke(command.Objects);
-			}
-		}
-		else
-		{
-			_onWarning?.Invoke($"ObjectListCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
-		}
-	}
-
 	private void HandleObjectArrayCommand<T>(ObjectArrayCommand<T> command) where T : class, IMemoryPackable, new()
 	{
-		if (_ownerData[command.Owner].ObjectCollectionCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner].ObjectArrayCallbacks.TryGetValue(command.Id, out var callback))
 		{
 			if (callback != null)
 			{
@@ -344,6 +355,21 @@ internal class MessagingSystem : IDisposable
 		else
 		{
 			_onWarning?.Invoke($"ObjectArrayCommand<{typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
+		}
+	}
+
+	private void HandleObjectCollectionCommand<C, T>(ObjectCollectionCommand<C, T> command) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
+	{
+		if (_ownerData[command.Owner].ObjectCollectionCallbacks.TryGetValue(command.Id, out var callback))
+		{
+			if (callback != null)
+			{
+				((Action<C?>)callback).Invoke(command.Objects);
+			}
+		}
+		else
+		{
+			_onWarning?.Invoke($"ObjectCollectionCommand<{typeof(C).Name}, {typeof(T).Name}> with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -376,6 +402,23 @@ internal class MessagingSystem : IDisposable
 			}
 		}
 
+		if (packable is TypeCommand typeCommand)
+		{
+			_onDebug?.Invoke($"Received new type to register: {typeCommand.Type?.FullName ?? "NULL"}");
+			//if (typeCommand.Type is not null)
+			//{
+			//	if (typeCommand.Type.IsValueType)
+			//	{
+			//		TypeManager.InitValueTypeList([typeCommand.Type]);
+			//	}
+			//	else
+			//	{
+			//		TypeManager.InitObjectTypeList([typeCommand.Type]);
+			//	}
+			//}
+			return;
+		}
+
 		if (packable is IdentifiableCommand identifiableCommand)
 		{
 			if (!_ownerData.TryGetValue(identifiableCommand.Owner, out var data))
@@ -391,6 +434,7 @@ internal class MessagingSystem : IDisposable
 			}
 			else if (packable is CollectionCommand collectionCommand)
 			{
+				var collectionType = collectionCommand.CollectionType;
 				var innerDataType = collectionCommand.InnerDataType;
 				if (innerDataType == typeof(string))
 				{
@@ -398,14 +442,29 @@ internal class MessagingSystem : IDisposable
 				}
 				else if (innerDataType.IsValueType)
 				{
-					var collectionType = collectionCommand.CollectionType;
-					var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
-					typedMethod.Invoke(this, [packable]);
+					if (collectionType.IsArray)
+					{
+						var typedMethod = _handleValueArrayCommandMethod!.MakeGenericMethod(innerDataType);
+						typedMethod.Invoke(this, [packable]);
+					}
+					else
+					{
+						var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
+						typedMethod.Invoke(this, [packable]);
+					}
 				}
 				else
 				{
-					var typedMethod = _handleObjectListCommandMethod!.MakeGenericMethod(innerDataType);
-					typedMethod.Invoke(this, [packable]);
+					if (collectionType.IsArray)
+					{
+						var typedMethod = _handleObjectArrayCommandMethod!.MakeGenericMethod(innerDataType);
+						typedMethod.Invoke(this, [packable]);
+					}
+					else
+					{
+						var typedMethod = _handleObjectCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
+						typedMethod.Invoke(this, [packable]);
+					}
 				}
 			}
 			else if (packable is ObjectCommand objectCommand)
@@ -442,12 +501,14 @@ internal class MessagingSystem : IDisposable
 
 	public void SendPackable(IMemoryPackable? packable)
 	{
+		if (!IsConnected) return;
+
 		_onDebug?.Invoke($"Sending packable: {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
 
 		var wrapper = new WrapperCommand();
 		wrapper.QueueName = QueueName;
 		wrapper.Packable = packable;
 
-		_primary.SendCommand(wrapper);
+		_primary!.SendCommand(wrapper);
 	}
 }

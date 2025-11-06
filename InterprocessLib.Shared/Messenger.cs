@@ -29,9 +29,9 @@ public class Messenger
 	public bool? IsAuthority => CurrentSystem?.IsAuthority;
 
 	/// <summary>
-	/// Is the interprocess connection available, this will be false if there has been a fatal error in the interprocess queue
+	/// Is the interprocess connection available? this might be false before initialization or if there has been a fatal error in the interprocess queue
 	/// </summary>
-	public bool? IsConnected => CurrentSystem?.IsConnected;
+	public bool IsConnected => CurrentSystem?.IsConnected ?? false;
 
 	internal static bool DefaultInitStarted = false;
 
@@ -304,6 +304,27 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
+	public void SendValueArray<T>(string id, T[] array) where T : unmanaged
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => SendValueArray(id, array));
+			return;
+		}
+
+		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+		var command = new ValueArrayCommand<T>();
+		command.Owner = _ownerId;
+		command.Id = id;
+		command.Values = array;
+		CurrentSystem!.SendPackable(command);
+	}
+
 	public void SendString(string id, string str)
 	{
 		if (id is null)
@@ -393,12 +414,75 @@ public class Messenger
 		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		var command = new ObjectListCommand<T>();
+		var command = new ObjectCollectionCommand<List<T>, T>();
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Objects = list;
 		CurrentSystem!.SendPackable(command);
 	}
+
+	public void SendObjectHashSet<T>(string id, HashSet<T> hashSet) where T : class, IMemoryPackable, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => SendObjectHashSet(id, hashSet));
+			return;
+		}
+
+		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+		var command = new ObjectCollectionCommand<HashSet<T>, T>();
+		command.Owner = _ownerId;
+		command.Id = id;
+		command.Objects = hashSet;
+		CurrentSystem!.SendPackable(command);
+	}
+
+	public void SendObjectArray<T>(string id, T[] array) where T : class, IMemoryPackable, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => SendObjectArray(id, array));
+			return;
+		}
+
+		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+		var command = new ObjectArrayCommand<T>();
+		command.Owner = _ownerId;
+		command.Id = id;
+		command.Objects = array;
+		CurrentSystem!.SendPackable(command);
+	}
+
+	//public void SendObjectCollection<C, T>(string id, C collection) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
+	//{
+	//	if (id is null)
+	//		throw new ArgumentNullException(nameof(id));
+
+	//	if (IsInitialized != true)
+	//	{
+	//		RunPostInit(() => SendObjectCollection<C, T>(id, collection));
+	//		return;
+	//	}
+
+	//	if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
+	//		throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+	//	var command = new ObjectCollectionCommand<C, T>();
+	//	command.Owner = _ownerId;
+	//	command.Id = id;
+	//	command.Objects = collection;
+	//	CurrentSystem!.SendPackable(command);
+	//}
 
 	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
 	{
@@ -450,6 +534,41 @@ public class Messenger
 
 		CurrentSystem!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
+
+	public void ReceiveValueArray<T>(string id, Action<T[]> callback) where T : unmanaged
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => ReceiveValueArray(id, callback));
+			return;
+		}
+
+		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+		CurrentSystem!.RegisterValueArrayCallback(_ownerId, id, callback);
+	}
+
+	// This won't work because we can't possibly register every type of collection ahead of time
+	//public void ReceiveValueCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : unmanaged
+	//{
+	//	if (id is null)
+	//		throw new ArgumentNullException(nameof(id));
+
+	//	if (IsInitialized != true)
+	//	{
+	//		RunPostInit(() => ReceiveValueCollection<C, T>(id, callback));
+	//		return;
+	//	}
+
+	//	if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
+	//		throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+	//	CurrentSystem!.RegisterValueCollectionCallback<C, T>(_ownerId, id, callback);
+	//}
 
 	public void ReceiveString(string id, Action<string?> callback)
 	{
@@ -524,6 +643,78 @@ public class Messenger
 		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
 			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
-		CurrentSystem!.RegisterObjectListCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterObjectCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
+
+	public void ReceiveObjectHashSet<T>(string id, Action<HashSet<T>> callback) where T : class, IMemoryPackable, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => ReceiveObjectHashSet(id, callback));
+			return;
+		}
+
+		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+		CurrentSystem!.RegisterObjectCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
+	}
+
+	public void ReceiveObjectArray<T>(string id, Action<T[]> callback) where T : class, IMemoryPackable, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => ReceiveObjectArray(id, callback));
+			return;
+		}
+
+		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
+			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+		CurrentSystem!.RegisterObjectArrayCallback(_ownerId, id, callback);
+	}
+
+#if DEBUG
+	public void SendTypeCommand(Type type)
+	{
+		if (type is null)
+			throw new ArgumentNullException(nameof(type));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => SendTypeCommand(type));
+			return;
+		}
+
+		var typeCommand = new TypeCommand();
+		typeCommand.Type = type;
+
+		Messenger.OnDebug?.Invoke($"Sending new type to register: {type.FullName}");
+		CurrentSystem!.SendPackable(typeCommand);
+	}
+#endif
+
+	// This won't work because we can't possibly register every type of collection ahead of time
+	//public void ReceiveObjectCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
+	//{
+	//	if (id is null)
+	//		throw new ArgumentNullException(nameof(id));
+
+	//	if (IsInitialized != true)
+	//	{
+	//		RunPostInit(() => ReceiveObjectCollection<C, T>(id, callback));
+	//		return;
+	//	}
+
+	//	if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
+	//		throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+
+	//	CurrentSystem!.RegisterObjectCollectionCallback<C, T>(_ownerId, id, callback);
+	//}
 }

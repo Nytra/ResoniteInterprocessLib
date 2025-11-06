@@ -1,9 +1,11 @@
 using Renderite.Shared;
 using System;
 using System.Collections;
+using System.Collections.ObjectModel;
 using System.Diagnostics.Eventing.Reader;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
@@ -12,7 +14,6 @@ namespace InterprocessLib;
 
 internal abstract class IdentifiableCommand : IMemoryPackable
 {
-	internal MessagingSystem? System;
 	internal string Owner = "";
 	public string Id = "";
 
@@ -78,62 +79,70 @@ internal sealed class EmptyCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class EnumerableCommand : CollectionCommand
-{
-	public IEnumerable? Enumerable;
-
-	public override IEnumerable? UntypedCollection => Enumerable;
-
-	public override Type InnerDataType => Enumerable!.GetEnumerator().Current.GetType();
-
-	public override Type CollectionType => Enumerable!.GetType();
-}
-
-internal abstract class ValueCollectionCommand : CollectionCommand
-{
-}
-
-internal sealed class ValueCollectionCommand<C, T> : ValueCollectionCommand where C : ICollection<T>, new() where T : unmanaged
+internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : unmanaged
 {
 	public C? Values;
 
 	public override IEnumerable? UntypedCollection => Values;
+
 	public override Type InnerDataType => typeof(T);
+
 	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		packer.WriteValueList<C, T>(Values!);
+		var len = Values?.Count ?? -1;
+		packer.Write(len);
+		if (Values != null)
+		{
+			foreach (var value in Values!)
+			{
+				packer.Write(value);
+			}
+		}
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-		unpacker.ReadValueList<C, T>(ref Values!);
+		int len = 0;
+		unpacker.Read(ref len);
+		if (len == -1)
+		{
+			Values = default;
+			return;
+		}
+		Values = new C(); // ToDo: use pool borrowing here?
+		for (int i = 0; i < len; i++)
+		{
+			T val = default;
+			unpacker.Read(ref val);
+			Values.Add(val);
+		}
 	}
 }
 
-internal sealed class ValueArrayCommand<T> : ValueCollectionCommand where T : unmanaged
+internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanaged
 {
 	public T[]? Values;
 
 	public override IEnumerable? UntypedCollection => Values;
+
 	public override Type InnerDataType => typeof(T);
+
 	public override Type CollectionType => typeof(T[]);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		if (Values is null)
-		{
-			packer.Write(-1);
-			return;
-		}
-		int len = Values.Length;
+		var len = Values?.Length ?? -1;
 		packer.Write(len);
-		Span<T> data = packer.Access<T>(len);
-		Values.CopyTo(data);
+		if (Values != null)
+		{
+			Span<T> data = packer.Access<T>(len);
+			Values.CopyTo(data);
+		}
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -147,14 +156,214 @@ internal sealed class ValueArrayCommand<T> : ValueCollectionCommand where T : un
 			return;
 		}
 		Values = new T[len]; // ToDo: use pool borrowing here?
-		for (int i = 0; i < len; i++)
-		{
-			T val = default;
-			unpacker.Read(ref val);
-			Values[i] = val;
-		}
+		ReadOnlySpan<T> data = unpacker.Access<T>(len);
+		data.CopyTo(Values);
+
+		//for (int i = 0; i < len; i++)
+		//{
+		//	T val = default;
+		//	unpacker.Read(ref val);
+		//	Values[i] = val;
+		//}
 	}
 }
+
+//internal sealed class ValueDictionaryCommand<TKey, TValue> : CollectionCommand where TKey : unmanaged where TValue : unmanaged
+//{
+//	public Dictionary<TKey, TValue>? Dict;
+
+//	public override IEnumerable? UntypedCollection => Dict;
+
+//	public override Type InnerDataType => typeof(KeyValuePair<TKey, TValue>);
+
+//	public override Type CollectionType => typeof(Dictionary<TKey, TValue>);
+
+//	public override void Pack(ref MemoryPacker packer)
+//	{
+//		base.Pack(ref packer);
+//		var len = Dict?.Count ?? -1;
+//		packer.Write(len);
+//		if (Dict != null)
+//		{
+//			foreach (var kvp in Dict)
+//			{
+//				packer.Write(kvp.Key);
+//				packer.Write(kvp.Value);
+//			}
+//		}
+//	}
+
+//	public override void Unpack(ref MemoryUnpacker unpacker)
+//	{
+//		base.Unpack(ref unpacker);
+//		int len = 0;
+//		unpacker.Read(ref len);
+//		if (len == -1)
+//		{
+//			Dict = null;
+//			return;
+//		}
+//		Dict = new(); // ToDo: use pool borrowing here?
+//		for (int i = 0; i < len; i++)
+//		{
+//			TKey key = default;
+//			unpacker.Read(ref key);
+//			TValue val = default;
+//			unpacker.Read(ref val);
+//			Dict[key] = val;
+//		}
+//	}
+//}
+
+internal sealed class TypeCommand : IMemoryPackable
+{
+	public Type? Type;
+	private static Dictionary<string, Type> _typeCache = new();
+
+	public void Pack(ref MemoryPacker packer)
+	{
+		PackType(Type!, ref packer);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		Type = UnpackType(ref unpacker);
+	}
+
+	private void PackType(Type type, ref MemoryPacker packer)
+	{
+		if (type!.IsGenericType)
+		{
+			packer.Write(true);
+			var genericTypeDefinition = type.GetGenericTypeDefinition();
+			packer.Write(genericTypeDefinition.FullName!);
+			var typeArgs = type.GetGenericArguments();
+			packer.Write(typeArgs.Length);
+			foreach (var typeArg in typeArgs)
+			{
+				PackType(typeArg, ref packer);
+			}
+		}
+		else
+		{
+			packer.Write(false);
+			packer.Write(type!.FullName!);
+		}
+	}
+
+	private Type? UnpackType(ref MemoryUnpacker unpacker)
+	{
+		var isGenericType = unpacker.Read<bool>();
+		if (isGenericType)
+		{
+			var genericTypeDefinitionName = unpacker.ReadString();
+			int numTypeArgs = unpacker.Read<int>();
+			var typeArgs = new Type[numTypeArgs];
+			for (int i = 0; i < numTypeArgs; i++)
+			{
+				typeArgs[i] = UnpackType(ref unpacker)!;
+			}
+
+			if (typeArgs.Any(t => t is null)) return null;
+
+			var genericTypeDefinition = FindType(genericTypeDefinitionName);
+			if (genericTypeDefinition != null)
+			{
+				return genericTypeDefinition.MakeGenericType(typeArgs);
+			}
+			else
+			{
+				return null;
+			}
+		}
+		else
+		{
+			var typeString = unpacker.ReadString();
+			return FindType(typeString);
+		}
+	}
+
+	private Type? FindType(string typeString)
+	{
+		if (_typeCache.TryGetValue(typeString, out var type))
+		{
+			return type;
+		}
+
+		Messenger.OnDebug?.Invoke($"Looking for Type: {typeString}");
+		type = Type.GetType(typeString);
+		if (type is null)
+		{
+			foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+			{
+				type = asm.GetType(typeString);
+				if (type != null) break;
+			}
+		}
+		if (type != null)
+		{
+			Messenger.OnDebug?.Invoke($"Found Type: {type.FullName}");
+			_typeCache[typeString] = type;
+		}
+		else
+		{
+			Messenger.OnDebug?.Invoke($"Could not find type.");
+		}
+		return type;
+	}
+
+	public override string ToString()
+	{
+		return "TypeCommand: " + Type?.FullName ?? "NULL";
+	}
+}
+
+//internal sealed class ObjectDictionaryCommand<TKey, TValue> : CollectionCommand where TKey : class, IMemoryPackable, new() where TValue : class, IMemoryPackable, new()
+//{
+//	public Dictionary<TKey, TValue>? Dict;
+
+//	public override IEnumerable? UntypedCollection => Dict;
+
+//	public override Type InnerDataType => typeof(KeyValuePair<TKey, TValue>);
+
+//	public override Type CollectionType => typeof(Dictionary<TKey, TValue>);
+
+//	public override void Pack(ref MemoryPacker packer)
+//	{
+//		base.Pack(ref packer);
+//		var len = Dict?.Count ?? -1;
+//		packer.Write(len);
+//		if (Dict != null)
+//		{
+//			foreach (var kvp in Dict)
+//			{
+//				packer.WriteObject(kvp.Key);
+//				packer.WriteObject(kvp.Value);
+//			}
+//		}
+//	}
+
+//	public override void Unpack(ref MemoryUnpacker unpacker)
+//	{
+//		base.Unpack(ref unpacker);
+//		int len = 0;
+//		unpacker.Read(ref len);
+//		if (len == -1)
+//		{
+//			Dict = null;
+//			return;
+//		}
+//		Dict = new(); // ToDo: use pool borrowing here?
+//		for (int i = 0; i < len; i++)
+//		{
+//			TKey key = default!;
+//			unpacker.ReadObject(ref key!);
+//			TValue val = default!;
+//			unpacker.ReadObject(ref val!);
+//			Dict[key] = val;
+//		}
+//	}
+//}
 
 internal sealed class StringListCommand : CollectionCommand
 {
@@ -177,32 +386,51 @@ internal sealed class StringListCommand : CollectionCommand
 	}
 }
 
-internal abstract class ObjectCollectionCommand : CollectionCommand
+internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 {
-}
-
-internal sealed class ObjectListCommand<T> : ObjectCollectionCommand where T : class, IMemoryPackable, new()
-{
-	public List<T>? Objects;
+	public C? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type InnerDataType => typeof(T);
-	public override Type CollectionType => typeof(List<T>);
+	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		packer.WriteObjectList(Objects!);
+		if (Objects is null)
+		{
+			packer.Write(-1);
+			return;
+		}
+		int len = Objects.Count;
+		packer.Write(len);
+		foreach (var obj in Objects)
+		{
+			packer.WriteObject(obj);
+		}
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-		unpacker.ReadObjectList(ref Objects!);
+		int len = 0;
+		unpacker.Read(ref len);
+		if (len == -1)
+		{
+			Objects = default;
+			return;
+		}
+		Objects = new C(); // ToDo: use pool borrowing here?
+		for (int i = 0; i < len; i++)
+		{
+			T obj = default!;
+			unpacker.ReadObject(ref obj!);
+			Objects.Add(obj);
+		}
 	}
 }
 
-internal sealed class ObjectArrayCommand<T> : ObjectCollectionCommand where T : class, IMemoryPackable, new()
+internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class, IMemoryPackable, new()
 {
 	public T[]? Objects;
 
@@ -222,7 +450,7 @@ internal sealed class ObjectArrayCommand<T> : ObjectCollectionCommand where T : 
 		packer.Write(len);
 		foreach (var obj in Objects)
 		{
-			obj.Pack(ref packer);
+			packer.WriteObject(obj);
 		}
 	}
 
@@ -239,9 +467,7 @@ internal sealed class ObjectArrayCommand<T> : ObjectCollectionCommand where T : 
 		Objects = new T[len]; // ToDo: use pool borrowing here?
 		for (int i = 0; i < len; i++)
 		{
-			T obj = (T)(System?.TypeManager.Borrow(typeof(T)) ?? new T());
-			obj.Unpack(ref unpacker);
-			Objects[i] = obj;
+			unpacker.ReadObject(ref Objects[i]!);
 		}
 	}
 }
@@ -347,9 +573,6 @@ internal sealed class WrapperCommand : RendererCommand
 
 		packer.Write(QueueName!);
 
-		if (Packable is IdentifiableCommand identifiableCommand)
-			identifiableCommand.System = backend;
-
 		Packable!.Pack(ref packer);
 
 		backend!.TypeManager.Return(packedType!, Packable);
@@ -371,9 +594,6 @@ internal sealed class WrapperCommand : RendererCommand
 		var type = backend!.TypeManager.GetTypeFromIndex(TypeIndex);
 
 		Packable = backend.TypeManager.Borrow(type);
-
-		if (Packable is IdentifiableCommand identifiableCommand)
-			identifiableCommand.System = backend;
 
 		Packable!.Unpack(ref unpacker);
 	}
