@@ -1,11 +1,5 @@
 using Renderite.Shared;
-using System;
 using System.Collections;
-using System.Collections.ObjectModel;
-using System.Diagnostics.Eventing.Reader;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace InterprocessLib;
 
@@ -38,12 +32,12 @@ internal abstract class IdentifiableCommand : IMemoryPackable
 internal abstract class CollectionCommand : IdentifiableCommand
 {
 	public abstract IEnumerable? UntypedCollection { get; }
-	public abstract Type InnerDataType { get; }
+	public abstract Type StoredType { get; }
 	public abstract Type CollectionType { get; }
 
 	public override string ToString()
 	{
-		return $"CollectionCommand:{CollectionType.Name}<{InnerDataType.Name}>:{Owner}:{Id}:{UntypedCollection?.ToString() ?? "NULL"}";
+		return $"CollectionCommand:{CollectionType.Name}<{StoredType.Name}>:{Owner}:{Id}:{UntypedCollection?.ToString() ?? "NULL"}";
 	}
 }
 
@@ -85,7 +79,7 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 
 	public override IEnumerable? UntypedCollection => Values;
 
-	public override Type InnerDataType => typeof(T);
+	public override Type StoredType => typeof(T);
 
 	public override Type CollectionType => typeof(C);
 
@@ -129,7 +123,7 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 
 	public override IEnumerable? UntypedCollection => Values;
 
-	public override Type InnerDataType => typeof(T);
+	public override Type StoredType => typeof(T);
 
 	public override Type CollectionType => typeof(T[]);
 
@@ -370,7 +364,7 @@ internal sealed class StringListCommand : CollectionCommand
 	public List<string>? Values;
 
 	public override IEnumerable? UntypedCollection => Values;
-	public override Type InnerDataType => typeof(string);
+	public override Type StoredType => typeof(string);
 	public override Type CollectionType => typeof(List<string>);
 
 	public override void Pack(ref MemoryPacker packer)
@@ -391,7 +385,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 	public C? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
-	public override Type InnerDataType => typeof(T);
+	public override Type StoredType => typeof(T);
 	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
@@ -435,7 +429,7 @@ internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class,
 	public T[]? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
-	public override Type InnerDataType => typeof(T);
+	public override Type StoredType => typeof(T);
 	public override Type CollectionType => typeof(T[]);
 
 	public override void Pack(ref MemoryPacker packer)
@@ -534,19 +528,28 @@ internal sealed class StringCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class MessengerReadyCommand : IdentifiableCommand
+internal sealed class MessengerReadyCommand : IMemoryPackable
 {
-	public override void Pack(ref MemoryPacker packer)
+	public void Pack(ref MemoryPacker packer)
 	{
 	}
 
-	public override void Unpack(ref MemoryUnpacker unpacker)
+	public void Unpack(ref MemoryUnpacker unpacker)
 	{
 	}
+}
 
-	public override string ToString()
+internal sealed class PingCommand : IMemoryPackable
+{
+	public DateTime Time;
+	public void Pack(ref MemoryPacker packer)
 	{
-		return $"MessengerReadyCommand";
+		packer.Write(Time);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		unpacker.Read(ref Time);
 	}
 }
 

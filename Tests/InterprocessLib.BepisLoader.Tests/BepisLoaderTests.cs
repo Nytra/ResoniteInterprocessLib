@@ -25,13 +25,13 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<int>? SyncTestOutput;
 	public static ConfigEntry<bool>? ResetToggle;
 
-	//private static MessagingBackend? _customBackend;
+#if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
 	public static ConfigEntry<bool>? SpawnProcessToggle;
 	private static Random _rand = new();
-#pragma warning disable CS0169 
 	private static string? _customQueueName;
-#pragma warning restore
+	private static Process? _customProcess;
+#endif
 
 	private static void CommandHandler(RendererCommand command, int messageSize)
 	{
@@ -52,13 +52,14 @@ public class Plugin : BasePlugin
 		Log!.LogDebug($"[Child Process Messaging Host] {msg}");
 	}
 
+#if TEST_SPAWN_PROCESS
 	private static void SpawnProcess()
 	{
-#if TEST_SPAWN_PROCESS
+		if (_customProcess is not null && !_customProcess.HasExited) return;
 		_customQueueName ??= $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
 		_customMessenger ??= new Messenger("InterprocessLib.Tests", true, _customQueueName, additionalObjectTypes: [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], additionalValueTypes: [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
-		var process = new Process();
+		_customProcess = new Process();
 
 		string projectConfiguration;
 #if DEBUG
@@ -67,14 +68,14 @@ public class Plugin : BasePlugin
 		projectConfiguration = "Release";
 #endif
 
-		process.StartInfo.FileName = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net9.0\InterprocessLib.Standalone.Tests.exe";
-		process.StartInfo.Arguments = _customQueueName;
-		process.StartInfo.UseShellExecute = true; // Run in a new window
-		process.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-		process.Start();
+		_customProcess.StartInfo.FileName = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net9.0\InterprocessLib.Standalone.Tests.exe";
+		_customProcess.StartInfo.Arguments = _customQueueName;
+		_customProcess.StartInfo.UseShellExecute = true; // Run in a new window
+		_customProcess.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
+		_customProcess.Start();
 		Tests.RunTests(_customMessenger, Log!.LogInfo);
-#endif
 	}
+#endif
 
 	public override void Load()
 	{
@@ -103,7 +104,14 @@ public class Plugin : BasePlugin
 		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
 		Tests.RunTests(_another, Log!.LogInfo);
 
+#if TEST_SPAWN_PROCESS
 		SpawnProcess();
+		SpawnProcessToggle = Config.Bind("General", "SpawnChildProcess", false);
+		SpawnProcessToggle.SettingChanged += (sender, args) =>
+		{
+			SpawnProcess();
+		};
+#endif
 
 		SyncTest = Config.Bind("General", "SyncTest", 34);
 		_messenger.SyncConfigEntry(SyncTest);
@@ -112,17 +120,19 @@ public class Plugin : BasePlugin
 		CheckSyncToggle = Config.Bind("General", "CheckSync", false);
 		SyncTestOutput = Config.Bind("General", "SyncTestOutput", 0);
 		ResetToggle = Config.Bind("General", "ResetToggle", false);
-		SpawnProcessToggle = Config.Bind("General", "SpawnChildProcess", false);
-		SpawnProcessToggle.SettingChanged += (sender, args) =>
-		{
-			SpawnProcess();
-		};
+		
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Log!.LogInfo);
 			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
 			Tests.RunTests(_another, Log!.LogInfo);
+#if TEST_SPAWN_PROCESS
+			if (_customMessenger is not null && _customProcess != null && !_customProcess.HasExited)
+			{
+				Tests.RunTests(_customMessenger, Log!.LogInfo);
+			}
+#endif
 		};
 		CheckSyncToggle!.SettingChanged += (sender, args) =>
 		{

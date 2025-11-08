@@ -1,7 +1,6 @@
 //#define TEST_COMPILATION
 
 using Renderite.Shared;
-using System.Collections.Generic;
 using System.Reflection;
 
 namespace InterprocessLib.Tests;

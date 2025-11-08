@@ -22,9 +22,6 @@ internal class FrooxEnginePool : IMemoryPackerEntityPool
 
 internal static class FrooxEngineInit
 {
-	private static void CommandHandler(RendererCommand command, int messageSize)
-	{
-	}
 	public static void Init()
 	{
 		if (Messenger.DefaultInitStarted)
@@ -36,27 +33,20 @@ internal static class FrooxEngineInit
 	}
 	private static async void InitLoop()
 	{
-		if (Engine.Current?.RenderSystem?.Engine is null)
+		// Engine.SharedMemoryPrefix is assigned just before the RenderSystem is created
+		while (Engine.Current?.RenderSystem is null)
 		{
 			await Task.Delay(1);
-			InitLoop();
 		}
-		else
+
+		Messenger.OnWarning = (msg) =>
 		{
-			await Task.Delay(100);
-
-			var renderSystemMessagingHost = (RenderiteMessagingHost?)typeof(RenderSystem).GetField("_messagingHost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Engine.Current!.RenderSystem);
-			if (renderSystemMessagingHost is null)
-				throw new InvalidOperationException("Engine is not configured to use a renderer!");
-
-			Messenger.OnWarning = (msg) => 
-			{
-				UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
-			};
-			Messenger.OnFailure = (ex) => 
-			{ 
-				UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Backend!\n{ex}");
-			};
+			UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
+		};
+		Messenger.OnFailure = (ex) =>
+		{
+			UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Backend!\n{ex}");
+		};
 #if DEBUG
 			Messenger.OnDebug = (msg) => 
 			{
@@ -64,11 +54,24 @@ internal static class FrooxEngineInit
 			};
 #endif
 
-			var host = new MessagingSystem(true, renderSystemMessagingHost!.QueueName + "InterprocessLib", renderSystemMessagingHost.QueueCapacity, FrooxEnginePool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			Messenger.SetDefaultSystem(host);
-			Engine.Current.OnShutdown += host.Dispose;
-			host.Connect();
-			// The authority process automatically initializes when it receives a MessengerReadyCommand from the non-authority process
+		MessagingSystem? system = null;
+		string uniqueId = Engine.Current.SharedMemoryPrefix;
+
+		if (uniqueId is null)
+		{
+			system = await Messenger.GetFallbackSystem(true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			if (system is null)
+			{
+				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
+			}
 		}
+		else
+		{
+			system = new MessagingSystem(true, $"InterprocessLib-{uniqueId}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+		}
+
+		Messenger.SetDefaultSystem(system);
+		Engine.Current.OnShutdown += system.Dispose; // this might fix the rare occurence that Renderite.Host stays open after exiting Resonite
+		system.Connect();
 	}
 }

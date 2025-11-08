@@ -73,7 +73,9 @@ internal class MessagingSystem : IDisposable
 
 	private static Dictionary<string, MessagingSystem> _backends = new();
 
-	private IMemoryPackerEntityPool _pool;
+	//private IMemoryPackerEntityPool _pool;
+
+	private Action<DateTime>? _pingCallback;
 
 	internal void SetPostInitActions(List<Action>? actions)
 	{
@@ -163,7 +165,7 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].StringCallbacks[id] = callback;
 	}
 
-	public void RegisterStringListCallback(string owner, string id, Action<List<string>?>? callback)
+	public void RegisterStringListCallback(string owner, string id, Action<List<string>?> callback)
 	{
 		_ownerData[owner].StringListCallbacks[id] = callback;
 	}
@@ -178,11 +180,6 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].ObjectCallbacks[id] = callback;
 	}
 
-	//public void RegisterObjectListCallback<T>(string owner, string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
-	//{
-	//	_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
-	//}
-
 	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectArrayCallbacks[id] = callback;
@@ -191,6 +188,11 @@ internal class MessagingSystem : IDisposable
 	public void RegisterObjectCollectionCallback<C, T>(string owner, string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
+	}
+
+	internal void RegisterPingCallback(Action<DateTime> callback)
+	{
+		_pingCallback = callback;
 	}
 
 	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
@@ -206,9 +208,9 @@ internal class MessagingSystem : IDisposable
 
 		_postInitCallback = postInitCallback;
 
-		TypeManager = new(QueueName, pool);
+		TypeManager = new(pool);
 
-		_pool = pool;
+		//_pool = pool;
 
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
@@ -373,6 +375,18 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
+	private void HandlePingCommand(PingCommand ping)
+	{
+		if (_pingCallback is not null)
+		{
+			_pingCallback.Invoke(ping.Time);
+		}
+		else
+		{
+			_onWarning?.Invoke($"PingCommand is not registered to receive a callback! QueueName: {QueueName}");
+		}
+	}
+
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
 		_onCommandReceived?.Invoke(command, messageSize);
@@ -400,6 +414,12 @@ internal class MessagingSystem : IDisposable
 			{
 				throw new InvalidDataException($"The first command needs to be the MessengerReadyCommand when not initialized!");
 			}
+		}
+
+		if (packable is PingCommand pingCommand)
+		{
+			HandlePingCommand(pingCommand);
+			return;
 		}
 
 		if (packable is TypeCommand typeCommand)
@@ -435,7 +455,7 @@ internal class MessagingSystem : IDisposable
 			else if (packable is CollectionCommand collectionCommand)
 			{
 				var collectionType = collectionCommand.CollectionType;
-				var innerDataType = collectionCommand.InnerDataType;
+				var innerDataType = collectionCommand.StoredType;
 				if (innerDataType == typeof(string))
 				{
 					HandleStringListCommand((StringListCommand)collectionCommand);

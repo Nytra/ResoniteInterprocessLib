@@ -50,7 +50,7 @@ namespace InterprocessLibStandaloneTest
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			Thread.Sleep(30000);
+			Console.ReadLine(); // Keeps the window open while also allowing it to continue to receive and display new data
 		}
     }
 }

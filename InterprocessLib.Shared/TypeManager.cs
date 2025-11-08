@@ -19,8 +19,6 @@ internal class TypeManager
 
 	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
 
-	private static Dictionary<string, TypeManager> _typeManagers = new();
-
 	private List<Func<IMemoryPackable>> _borrowers = new();
 
 	private List<Action<IMemoryPackable>> _returners = new();
@@ -65,27 +63,17 @@ internal class TypeManager
 		WrapperCommand.InitNewTypes(list);
 	}
 
-	internal TypeManager(string queueName, IMemoryPackerEntityPool pool)
+	internal TypeManager(IMemoryPackerEntityPool pool)
 	{
-		_typeManagers.Add(queueName, this);
 		_pool = pool;
 		InitializeCoreTypes();
-	}
-
-	internal static TypeManager GetTypeManager(string queueName)
-	{
-		return _typeManagers[queueName];
 	}
 
 	internal void InitializeCoreTypes()
 	{
 		if (_initializedCoreTypes) return;
 
-		RegisterAdditionalObjectType<MessengerReadyCommand>();
-		RegisterAdditionalObjectType<EmptyCommand>();
-		RegisterAdditionalObjectType<StringCommand>();
-		RegisterAdditionalObjectType<StringListCommand>();
-		RegisterAdditionalObjectType<TypeCommand>();
+		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringListCommand), typeof(TypeCommand), typeof(PingCommand)]);
 
 		foreach (var valueType in TypeManager._valueTypes)
 		{
@@ -168,9 +156,9 @@ internal class TypeManager
 
 		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
-		_registeredValueTypes.Add(type);
-
 		PushNewTypes([valueCommandType, valueArrayCommandType, valueListCommandType, valueHashSetCommandType]);
+
+		_registeredValueTypes.Add(type);
 	}
 
 	private void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
@@ -191,9 +179,9 @@ internal class TypeManager
 
 		var objectHashSetCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
-		_registeredObjectTypes.Add(type);
-
 		PushNewTypes([type, objectCommandType, objectArrayCommandType, objectListCommandType, objectHashSetCommandType]);
+
+		_registeredObjectTypes.Add(type);
 	}
 
 	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()

@@ -14,9 +14,14 @@ public class Messenger
 	private MessagingSystem? CurrentSystem => _customSystem ?? _defaultSystem;
 
 	/// <summary>
-	/// If this messenger has a underlying messaging system assigned to it, or has it not been created yet
+	/// The underlying interprocess queue name for this instance
 	/// </summary>
-	//public bool HasSystem => CurrentSystem is not null;
+	public string? QueueName => CurrentSystem?.QueueName;
+
+	/// <summary>
+	/// The capacity of the underlying interprocess queue for this instance
+	/// </summary>
+	public long? QueueCapacity => CurrentSystem?.QueueCapacity;
 
 	/// <summary>
 	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the non-authority process initializes its interprocess connection.
@@ -24,12 +29,12 @@ public class Messenger
 	public bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
 
 	/// <summary>
-	/// Does this process have authority over the other process.
+	/// Does this process have authority over the other process? Might be null if the library has not fully initialized yet
 	/// </summary>
 	public bool? IsAuthority => CurrentSystem?.IsAuthority;
 
 	/// <summary>
-	/// Is the interprocess connection available? this might be false before initialization or if there has been a fatal error in the interprocess queue
+	/// Is the interprocess connection available? this might be false if the library has not fully initialized, or if there has been a failure in the interprocess queue
 	/// </summary>
 	public bool IsConnected => CurrentSystem?.IsConnected ?? false;
 
@@ -61,6 +66,65 @@ public class Messenger
 	private List<Type>? _additionalObjectTypes;
 
 	private List<Type>? _additionalValueTypes;
+
+	private static MessagingSystem? _fallbackSystem = null;
+
+	private static bool _runningFallbackSystemInit = false;
+
+	internal static async Task<MessagingSystem?> GetFallbackSystem(bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
+	{
+		while (_runningFallbackSystemInit)
+			await Task.Delay(1);
+
+		if (_fallbackSystem is not null) return _fallbackSystem;
+
+		_runningFallbackSystemInit = true;
+
+		var now = DateTime.UtcNow;
+		int waitTimeMs = 2500;
+		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{now.Minute}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+		system1.Connect();
+		if (isAuthority)
+		{
+			_fallbackSystem = system1;
+			_runningFallbackSystemInit = false;
+			return system1;
+		}
+		var cancel1 = new CancellationTokenSource();
+		system1.RegisterPingCallback((dateTime) => 
+		{ 
+			cancel1.Cancel();
+		});
+		system1.SendPackable(new PingCommand());
+		await Task.Delay(waitTimeMs, cancel1.Token);
+		if (cancel1.IsCancellationRequested)
+		{
+			_fallbackSystem = system1;
+		}
+		else
+		{
+			system1.Dispose();
+			var cancel2 = new CancellationTokenSource();
+			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{(now.Minute - 1) % 60}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+			system2.Connect();
+			system2.RegisterPingCallback((dateTime) => 
+			{ 
+				cancel2.Cancel();
+			});
+			system2.SendPackable(new PingCommand());
+			await Task.Delay(waitTimeMs, cancel2.Token);
+			if (cancel2.IsCancellationRequested)
+			{
+				_fallbackSystem = system2;
+			}
+			else
+			{
+				system2.Dispose();
+			}
+		}
+		_runningFallbackSystemInit = false;
+		return _fallbackSystem;
+	}
 
 	/// <summary>
 	/// Creates an instance with a unique owner
@@ -109,7 +173,12 @@ public class Messenger
 				}
 				else
 				{
-					throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
+					var fallbackSystemTask = GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
+					fallbackSystemTask.Wait();
+					if (fallbackSystemTask.Result is not MessagingSystem fallbackSystem)
+						throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
+					else
+						_defaultSystem = fallbackSystemTask.Result;
 				}
 			}
 		}
@@ -584,7 +653,7 @@ public class Messenger
 		CurrentSystem!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveStringList(string id, Action<List<string>?>? callback)
+	public void ReceiveStringList(string id, Action<List<string>?> callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -699,6 +768,22 @@ public class Messenger
 		CurrentSystem!.SendPackable(typeCommand);
 	}
 #endif
+
+	internal void SendPing()
+	{
+		if (!IsInitialized)
+		{
+			RunPostInit(() => SendPing());
+			return;
+		}
+
+		CurrentSystem!.SendPackable(new PingCommand());
+	}
+
+	internal void ReceivePing(Action<DateTime> callback)
+	{
+		CurrentSystem!.RegisterPingCallback(callback);
+	}
 
 	// This won't work because we can't possibly register every type of collection ahead of time
 	//public void ReceiveObjectCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
