@@ -75,7 +75,7 @@ internal class MessagingSystem : IDisposable
 
 	//private IMemoryPackerEntityPool _pool;
 
-	private Action<DateTime>? _pingCallback;
+	internal Action<TimeSpan>? PingCallback;
 
 	internal void SetPostInitActions(List<Action>? actions)
 	{
@@ -94,16 +94,16 @@ internal class MessagingSystem : IDisposable
 		IsConnected = true;
 
 		if (!IsAuthority)
+		{
+			SendPackable(new MessengerReadyCommand());
 			Initialize();
+		}
 	}
 
 	private void Initialize()
 	{
 		if (IsInitialized)
 			throw new InvalidOperationException("Already initialized!");
-
-		if (!IsAuthority)
-			SendPackable(new MessengerReadyCommand());
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
@@ -188,11 +188,6 @@ internal class MessagingSystem : IDisposable
 	public void RegisterObjectCollectionCallback<C, T>(string owner, string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
-	}
-
-	internal void RegisterPingCallback(Action<DateTime> callback)
-	{
-		_pingCallback = callback;
 	}
 
 	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
@@ -377,13 +372,13 @@ internal class MessagingSystem : IDisposable
 
 	private void HandlePingCommand(PingCommand ping)
 	{
-		if (_pingCallback is not null)
+		if (PingCallback is not null)
 		{
-			_pingCallback.Invoke(ping.Time);
+			PingCallback.Invoke(DateTime.UtcNow - ping.InitialSendTime);
 		}
 		else
 		{
-			_onWarning?.Invoke($"PingCommand is not registered to receive a callback! QueueName: {QueueName}");
+			SendPackable(ping);
 		}
 	}
 

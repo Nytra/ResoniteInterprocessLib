@@ -73,7 +73,9 @@ public class Messenger
 
 	internal static async Task<MessagingSystem?> GetFallbackSystem(bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
-		while (_runningFallbackSystemInit)
+		var startTime = DateTime.UtcNow;
+		int waitTimeMs = 2500;
+		while (_runningFallbackSystemInit && (DateTime.UtcNow - startTime).TotalMilliseconds < waitTimeMs * 2)
 			await Task.Delay(1);
 
 		if (_fallbackSystem is not null) return _fallbackSystem;
@@ -81,8 +83,8 @@ public class Messenger
 		_runningFallbackSystemInit = true;
 
 		var now = DateTime.UtcNow;
-		int waitTimeMs = 2500;
-		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{now.Minute}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+		int minuteInDay = now.Hour * 60 + now.Minute;
+		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 		system1.Connect();
 		if (isAuthority)
 		{
@@ -91,11 +93,11 @@ public class Messenger
 			return system1;
 		}
 		var cancel1 = new CancellationTokenSource();
-		system1.RegisterPingCallback((dateTime) => 
+		system1.PingCallback = (latency) => 
 		{ 
 			cancel1.Cancel();
-		});
-		system1.SendPackable(new PingCommand());
+		};
+		system1.SendPackable(new PingCommand() { InitialSendTime = now });
 		await Task.Delay(waitTimeMs, cancel1.Token);
 		if (cancel1.IsCancellationRequested)
 		{
@@ -103,15 +105,16 @@ public class Messenger
 		}
 		else
 		{
+			// try the previous minute, in case the other process started just before the minute ticked over (too bad if it ticked over from 1439 to 0)
 			system1.Dispose();
-			var cancel2 = new CancellationTokenSource();
-			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{(now.Minute - 1) % 60}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+			var cancel2 = new CancellationTokenSource(); 
+			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 			system2.Connect();
-			system2.RegisterPingCallback((dateTime) => 
+			system2.PingCallback = (latency) => 
 			{ 
 				cancel2.Cancel();
-			});
-			system2.SendPackable(new PingCommand());
+			};
+			system2.SendPackable(new PingCommand() { InitialSendTime = now });
 			await Task.Delay(waitTimeMs, cancel2.Token);
 			if (cancel2.IsCancellationRequested)
 			{
@@ -749,6 +752,21 @@ public class Messenger
 		CurrentSystem!.RegisterObjectArrayCallback(_ownerId, id, callback);
 	}
 
+	public void CheckLatency(Action<TimeSpan> callback)
+	{
+		if (!IsInitialized)
+		{
+			RunPostInit(() => CheckLatency(callback));
+			return;
+		}
+
+		CurrentSystem!.PingCallback = callback;
+
+		var pingCommand = new PingCommand();
+		pingCommand.InitialSendTime = DateTime.UtcNow;
+		CurrentSystem!.SendPackable(pingCommand);
+	}
+
 #if DEBUG
 	public void SendTypeCommand(Type type)
 	{
@@ -768,22 +786,6 @@ public class Messenger
 		CurrentSystem!.SendPackable(typeCommand);
 	}
 #endif
-
-	internal void SendPing()
-	{
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendPing());
-			return;
-		}
-
-		CurrentSystem!.SendPackable(new PingCommand());
-	}
-
-	internal void ReceivePing(Action<DateTime> callback)
-	{
-		CurrentSystem!.RegisterPingCallback(callback);
-	}
 
 	// This won't work because we can't possibly register every type of collection ahead of time
 	//public void ReceiveObjectCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()

@@ -23,7 +23,8 @@ public class RML_Tests : ResoniteMod
 	private static ModConfigurationKey<int> SyncTestOutput = new ModConfigurationKey<int>("SyncTestOutput", "SyncTestOutput:", () => 0);
 	[AutoRegisterConfigKey]
 	private static ModConfigurationKey<bool> ResetToggle = new ModConfigurationKey<bool>("ResetToggle", "ResetToggle:", () => false);
-	
+	[AutoRegisterConfigKey]
+	private static ModConfigurationKey<double> LatencyMilliseconds = new ModConfigurationKey<double>("LatencyMilliseconds", "LatencyMilliseconds:", () => -1.0);
 
 	public static Messenger? _messenger;
 	public static Messenger? _unknownMessenger;
@@ -39,6 +40,8 @@ public class RML_Tests : ResoniteMod
 		Tests.RunTests(_unknownMessenger, Msg);
 		Tests.RunTests(_another, Msg);
 
+		_messenger.CheckLatency(latency => LatencyMilliseconds!.Value = latency.TotalMilliseconds);
+
 		_messenger.SyncConfigEntry(SyncTest);
 
 		RunTestsToggle!.OnChanged += (object? newValue) =>
@@ -47,6 +50,7 @@ public class RML_Tests : ResoniteMod
 			Tests.RunTests(_messenger, Msg);
 			Tests.RunTests(_unknownMessenger, Msg);
 			Tests.RunTests(_another, Msg);
+			_messenger.CheckLatency(latency => LatencyMilliseconds!.Value = latency.TotalMilliseconds);
 		};
 		CheckSyncToggle!.OnChanged += (object? newValue) =>
 		{

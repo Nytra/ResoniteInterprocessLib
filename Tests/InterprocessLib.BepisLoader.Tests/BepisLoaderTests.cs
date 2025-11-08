@@ -24,6 +24,7 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? CheckSyncToggle;
 	public static ConfigEntry<int>? SyncTestOutput;
 	public static ConfigEntry<bool>? ResetToggle;
+	public static ConfigEntry<double>? LatencyMilliseconds;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
@@ -120,13 +121,23 @@ public class Plugin : BasePlugin
 		CheckSyncToggle = Config.Bind("General", "CheckSync", false);
 		SyncTestOutput = Config.Bind("General", "SyncTestOutput", 0);
 		ResetToggle = Config.Bind("General", "ResetToggle", false);
-		
+		LatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
+
+		_messenger.CheckLatency(latency =>
+		{
+			LatencyMilliseconds.Value = latency.TotalMilliseconds;
+		});
+
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Log!.LogInfo);
 			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
 			Tests.RunTests(_another, Log!.LogInfo);
+			_messenger.CheckLatency(latency => 
+			{ 
+				LatencyMilliseconds.Value = latency.TotalMilliseconds;
+			});
 #if TEST_SPAWN_PROCESS
 			if (_customMessenger is not null && _customProcess != null && !_customProcess.HasExited)
 			{
