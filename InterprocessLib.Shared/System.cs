@@ -374,7 +374,8 @@ internal class MessagingSystem : IDisposable
 	{
 		if (PingCallback is not null)
 		{
-			PingCallback.Invoke(DateTime.UtcNow - ping.InitialSendTime);
+			PingCallback.Invoke(DateTime.UtcNow - ping.Time);
+			PingCallback = null;
 		}
 		else
 		{

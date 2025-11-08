@@ -97,7 +97,7 @@ public class Messenger
 		{ 
 			cancel1.Cancel();
 		};
-		system1.SendPackable(new PingCommand() { InitialSendTime = now });
+		system1.SendPackable(new PingCommand() { Time = now });
 		await Task.Delay(waitTimeMs, cancel1.Token);
 		if (cancel1.IsCancellationRequested)
 		{
@@ -114,7 +114,7 @@ public class Messenger
 			{ 
 				cancel2.Cancel();
 			};
-			system2.SendPackable(new PingCommand() { InitialSendTime = now });
+			system2.SendPackable(new PingCommand() { Time = now });
 			await Task.Delay(waitTimeMs, cancel2.Token);
 			if (cancel2.IsCancellationRequested)
 			{
@@ -763,7 +763,7 @@ public class Messenger
 		CurrentSystem!.PingCallback = callback;
 
 		var pingCommand = new PingCommand();
-		pingCommand.InitialSendTime = DateTime.UtcNow;
+		pingCommand.Time = DateTime.UtcNow;
 		CurrentSystem!.SendPackable(pingCommand);
 	}
 
