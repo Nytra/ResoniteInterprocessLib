@@ -20,8 +20,8 @@
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
   <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
-    <PluginTargetDir>$(GamePath)Renderer\BepInEx\plugins\$(AssemblyName)</PluginTargetDir>
-	<LibTargetDir>$(GamePath)Renderer\BepInEx\plugins\Nytra-InterprocessLib\InterprocessLib.BepInEx</LibTargetDir>
+    <RendererPluginTargetDir>$(GamePath)Renderer\BepInEx\plugins\$(AssemblyName)</RendererPluginTargetDir>
+	<RendererLibTargetDir>$(GamePath)Renderer\BepInEx\plugins\Nytra-InterprocessLib\InterprocessLib.BepInEx</RendererLibTargetDir>
     <Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
   
@@ -60,13 +60,13 @@
 	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
     <Message Text="Copied plugin files to out dir" Importance="high" />
 	
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(RendererPluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied plugin files to $(RendererPluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\..\out\InterprocessLib.Unity.dll" DestinationFolder="$(LibTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied unity lib to $(LibTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\..\out\InterprocessLib.Unity.dll" DestinationFolder="$(RendererLibTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied unity lib to $(RendererLibTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
 	
-	<Copy SourceFiles="..\..\out\InterprocessLib.BepInEx_Extensions.dll" DestinationFolder="$(LibTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied bepinex extensions to $(LibTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+	<Copy SourceFiles="..\..\out\InterprocessLib.BepInEx_Extensions.dll" DestinationFolder="$(RendererLibTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
+    <Message Text="Copied bepinex extensions to $(RendererLibTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>

@@ -209,8 +209,9 @@ internal class MessagingSystem : IDisposable
 
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
-		_primary.FailureHandler = (ex) => 
+		_primary.FailureHandler = (ex) =>
 		{
+			if (ex is OperationCanceledException) return; // this happens when you call Dispose
 			Dispose();
 			_onFailure?.Invoke(ex);
 		};
