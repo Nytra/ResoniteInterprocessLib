@@ -98,7 +98,13 @@ public class Messenger
 			cancel1.Cancel();
 		};
 		system1.SendPackable(new PingCommand() { Time = now });
-		await Task.Delay(waitTimeMs, cancel1.Token);
+		try
+		{
+			await Task.Delay(waitTimeMs, cancel1.Token);
+		}
+		catch (TaskCanceledException)
+		{
+		}
 		if (cancel1.IsCancellationRequested)
 		{
 			_fallbackSystem = system1;
@@ -115,7 +121,13 @@ public class Messenger
 				cancel2.Cancel();
 			};
 			system2.SendPackable(new PingCommand() { Time = now });
-			await Task.Delay(waitTimeMs, cancel2.Token);
+			try
+			{
+				await Task.Delay(waitTimeMs, cancel2.Token);
+			}
+			catch (TaskCanceledException)
+			{
+			}
 			if (cancel2.IsCancellationRequested)
 			{
 				_fallbackSystem = system2;
