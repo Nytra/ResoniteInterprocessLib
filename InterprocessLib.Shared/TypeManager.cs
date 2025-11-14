@@ -3,21 +3,32 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-internal static class TypeManager
+internal class TypeManager
 {
-	private static readonly HashSet<Type> _registeredObjectTypes = new();
+	private readonly HashSet<Type> _registeredObjectTypes = new();
 
-	private static readonly HashSet<Type> _registeredValueTypes = new();
+	private readonly HashSet<Type> _registeredValueTypes = new();
 
-	private static bool _initializedCoreTypes = false;
+	private bool _initializedCoreTypes = false;
 
-	internal static MethodInfo? RegisterValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Static);
+	private static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Instance);
 
-	internal static MethodInfo? RegisterObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Static);
+	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Instance);
 
-	internal static List<Type> NewTypes = new();
+	private List<Type> _newTypes = new();
 
-	private static List<Type> RegisteredTypesList => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+
+	private List<Func<IMemoryPackable>> _borrowers = new();
+
+	private List<Action<IMemoryPackable>> _returners = new();
+
+	private Dictionary<Type, int> _typeToIndex = new();
+
+	private IMemoryPackerEntityPool _pool;
+
+	private static MethodInfo? _borrowMethod = typeof(TypeManager).GetMethod("Borrow", BindingFlags.Instance | BindingFlags.NonPublic, null, [], null);
+	private static MethodInfo? _returnMethod = typeof(TypeManager).GetMethod("Return", BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null);
 
 	private static Type[] _valueTypes =
 	{
@@ -38,21 +49,37 @@ internal static class TypeManager
 		typeof(TimeSpan)
 	};
 
-	// Make sure this always happens first before adding other types?
-	internal static void InitializeCoreTypes()
+	static TypeManager()
+	{
+		// Trigger RendererCommand static constructor
+		new WrapperCommand();
+
+		var list = new List<Type>();
+		list.AddRange(CurrentRendererCommandTypes);
+		var wrapperType = typeof(WrapperCommand);
+		if (!list.Contains(wrapperType))
+			list.Add(wrapperType);
+
+		WrapperCommand.InitNewTypes(list);
+	}
+
+	internal TypeManager(IMemoryPackerEntityPool pool)
+	{
+		_pool = pool;
+		InitializeCoreTypes();
+	}
+
+	internal void InitializeCoreTypes()
 	{
 		if (_initializedCoreTypes) return;
 
-		RegisterAdditionalObjectType<MessengerReadyCommand>();
-		RegisterAdditionalObjectType<EmptyCommand>();
-		RegisterAdditionalObjectType<StringCommand>();
-		RegisterAdditionalObjectType<StringListCommand>();
+		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringListCommand), typeof(TypeCommand), typeof(PingCommand)]);
 
 		foreach (var valueType in TypeManager._valueTypes)
 		{
 			try
 			{
-				RegisterValueTypeMethod!.MakeGenericMethod(valueType).Invoke(null, null);
+				_registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(this, null);
 			}
 			catch (Exception ex)
 			{
@@ -63,58 +90,55 @@ internal static class TypeManager
 		_initializedCoreTypes = true;
 	}
 
-	private static void PushNewTypes()
+	internal Type GetTypeFromIndex(int index)
 	{
-		// Trigger RendererCommand static constructor
-		var cmd = new EmptyCommand();
-
-		var list = new List<Type>();
-		list.AddRange(RegisteredTypesList);
-		foreach (var type in TypeManager.NewTypes)
-		{
-			if (!list.Contains(type))
-				list.Add(type);
-		}
-		IdentifiableCommand.InitNewTypes(list);
+		return _newTypes[index];
 	}
 
-	internal static void InitValueTypeList(List<Type> types)
+	internal int GetTypeIndex(Type type)
 	{
+		return _typeToIndex[type];
+	}
+
+	internal void InitValueTypeList(List<Type> types)
+	{
+		Messenger.OnDebug?.Invoke($"Registering additional value types: {string.Join(",", types.Select(t => t.Name))}");
 		foreach (var type in types)
 		{
-			RegisterValueTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+			_registerValueTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 		}
 	}
 
-	internal static void InitObjectTypeList(List<Type> types)
+	internal void InitObjectTypeList(List<Type> types)
 	{
+		Messenger.OnDebug?.Invoke($"Registering additional object types: {string.Join(",", types.Select(t => t.Name))}");
 		foreach (var type in types)
 		{
-			RegisterObjectTypeMethod!.MakeGenericMethod(type).Invoke(null, null);
+			_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 		}
 	}
 
-	internal static bool IsValueTypeInitialized<T>() where T : unmanaged
+	internal bool IsValueTypeInitialized<T>() where T : unmanaged
 	{
 		return _registeredValueTypes.Contains(typeof(T));
 	}
 
-	internal static bool IsValueTypeInitialized(Type t)
+	internal bool IsValueTypeInitialized(Type t)
 	{
 		return _registeredValueTypes.Contains(t);
 	}
 
-	internal static bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
+	internal bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
 	{
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
-	internal static bool IsObjectTypeInitialized(Type t)
+	internal bool IsObjectTypeInitialized(Type t)
 	{
 		return _registeredObjectTypes.Contains(t);
 	}
 
-	internal static void RegisterAdditionalValueType<T>() where T : unmanaged
+	private void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
 		var type = typeof(T);
 
@@ -126,18 +150,18 @@ internal static class TypeManager
 
 		var valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
 
+		var valueArrayCommandType = typeof(ValueArrayCommand<>).MakeGenericType(type);
+
 		var valueListCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
 
 		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
 
-		NewTypes.AddRange([valueCommandType, valueListCommandType, valueHashSetCommandType]);
+		PushNewTypes([valueCommandType, valueArrayCommandType, valueListCommandType, valueHashSetCommandType]);
 
 		_registeredValueTypes.Add(type);
-
-		PushNewTypes();
 	}
 
-	internal static void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
+	private void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 
@@ -147,19 +171,47 @@ internal static class TypeManager
 		if (type.ContainsGenericParameters)
 			throw new ArgumentException($"Type must be a concrete type!");
 
-		if (type.IsSubclassOf(typeof(PolymorphicMemoryPackableEntity<RendererCommand>)))
-		{
-			NewTypes.Add(type);
-		}
-
 		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
 
-		var objectListCommandType = typeof(ObjectListCommand<>).MakeGenericType(type);
+		var objectArrayCommandType = typeof(ObjectArrayCommand<>).MakeGenericType(type);
 
-		NewTypes.AddRange([objectCommandType, objectListCommandType]);
+		var objectListCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
+
+		var objectHashSetCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
+
+		PushNewTypes([type, objectCommandType, objectArrayCommandType, objectListCommandType, objectHashSetCommandType]);
 
 		_registeredObjectTypes.Add(type);
+	}
 
-		PushNewTypes();
+	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()
+	{
+		return _pool.Borrow<T>();
+	}
+
+	private void Return<T>(IMemoryPackable obj) where T : class, IMemoryPackable, new()
+	{
+		_pool.Return((T)obj);
+	}
+
+	internal IMemoryPackable Borrow(Type type)
+	{
+		return _borrowers[_typeToIndex[type]]();
+	}
+
+	internal void Return(Type type, IMemoryPackable obj)
+	{
+		_returners[_typeToIndex[type]](obj);
+	}
+
+	private void PushNewTypes(List<Type> types)
+	{
+		foreach (var type in types)
+		{
+			_newTypes.Add(type);
+			_borrowers.Add((Func<IMemoryPackable>)_borrowMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Func<IMemoryPackable>), this));
+			_returners.Add((Action<IMemoryPackable>)_returnMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Action<IMemoryPackable>), this));
+			_typeToIndex[type] = _newTypes.Count - 1;
+		}
 	}
 }
