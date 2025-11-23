@@ -72,6 +72,8 @@ internal static class FrooxEngineInit
 			system.Connect();
 		}
 
+		Messenger.PreInit(system);
+		system.Initialize();
 		Messenger.SetDefaultSystem(system);
 		Engine.Current.OnShutdown += system.Dispose; // this might fix the rare occurence that Renderite.Host stays open after exiting Resonite
 	}

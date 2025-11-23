@@ -57,9 +57,11 @@ internal static class UnityInit
 		{
 			var engineSharedMemoryPrefix = fullQueueName.Substring(0, fullQueueName.IndexOf('_'));
 			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system.Connect();
 		}
 
-		Messenger.SetDefaultSystem(system);
-		system.Connect();
+		Messenger.PreInit(system);
+		system.Initialize();
+		Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps
 	}
 }

@@ -57,7 +57,7 @@ public class Messenger
 
 	private static List<Action>? _defaultPostInitActions = new();
 
-	private static List<Action>? _defaultPreInitActions = new();
+	private static List<Action<MessagingSystem>>? _defaultPreInitActions = new();
 
 	private string _ownerId;
 
@@ -162,10 +162,7 @@ public class Messenger
 
 		if (_defaultSystem is null)
 		{
-			DefaultRunPreInit(() =>
-			{
-				Register();
-			});
+			DefaultRunPreInit(Register);
 		}
 		else
 		{
@@ -259,16 +256,16 @@ public class Messenger
 			_customSystem.Connect();
 	}
 
-	internal static void SetDefaultSystem(MessagingSystem system)
+	internal static void PreInit(MessagingSystem system)
 	{
-		_defaultSystem = system;
-		_defaultSystem.SetPostInitActions(_defaultPostInitActions);
-		_defaultPostInitActions = null;
+		system.SetPostInitActions(_defaultPostInitActions);
+		//_defaultPostInitActions = null;
+
 		foreach (var act in _defaultPreInitActions!)
 		{
 			try
 			{
-				act();
+				act(system);
 			}
 			catch (Exception ex)
 			{
@@ -276,6 +273,12 @@ public class Messenger
 			}
 		}
 		_defaultPreInitActions = null;
+	}
+
+	internal static void SetDefaultSystem(MessagingSystem system)
+	{
+		_defaultSystem = system;
+		_defaultPostInitActions = null;
 	}
 
 	private void RunPostInit(Action act)
@@ -286,26 +289,31 @@ public class Messenger
 			CurrentSystem.RunPostInit(act);
 	}
 
-	private void Register()
+	private void Register(MessagingSystem system)
 	{
-		if (CurrentSystem!.HasOwner(_ownerId))
+		if (system.HasOwner(_ownerId))
 		{
-			OnWarning?.Invoke($"Owner {_ownerId} has already been registered in this process for messaging backend with queue name: {CurrentSystem.QueueName}");
+			OnWarning?.Invoke($"Owner {_ownerId} has already been registered in this process for messaging backend with queue name: {system.QueueName}");
 		}
 		else
-			CurrentSystem.RegisterOwner(_ownerId);
+			system.RegisterOwner(_ownerId);
 
 		if (_additionalObjectTypes is not null)
 		{
-			CurrentSystem.TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !CurrentSystem.TypeManager.IsObjectTypeInitialized(t)).ToList());
+			system.TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !system.TypeManager.IsObjectTypeInitialized(t)).ToList());
 		}
 		if (_additionalValueTypes is not null)
 		{
-			CurrentSystem.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !CurrentSystem.TypeManager.IsValueTypeInitialized(t)).ToList());
+			system.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !system.TypeManager.IsValueTypeInitialized(t)).ToList());
 		}
 	}
 
-	private static void DefaultRunPreInit(Action act)
+	private void Register()
+	{
+		Register(CurrentSystem!);
+	}
+
+	private static void DefaultRunPreInit(Action<MessagingSystem> act)
 	{
 		if (_defaultSystem is null)
 		{

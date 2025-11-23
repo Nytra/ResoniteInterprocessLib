@@ -92,18 +92,17 @@ internal class MessagingSystem : IDisposable
 
 		_primary!.Connect(QueueName, IsAuthority, QueueCapacity);
 		IsConnected = true;
+	}
+
+	public void Initialize()
+	{
+		if (IsInitialized)
+			throw new InvalidOperationException("Already initialized!");
 
 		if (!IsAuthority)
 		{
 			SendPackable(new MessengerReadyCommand());
-			Initialize();
 		}
-	}
-
-	private void Initialize()
-	{
-		if (IsInitialized)
-			throw new InvalidOperationException("Already initialized!");
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
