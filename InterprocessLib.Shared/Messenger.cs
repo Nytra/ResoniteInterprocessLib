@@ -71,6 +71,8 @@ public class Messenger
 
 	private static bool _runningFallbackSystemInit = false;
 
+	internal static object LockObj = new();
+
 	internal static async Task<MessagingSystem?> GetFallbackSystem(bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
 		var startTime = DateTime.UtcNow;
@@ -86,6 +88,7 @@ public class Messenger
 		int minuteInDay = now.Hour * 60 + now.Minute;
 		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 		system1.Connect();
+		system1.Initialize();
 		if (isAuthority)
 		{
 			_fallbackSystem = system1;
@@ -116,6 +119,7 @@ public class Messenger
 			var cancel2 = new CancellationTokenSource(); 
 			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 			system2.Connect();
+			system2.Initialize();
 			system2.PingCallback = (latency) => 
 			{ 
 				cancel2.Cancel();
@@ -252,8 +256,11 @@ public class Messenger
 
 		Register();
 
-		if (!_customSystem!.IsConnected)
+		if (!_customSystem!.IsInitialized)
+		{
 			_customSystem.Connect();
+			_customSystem.Initialize();
+		}
 	}
 
 	internal static void PreInit(MessagingSystem system)
@@ -283,10 +290,18 @@ public class Messenger
 
 	private void RunPostInit(Action act)
 	{
-		if (CurrentSystem is null)
-			DefaultRunPostInit(act);
-		else
-			CurrentSystem.RunPostInit(act);
+		lock (LockObj)
+		{
+			if (IsInitialized)
+			{
+				act();
+				return;
+			}
+			if (CurrentSystem is null)
+				DefaultRunPostInit(act);
+			else
+				CurrentSystem.RunPostInit(act);
+		}
 	}
 
 	private void Register(MessagingSystem system)

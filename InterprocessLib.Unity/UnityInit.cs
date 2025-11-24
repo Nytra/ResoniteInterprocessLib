@@ -60,8 +60,11 @@ internal static class UnityInit
 			system.Connect();
 		}
 
-		Messenger.PreInit(system);
-		system.Initialize();
-		Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps
+		lock (Messenger.LockObj)
+		{
+			Messenger.PreInit(system);
+			Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps
+			system.Initialize();
+		}
 	}
 }

@@ -99,7 +99,7 @@ internal class MessagingSystem : IDisposable
 		if (IsInitialized)
 			throw new InvalidOperationException("Already initialized!");
 
-		if (!IsAuthority)
+		if (!IsAuthority) // Put back into Connect?
 		{
 			SendPackable(new MessengerReadyCommand());
 		}
@@ -385,6 +385,9 @@ internal class MessagingSystem : IDisposable
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
+		while (!IsInitialized && !IsAuthority)
+			Thread.Sleep(1);
+
 		_onCommandReceived?.Invoke(command, messageSize);
 
 		IMemoryPackable? packable = null;
@@ -399,7 +402,7 @@ internal class MessagingSystem : IDisposable
 			return;
 		}
 
-		if (!IsInitialized)
+		if (!IsInitialized && IsAuthority)
 		{
 			if (packable is MessengerReadyCommand)
 			{
