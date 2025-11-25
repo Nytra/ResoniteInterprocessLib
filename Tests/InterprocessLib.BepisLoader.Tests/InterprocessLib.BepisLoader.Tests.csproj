@@ -3,8 +3,8 @@
   <PropertyGroup>
     <Version>1.0.1</Version>
     <Authors>Nytra</Authors>
-    <TargetFramework>net9.0</TargetFramework>
-	<Langversion>13</Langversion>
+    <TargetFramework>net10.0</TargetFramework>
+	<Langversion>14</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
     <PackageId>Nytra.InterprocessLib.BepisLoader.Tests</PackageId>
     <Product>InterprocessLib.BepisLoader.Tests</Product>

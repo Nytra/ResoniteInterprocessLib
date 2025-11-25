@@ -16,9 +16,10 @@ internal static class UnityInit
 
 		Messenger.DefaultInitStarted = true;
 
-		Task.Run(InitLoop);
+		//Task.Run(InitLoop);
+		InitLoop();
 	}
-	private static async Task InitLoop()
+	private static void InitLoop()
 	{
 		Messenger.OnWarning = (msg) =>
 		{
@@ -35,6 +36,8 @@ internal static class UnityInit
 			};
 #endif
 
+		//UnityEngine.Debug.Log("Init");
+
 		var args = Environment.GetCommandLineArgs();
 		string? fullQueueName = null;
 		for (int i = 0; i < args.Length; i++)
@@ -49,7 +52,9 @@ internal static class UnityInit
 		MessagingSystem? system = null;
 		if (fullQueueName is null)
 		{
-			system = await Messenger.GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var fallbackTask = Messenger.GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			fallbackTask.Wait();
+			system = fallbackTask.Result;
 			if (system is null)
 				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
 		}
@@ -66,5 +71,7 @@ internal static class UnityInit
 			Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps
 			system.Initialize();
 		}
+
+		//UnityEngine.Debug.Log("DONE");
 	}
 }

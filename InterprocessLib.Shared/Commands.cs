@@ -380,6 +380,8 @@ internal sealed class StringListCommand : CollectionCommand
 	}
 }
 
+// StringArrayCommand ???
+
 internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 {
 	public C? Objects;
