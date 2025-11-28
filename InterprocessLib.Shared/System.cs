@@ -417,7 +417,7 @@ internal class MessagingSystem : IDisposable
 
 		if (packable is PingCommand pingCommand)
 		{
-			HandlePingCommand(pingCommand);
+			//HandlePingCommand(pingCommand);
 			return;
 		}
 
