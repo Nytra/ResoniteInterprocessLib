@@ -3,8 +3,8 @@
   <PropertyGroup>
     <Version>1.0.0</Version>
     <Authors>Nytra</Authors>
-    <TargetFramework>net9.0</TargetFramework>
-	<Langversion>13</Langversion>
+    <TargetFramework>net10.0</TargetFramework>
+	<Langversion>14</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
     <PackageId>Nytra.InterprocessLib.RML_Extensions</PackageId>
     <Product>InterprocessLib.RML_Extensions</Product>
@@ -18,6 +18,7 @@
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
 	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
+  <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
 	<Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
   

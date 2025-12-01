@@ -9,7 +9,7 @@ public static class RML_Extensions
 	public static void SyncConfigEntry<T>(this Messenger messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
 	{
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
+		if (messenger.IsAuthority == true)
 			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.OnChanged += (object? newValue) =>
 		{
@@ -22,7 +22,7 @@ public static class RML_Extensions
 	public static void SyncConfigEntry(this Messenger messenger, ModConfigurationKey<string> configEntry)
 	{
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
+		if (messenger.IsAuthority == true)
 			messenger.SendConfigEntry(configEntry);
 		configEntry.OnChanged += (object? newValue) =>
 		{

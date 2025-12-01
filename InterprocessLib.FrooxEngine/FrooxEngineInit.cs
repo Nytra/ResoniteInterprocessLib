@@ -5,50 +5,81 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
+internal class FrooxEnginePool : IMemoryPackerEntityPool
+{
+	public static readonly FrooxEnginePool Instance = new();
+
+	T IMemoryPackerEntityPool.Borrow<T>()
+	{
+		return Pool<T>.Borrow();
+	}
+
+	void IMemoryPackerEntityPool.Return<T>(T value)
+	{
+		Pool<T>.ReturnCleaned(ref value);
+	}
+}
+
 internal static class FrooxEngineInit
 {
-	private static void CommandHandler(RendererCommand command, int messageSize)
-	{
-	}
 	public static void Init()
 	{
-		if (Messenger.Host is not null)
-			throw new InvalidOperationException("Messenger has already been initialized!");
+		if (Messenger.DefaultInitStarted)
+			throw new InvalidOperationException("Messenger default backend initialization has already been started!");
+
+		Messenger.DefaultInitStarted = true;
 
 		Task.Run(InitLoop);
 	}
 	private static async void InitLoop()
 	{
-		if (Engine.Current?.RenderSystem?.Engine is null)
+		// Engine.SharedMemoryPrefix is assigned just before the RenderSystem is created
+		while (Engine.Current?.RenderSystem is null)
 		{
 			await Task.Delay(1);
-			InitLoop();
 		}
-		else
+
+		Messenger.OnWarning = (msg) =>
 		{
-			await Task.Delay(100);
-
-			var renderSystemMessagingHost = (RenderiteMessagingHost?)typeof(RenderSystem).GetField("_messagingHost", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Engine.Current!.RenderSystem);
-			if (renderSystemMessagingHost is null)
-				throw new InvalidOperationException("Engine is not configured to use a renderer!");
-
-			Messenger.OnWarning = (msg) => 
-			{
-				UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
-			};
-			Messenger.OnFailure = (ex) => 
-			{ 
-				UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
-			};
-			#if DEBUG
+			UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
+		};
+		Messenger.OnFailure = (ex) =>
+		{
+			UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Backend!\n{ex}");
+		};
+#if DEBUG
 			Messenger.OnDebug = (msg) => 
 			{
 				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
 			};
-			#endif
-			Messenger.IsAuthority = true;
-			Messenger.Host = new MessagingHost(Messenger.IsAuthority, renderSystemMessagingHost!.QueueName, renderSystemMessagingHost.QueueCapacity, renderSystemMessagingHost, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			Messenger.FinishInitialization();
+#endif
+
+		MessagingSystem? system = null;
+		string uniqueId = Engine.Current.SharedMemoryPrefix;
+
+		if (uniqueId is null)
+		{
+			Messenger.OnDebug?.Invoke("Shared memory unique id is null! Attempting to use fallback...");
+			system = await Messenger.GetFallbackSystem(true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			if (system is null)
+			{
+				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
+			}
 		}
+		else
+		{
+			system = new MessagingSystem(true, $"InterprocessLib-{uniqueId}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system.Connect();
+		}
+
+		lock (Messenger.LockObj)
+		{
+			Messenger.PreInit(system);
+			
+			Messenger.SetDefaultSystem(system);
+			system.Initialize();
+		}
+		
+		Engine.Current.OnShutdown += system.Dispose; // this might fix the rare occurence that Renderite.Host stays open after exiting Resonite
 	}
 }
