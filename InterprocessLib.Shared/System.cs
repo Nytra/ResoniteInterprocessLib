@@ -372,13 +372,12 @@ internal class MessagingSystem : IDisposable
 
 	private void HandlePingCommand(PingCommand ping)
 	{
-		if (PingCallback is not null)
-		{
-			PingCallback.Invoke(DateTime.UtcNow - ping.Time);
+		PingCallback?.Invoke(DateTime.UtcNow - ping.Time);
 			PingCallback = null;
-		}
-		else
+
+		if (!ping.Received)
 		{
+			ping.Received = true;
 			SendPackable(ping);
 		}
 	}
@@ -417,26 +416,26 @@ internal class MessagingSystem : IDisposable
 
 		if (packable is PingCommand pingCommand)
 		{
-			//HandlePingCommand(pingCommand);
+			HandlePingCommand(pingCommand);
 			return;
 		}
 
-		if (packable is TypeCommand typeCommand)
-		{
-			_onDebug?.Invoke($"Received new type to register: {typeCommand.Type?.FullName ?? "NULL"}");
-			//if (typeCommand.Type is not null)
-			//{
-			//	if (typeCommand.Type.IsValueType)
-			//	{
-			//		TypeManager.InitValueTypeList([typeCommand.Type]);
-			//	}
-			//	else
-			//	{
-			//		TypeManager.InitObjectTypeList([typeCommand.Type]);
-			//	}
-			//}
-			return;
-		}
+		// if (packable is TypeCommand typeCommand)
+		// {
+		// 	_onDebug?.Invoke($"Received new type to register: {typeCommand.Type?.FullName ?? "NULL"}");
+		// 	//if (typeCommand.Type is not null)
+		// 	//{
+		// 	//	if (typeCommand.Type.IsValueType)
+		// 	//	{
+		// 	//		TypeManager.InitValueTypeList([typeCommand.Type]);
+		// 	//	}
+		// 	//	else
+		// 	//	{
+		// 	//		TypeManager.InitObjectTypeList([typeCommand.Type]);
+		// 	//	}
+		// 	//}
+		// 	return;
+		// }
 
 		if (packable is IdentifiableCommand identifiableCommand)
 		{

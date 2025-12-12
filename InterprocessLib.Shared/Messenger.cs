@@ -802,25 +802,23 @@ public class Messenger
 		CurrentSystem!.SendPackable(pingCommand);
 	}
 
-#if DEBUG
-	public void SendTypeCommand(Type type)
-	{
-		if (type is null)
-			throw new ArgumentNullException(nameof(type));
+	// public void SendTypeCommand(Type type)
+	// {
+	// 	if (type is null)
+	// 		throw new ArgumentNullException(nameof(type));
 
-		if (IsInitialized != true)
-		{
-			RunPostInit(() => SendTypeCommand(type));
-			return;
-		}
+	// 	if (IsInitialized != true)
+	// 	{
+	// 		RunPostInit(() => SendTypeCommand(type));
+	// 		return;
+	// 	}
 
-		var typeCommand = new TypeCommand();
-		typeCommand.Type = type;
+	// 	var typeCommand = new TypeCommand();
+	// 	typeCommand.Type = type;
 
-		Messenger.OnDebug?.Invoke($"Sending new type to register: {type.FullName}");
-		CurrentSystem!.SendPackable(typeCommand);
-	}
-#endif
+	// 	Messenger.OnDebug?.Invoke($"Sending new type to register: {type.FullName}");
+	// 	CurrentSystem!.SendPackable(typeCommand);
+	// }
 
 	// This won't work because we can't possibly register every type of collection ahead of time
 	//public void ReceiveObjectCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()

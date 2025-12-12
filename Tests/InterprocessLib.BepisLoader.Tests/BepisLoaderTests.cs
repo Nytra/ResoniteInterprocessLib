@@ -71,9 +71,9 @@ public class Plugin : BasePlugin
 #endif
 
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-			_customProcess.StartInfo.FileName = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net9.0\InterprocessLib.Standalone.Tests.exe";
+			_customProcess.StartInfo.FileName = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net10.0\InterprocessLib.Standalone.Tests.exe";
 		else
-			_customProcess.StartInfo.FileName = @$"/home/nytra/code/Resonite/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/{projectConfiguration}/net9.0/InterprocessLib.Standalone.Tests";
+			_customProcess.StartInfo.FileName = @$"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/{projectConfiguration}/net10.0/InterprocessLib.Standalone.Tests";
 
 		_customProcess.StartInfo.Arguments = _customQueueName;
 		_customProcess.StartInfo.UseShellExecute = true; // Run in a new window

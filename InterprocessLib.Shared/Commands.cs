@@ -544,14 +544,17 @@ internal sealed class MessengerReadyCommand : IMemoryPackable
 internal sealed class PingCommand : IMemoryPackable
 {
 	public DateTime Time;
+	public bool Received;
 	public void Pack(ref MemoryPacker packer)
 	{
 		packer.Write(Time);
+		packer.Write(Received);
 	}
 
 	public void Unpack(ref MemoryUnpacker unpacker)
 	{
 		unpacker.Read(ref Time);
+		unpacker.Read(ref Received);
 	}
 }
 

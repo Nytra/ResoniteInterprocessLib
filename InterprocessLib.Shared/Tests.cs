@@ -36,9 +36,7 @@ public static class Tests
 		TestObjectArray();
 		TestObjectHashSet();
 
-#if DEBUG
-		TestTypeCommand();
-#endif
+		//TestTypeCommand();
 
 		try
 		{
@@ -82,14 +80,12 @@ public static class Tests
 		}
 	}
 
-#if DEBUG
-	static void TestTypeCommand()
-	{
-		_messenger!.SendTypeCommand(typeof(TestNewTypeToRegister));
-		_messenger!.SendTypeCommand(typeof(ColorProfile));
-		_messenger!.SendTypeCommand(typeof(ValueCollectionCommand<LinkedList<float>, float>));
-	}
-#endif
+	// static void TestTypeCommand()
+	// {
+	// 	_messenger!.SendTypeCommand(typeof(TestNewTypeToRegister));
+	// 	_messenger!.SendTypeCommand(typeof(ColorProfile));
+	// 	_messenger!.SendTypeCommand(typeof(ValueCollectionCommand<LinkedList<float>, float>));
+	// }
 
 	static void TestValueArray()
 	{

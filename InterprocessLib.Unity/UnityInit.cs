@@ -68,7 +68,7 @@ internal static class UnityInit
 		lock (Messenger.LockObj)
 		{
 			Messenger.PreInit(system);
-			Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps
+			Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps (done?)
 			system.Initialize();
 		}
 
