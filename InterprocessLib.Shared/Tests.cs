@@ -8,16 +8,13 @@ namespace InterprocessLib.Tests;
 public static class Tests
 {
 	private static Messenger? _messenger;
-	private static Messenger? _unknownMessenger;
 	private static Action<string>? _logCallback;
 
-	public static void RunTests(Messenger messenger, Messenger unknownMessenger, Action<string> logCallback)
+	public static void RunTests(Messenger messenger, Action<string> logCallback)
 	{
 		_messenger = messenger;
-		_unknownMessenger = unknownMessenger;
 		_logCallback = logCallback;
 
-		TestUnknownMessenger();
 		TestUnknownCommandId();
 		TestNullString();
 		TestEmptyCommand();
@@ -35,6 +32,11 @@ public static class Tests
 		TestVanillaObject();
 		TestVanillaStruct();
 		TestVanillaEnum();
+		TestValueArray();
+		TestObjectArray();
+		TestObjectHashSet();
+
+		//TestTypeCommand();
 
 		try
 		{
@@ -78,6 +80,45 @@ public static class Tests
 		}
 	}
 
+	// static void TestTypeCommand()
+	// {
+	// 	_messenger!.SendTypeCommand(typeof(TestNewTypeToRegister));
+	// 	_messenger!.SendTypeCommand(typeof(ColorProfile));
+	// 	_messenger!.SendTypeCommand(typeof(ValueCollectionCommand<LinkedList<float>, float>));
+	// }
+
+	static void TestValueArray()
+	{
+		var test = new ValueArrayCommand<int>();
+		_messenger!.ReceiveValueArray<int>("TestValueArray", (arr) => 
+		{
+			_logCallback!($"TestValueArray: {string.Join(",", arr!)}");
+		});
+		var arr = new int[3];
+		arr[0] = 4;
+		arr[1] = 7;
+		arr[2] = -8;
+		_messenger.SendValueArray<int>("TestValueArray", arr);
+	}
+
+	static void TestObjectArray()
+	{
+		var test = new ObjectArrayCommand<TestCommand>();
+		_messenger!.ReceiveObjectArray<TestCommand>("TestObjectArray", (arr) =>
+		{
+			_logCallback!($"TestObjectArray: {string.Join<TestCommand>(",", arr!)}");
+		});
+		var arr = new TestCommand[3];
+		arr[0] = new TestCommand();
+		arr[0]!.Value = 64;
+		arr[0]!.Text = "Pizza";
+		arr[0]!.Time = DateTime.Now;
+		arr[1] = null!;
+		arr[2] = new TestCommand();
+		arr[2]!.Value = 247;
+		_messenger.SendObjectArray<TestCommand>("TestObjectArray", arr!);
+	}
+
 	static void TestVanillaStruct()
 	{
 		_messenger!.ReceiveValue<HapticPointState>("TestVanillaStruct", (val) =>
@@ -113,11 +154,6 @@ public static class Tests
 		});
 		var val = Chirality.Right;
 		_messenger.SendValue<Chirality>("TestUnregisteredVanillaValue", val);
-	}
-
-	static void TestUnknownMessenger()
-	{
-		_unknownMessenger!.SendEmptyCommand("UnknownMessengerTest");
 	}
 
 	static void TestUnknownCommandId()
@@ -310,6 +346,20 @@ public static class Tests
 		_messenger.SendObjectList("TestObjectList", list);
 	}
 
+	static void TestObjectHashSet()
+	{
+		_messenger!.ReceiveObjectHashSet<TestCommand>("TestObjectHashSet", (list) =>
+		{
+			_logCallback!($"TestObjectHashSet: {string.Join(",", list!)}");
+		});
+
+		var set = new HashSet<TestCommand>();
+		set.Add(new TestCommand());
+		set.Add(null!);
+		set.Add(new TestCommand() { Value = 9 });
+		_messenger.SendObjectHashSet<TestCommand>("TestObjectHashSet", set);
+	}
+
 	static void TestStringList()
 	{
 		_messenger!.ReceiveStringList("TestStringList", (list) =>
@@ -399,6 +449,11 @@ public class TestCommand : RendererCommand
 		unpacker.Read(ref Text);
 		unpacker.Read(ref Time);
 	}
+
+	public override string ToString()
+	{
+		return $"TestCommand: {Value}, {Text}, {Time}";
+	}
 }
 
 public class TestNestedPackable : IMemoryPackable
@@ -484,4 +539,15 @@ public class UnregisteredCommand : RendererCommand
 public struct UnregisteredStruct
 {
 	public byte Value;
+}
+
+public class TestNewTypeToRegister : IMemoryPackable
+{
+	public void Pack(ref MemoryPacker packer)
+	{
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+	}
 }

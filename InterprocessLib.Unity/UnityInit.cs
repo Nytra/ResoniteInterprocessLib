@@ -1,53 +1,34 @@
 using Renderite.Shared;
 using Renderite.Unity;
-using System.Reflection;
+
+#if DEBUG
+using UnityEngine;
+#endif
 
 namespace InterprocessLib;
 
 internal static class UnityInit
 {
-	private static void CommandHandler(RendererCommand command, int messageSize)
-	{
-		if (Messenger.IsInitialized) return;
-
-		if (command is MessengerReadyCommand)
-		{
-			Messenger.FinishInitialization();
-		}
-	}
 	public static void Init()
 	{
-		if (Messenger.Host is not null)
-			throw new InvalidOperationException("Messenger has already been initialized!");
+		if (Messenger.DefaultInitStarted)
+			throw new InvalidOperationException("Messenger default host initialization has already been started!");
 
-		Task.Run(InitLoop);
+		Messenger.DefaultInitStarted = true;
+
+		//Task.Run(InitLoop);
+		InitLoop();
 	}
-	private static async void InitLoop()
+	private static void InitLoop()
 	{
-		if (RenderingManager.Instance is null)
+		Messenger.OnWarning = (msg) =>
 		{
-			await Task.Delay(1);
-			InitLoop();
-		}
-		else
+			UnityEngine.Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
+		};
+		Messenger.OnFailure = (ex) =>
 		{
-			var getConnectionParametersMethod = typeof(RenderingManager).GetMethod("GetConnectionParameters", BindingFlags.Instance | BindingFlags.NonPublic);
-
-			object[] parameters = { "", 0L };
-
-			if (!(bool)getConnectionParametersMethod.Invoke(RenderingManager.Instance, parameters))
-			{
-				throw new ArgumentException("Could not get connection parameters from RenderingManager!");
-			}
-
-			Messenger.OnWarning = (msg) =>
-			{
-				UnityEngine.Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
-			};
-			Messenger.OnFailure = (ex) =>
-			{
-				UnityEngine.Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
-			};
+			UnityEngine.Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
+		};
 #if DEBUG
 			Messenger.OnDebug = (msg) => 
 			{
@@ -55,8 +36,42 @@ internal static class UnityInit
 			};
 #endif
 
-			Messenger.IsAuthority = false;
-			Messenger.Host = new(Messenger.IsAuthority, (string)parameters[0], (long)parameters[1], PackerMemoryPool.Instance, CommandHandler, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+		//UnityEngine.Debug.Log("Init");
+
+		var args = Environment.GetCommandLineArgs();
+		string? fullQueueName = null;
+		for (int i = 0; i < args.Length; i++)
+		{
+			if (args[i].EndsWith("QueueName", StringComparison.InvariantCultureIgnoreCase))
+			{
+				fullQueueName = args[i + 1];
+				break;
+			}
 		}
+
+		MessagingSystem? system = null;
+		if (fullQueueName is null)
+		{
+			var fallbackTask = Messenger.GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			fallbackTask.Wait();
+			system = fallbackTask.Result;
+			if (system is null)
+				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
+		}
+		else
+		{
+			var engineSharedMemoryPrefix = fullQueueName.Substring(0, fullQueueName.IndexOf('_'));
+			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system.Connect();
+		}
+
+		lock (Messenger.LockObj)
+		{
+			Messenger.PreInit(system);
+			Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps (done?)
+			system.Initialize();
+		}
+
+		//UnityEngine.Debug.Log("DONE");
 	}
 }
