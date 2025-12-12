@@ -4,7 +4,7 @@
     <Version>1.0.0</Version>
     <Authors>Nytra</Authors>
     <TargetFramework>net10.0</TargetFramework>
-	<Langversion>14</Langversion>
+    <Langversion>14</Langversion>
     <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
     <PackageId>Nytra.InterprocessLib.BepisLoader_Extensions</PackageId>
     <Product>InterprocessLib.BepisLoader_Extensions</Product>
@@ -16,8 +16,8 @@
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-  <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
+    <GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
+    <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
     <RestoreAdditionalProjectSources>
       https://nuget-modding.resonite.net/v3/index.json;
     </RestoreAdditionalProjectSources>
@@ -50,7 +50,7 @@
   </ItemGroup>
   
   <ItemGroup>
-	<Compile Include="../BepInExShared.cs" />
+    <Compile Include="../BepInExShared.cs" />
   </ItemGroup>
   
   <ItemGroup>
@@ -63,8 +63,8 @@
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
-	
-	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+  
+  <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
     <Message Text="Copied files to out dir" Importance="high" />
   </Target>
 
