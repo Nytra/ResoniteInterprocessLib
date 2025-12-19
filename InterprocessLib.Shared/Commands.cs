@@ -90,7 +90,7 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 		packer.Write(len);
 		if (Values != null)
 		{
-			foreach (var value in Values!)
+			foreach (var value in Values)
 			{
 				packer.Write(value);
 			}
@@ -209,7 +209,7 @@ internal sealed class TypeCommand : IMemoryPackable
 
 	public void Pack(ref MemoryPacker packer)
 	{
-		PackType(Type!, ref packer);
+		PackType(Type, ref packer);
 	}
 
 	public void Unpack(ref MemoryUnpacker unpacker)
@@ -217,38 +217,49 @@ internal sealed class TypeCommand : IMemoryPackable
 		Type = UnpackType(ref unpacker);
 	}
 
-	private void PackType(Type type, ref MemoryPacker packer)
+	private void PackType(Type? type, ref MemoryPacker packer)
 	{
-		if (type!.IsGenericType)
+		if (type is null)
 		{
-			packer.Write(true);
-			var genericTypeDefinition = type.GetGenericTypeDefinition();
-			packer.Write(genericTypeDefinition.FullName!);
-			var typeArgs = type.GetGenericArguments();
-			packer.Write(typeArgs.Length);
-			foreach (var typeArg in typeArgs)
-			{
-				PackType(typeArg, ref packer);
-			}
+			packer.Write(false);
 		}
 		else
 		{
-			packer.Write(false);
-			packer.Write(type!.FullName!);
+			packer.Write(true);
+			if (type.IsGenericType)
+			{
+				packer.Write(true);
+				var genericTypeDefinition = type.GetGenericTypeDefinition();
+				packer.Write(genericTypeDefinition.FullName!);
+				var typeArgs = type.GetGenericArguments();
+				packer.Write(typeArgs.Length);
+				foreach (var typeArg in typeArgs)
+				{
+					PackType(typeArg, ref packer);
+				}
+			}
+			else
+			{
+				packer.Write(false);
+				packer.Write(type.FullName!);
+			}
 		}
 	}
 
 	private Type? UnpackType(ref MemoryUnpacker unpacker)
 	{
+		var hasType = unpacker.Read<bool>();
+		if (!hasType) return null;
+
 		var isGenericType = unpacker.Read<bool>();
 		if (isGenericType)
 		{
 			var genericTypeDefinitionName = unpacker.ReadString();
 			int numTypeArgs = unpacker.Read<int>();
-			var typeArgs = new Type[numTypeArgs];
+			var typeArgs = new Type?[numTypeArgs];
 			for (int i = 0; i < numTypeArgs; i++)
 			{
-				typeArgs[i] = UnpackType(ref unpacker)!;
+				typeArgs[i] = UnpackType(ref unpacker);
 			}
 
 			if (typeArgs.Any(t => t is null)) return null;
@@ -256,7 +267,7 @@ internal sealed class TypeCommand : IMemoryPackable
 			var genericTypeDefinition = FindType(genericTypeDefinitionName);
 			if (genericTypeDefinition != null)
 			{
-				return genericTypeDefinition.MakeGenericType(typeArgs);
+				return genericTypeDefinition.MakeGenericType(typeArgs!);
 			}
 			else
 			{
@@ -343,10 +354,10 @@ internal sealed class TypeCommand : IMemoryPackable
 //		Dict = new(); // ToDo: use pool borrowing here?
 //		for (int i = 0; i < len; i++)
 //		{
-//			TKey key = default!;
-//			unpacker.ReadObject(ref key!);
-//			TValue val = default!;
-//			unpacker.ReadObject(ref val!);
+//			TKey key = default;
+//			unpacker.ReadObject(ref key);
+//			TValue val = default;
+//			unpacker.ReadObject(ref val);
 //			Dict[key] = val;
 //		}
 //	}
@@ -354,7 +365,7 @@ internal sealed class TypeCommand : IMemoryPackable
 
 internal sealed class StringListCommand : CollectionCommand
 {
-	public List<string>? Strings;
+	public List<string?>? Strings;
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -375,7 +386,7 @@ internal sealed class StringListCommand : CollectionCommand
 
 internal sealed class StringArrayCommand : CollectionCommand
 {
-	public string[]? Strings;
+	public string?[]? Strings;
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -393,7 +404,7 @@ internal sealed class StringArrayCommand : CollectionCommand
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
-			packer.Write(str);
+			packer.Write(str!);
 		}
 	}
 
@@ -417,7 +428,7 @@ internal sealed class StringArrayCommand : CollectionCommand
 
 internal sealed class StringHashSetCommand : CollectionCommand
 {
-	public HashSet<string>? Strings;
+	public HashSet<string?>? Strings;
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -435,7 +446,7 @@ internal sealed class StringHashSetCommand : CollectionCommand
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
-			packer.Write(str);
+			packer.Write(str!);
 		}
 	}
 
@@ -496,7 +507,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 		Objects = new C(); // ToDo: use pool borrowing here?
 		for (int i = 0; i < len; i++)
 		{
-			T obj = default!;
+			T obj = new();
 			unpacker.ReadObject(ref obj!);
 			Objects.Add(obj);
 		}
@@ -505,7 +516,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 
 internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class, IMemoryPackable, new()
 {
-	public T[]? Objects;
+	public T?[]? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
@@ -540,7 +551,7 @@ internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class,
 		Objects = new T[len]; // ToDo: use pool borrowing here?
 		for (int i = 0; i < len; i++)
 		{
-			unpacker.ReadObject(ref Objects[i]!);
+			unpacker.ReadObject(ref Objects[i]);
 		}
 	}
 }
@@ -648,19 +659,23 @@ internal sealed class WrapperCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		var packedType = Packable?.GetType();
-		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName!);
-		var type = Packable is null ? -1 : backend!.TypeManager.GetTypeIndex(packedType!);
-		packer.Write(type);
+		if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
 
-		if (type == -1)
+		var system = MessagingSystem.TryGetRegisteredSystem(QueueName);
+
+		if (system is null) throw new InvalidOperationException($"MessagingSystem with QueueName: {QueueName} is not registered.");
+
+		if (Packable is null)
+		{
+			packer.Write(-1);
 			return;
+		}
 
-		packer.Write(QueueName!);
-
-		Packable!.Pack(ref packer);
-
-		backend!.TypeManager.Return(packedType!, Packable);
+		var packedType = Packable.GetType();
+		packer.Write(system.TypeManager.GetTypeIndex(packedType));
+		packer.Write(QueueName);
+		Packable.Pack(ref packer);
+		system.TypeManager.Return(packedType, Packable);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -676,10 +691,13 @@ internal sealed class WrapperCommand : RendererCommand
 		unpacker.Read(ref QueueName!);
 
 		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName);
-		var type = backend!.TypeManager.GetTypeFromIndex(TypeIndex);
+
+		if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
+
+		var type = backend.TypeManager.GetTypeFromIndex(TypeIndex);
 
 		Packable = backend.TypeManager.Borrow(type);
 
-		Packable!.Unpack(ref unpacker);
+		Packable.Unpack(ref unpacker);
 	}
 }

@@ -19,12 +19,11 @@ internal class MessagingSystem : IDisposable
 
 		public readonly Dictionary<string, object?> ValueCollectionCallbacks = new();
 
-		// not List<string?>, because FrooxEngine just takes List<string>
-		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
+		public readonly Dictionary<string, Action<List<string?>?>?> StringListCallbacks = new();
 
-		public readonly Dictionary<string, Action<string[]?>?> StringArrayCallbacks = new();
+		public readonly Dictionary<string, Action<string?[]?>?> StringArrayCallbacks = new();
 
-		public readonly Dictionary<string, Action<HashSet<string>?>?> StringHashSetCallbacks = new();
+		public readonly Dictionary<string, Action<HashSet<string?>?>?> StringHashSetCallbacks = new();
 
 		public readonly Dictionary<string, object?> ObjectArrayCallbacks = new();
 
@@ -43,17 +42,17 @@ internal class MessagingSystem : IDisposable
 
 	private MessagingManager? _primary;
 
-	private static MethodInfo? _handleValueCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly MethodInfo _handleValueCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCommand), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandleValueCommand));
 
-	private static MethodInfo? _handleValueCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly MethodInfo _handleValueCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandleValueCollectionCommand));
 
-	private static MethodInfo? _handleValueArrayCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueArrayCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly MethodInfo _handleValueArrayCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleValueArrayCommand), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandleValueArrayCommand));
 
-	private static MethodInfo? _handleObjectCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly MethodInfo _handleObjectCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCommand), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandleObjectCommand));
 
-	private static MethodInfo? _handleObjectCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly MethodInfo _handleObjectCollectionCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectCollectionCommand), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandleObjectCollectionCommand));
 
-	private static MethodInfo? _handleObjectArrayCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectArrayCommand), BindingFlags.Instance | BindingFlags.NonPublic);
+	private static readonly MethodInfo _handleObjectArrayCommandMethod = typeof(MessagingSystem).GetMethod(nameof(HandleObjectArrayCommand), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandleObjectArrayCommand));
 
 	private RenderCommandHandler? _onCommandReceived { get; }
 
@@ -63,7 +62,7 @@ internal class MessagingSystem : IDisposable
 
 	private Action<Exception>? _onFailure { get; }
 
-	private Dictionary<string, OwnerData> _ownerData = new();
+	private readonly Dictionary<string, OwnerData> _ownerData = new();
 
 	private Action? _postInitCallback;
 
@@ -75,7 +74,7 @@ internal class MessagingSystem : IDisposable
 
 	internal TypeManager TypeManager; 
 
-	private static Dictionary<string, MessagingSystem> _backends = new();
+	private static readonly Dictionary<string, MessagingSystem> _backends = new();
 
 	internal Action<TimeSpan>? PingCallback;
 
@@ -146,57 +145,57 @@ internal class MessagingSystem : IDisposable
 		return _ownerData.ContainsKey(ownerName);
 	}
 
-	public void RegisterValueCallback<T>(string owner, string id, Action<T> callback) where T : unmanaged
+	public void RegisterValueCallback<T>(string owner, string id, Action<T>? callback) where T : unmanaged
 	{
 		_ownerData[owner].ValueCallbacks[id] = callback;
 	}
 
-	public void RegisterValueCollectionCallback<C, T>(string owner, string id, Action<C> callback) where C : ICollection<T>, new() where T : unmanaged
+	public void RegisterValueCollectionCallback<C, T>(string owner, string id, Action<C>? callback) where C : ICollection<T>, new() where T : unmanaged
 	{
 		_ownerData[owner].ValueCollectionCallbacks[id] = callback;
 	}
 
-	public void RegisterValueArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : unmanaged
+	public void RegisterValueArrayCallback<T>(string owner, string id, Action<T[]?>? callback) where T : unmanaged
 	{
 		_ownerData[owner].ValueArrayCallbacks[id] = callback;
 	}
 
-	public void RegisterStringCallback(string owner, string id, Action<string?> callback)
+	public void RegisterStringCallback(string owner, string id, Action<string?>? callback)
 	{
 		_ownerData[owner].StringCallbacks[id] = callback;
 	}
 
-	public void RegisterStringListCallback(string owner, string id, Action<List<string>?> callback)
+	public void RegisterStringListCallback(string owner, string id, Action<List<string?>?>? callback)
 	{
 		_ownerData[owner].StringListCallbacks[id] = callback;
 	}
 
-	public void RegisterStringArrayCallback(string owner, string id, Action<string[]?> callback)
+	public void RegisterStringArrayCallback(string owner, string id, Action<string?[]?>? callback)
 	{
 		_ownerData[owner].StringArrayCallbacks[id] = callback;
 	}
 
-	public void RegisterStringHashSetCallback(string owner, string id, Action<HashSet<string>?> callback)
+	public void RegisterStringHashSetCallback(string owner, string id, Action<HashSet<string?>?>? callback)
 	{
 		_ownerData[owner].StringHashSetCallbacks[id] = callback;
 	}
 
-	public void RegisterEmptyCallback(string owner, string id, Action callback)
+	public void RegisterEmptyCallback(string owner, string id, Action? callback)
 	{
 		_ownerData[owner].EmptyCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectCallback<T>(string owner, string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	public void RegisterObjectCallback<T>(string owner, string id, Action<T>? callback) where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]> callback) where T : class, IMemoryPackable, new()
+	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]>? callback) where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectArrayCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectCollectionCallback<C, T>(string owner, string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
+	public void RegisterObjectCollectionCallback<C, T>(string owner, string id, Action<C>? callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 	{
 		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
 	}
@@ -237,7 +236,7 @@ internal class MessagingSystem : IDisposable
 	public void Dispose()
 	{
 		_primary?.Dispose();
-		_primary = null!;
+		_primary = null;
 		IsConnected = false;
 	}
 
@@ -388,7 +387,7 @@ internal class MessagingSystem : IDisposable
 		{
 			if (callback != null)
 			{
-				((Action<T[]?>)callback).Invoke(command.Objects);
+				((Action<T?[]?>)callback).Invoke(command.Objects);
 			}
 		}
 		else
@@ -428,8 +427,8 @@ internal class MessagingSystem : IDisposable
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
-		while (!IsInitialized && !IsAuthority) // needed?
-			Thread.Sleep(1);
+		//while (!IsInitialized && !IsAuthority) // needed?
+			//Thread.Sleep(1);
 
 		_onCommandReceived?.Invoke(command, messageSize);
 
@@ -491,7 +490,7 @@ internal class MessagingSystem : IDisposable
 			if (packable is ValueCommand valueCommand)
 			{
 				var valueType = valueCommand.ValueType;
-				var typedMethod = _handleValueCommandMethod!.MakeGenericMethod(valueType);
+				var typedMethod = _handleValueCommandMethod.MakeGenericMethod(valueType);
 				typedMethod.Invoke(this, [packable]);
 			}
 			else if (packable is CollectionCommand collectionCommand)
@@ -514,12 +513,12 @@ internal class MessagingSystem : IDisposable
 				{
 					if (collectionType.IsArray)
 					{
-						var typedMethod = _handleValueArrayCommandMethod!.MakeGenericMethod(innerDataType);
+						var typedMethod = _handleValueArrayCommandMethod.MakeGenericMethod(innerDataType);
 						typedMethod.Invoke(this, [packable]);
 					}
 					else
 					{
-						var typedMethod = _handleValueCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
+						var typedMethod = _handleValueCollectionCommandMethod.MakeGenericMethod(collectionType, innerDataType);
 						typedMethod.Invoke(this, [packable]);
 					}
 				}
@@ -527,12 +526,12 @@ internal class MessagingSystem : IDisposable
 				{
 					if (collectionType.IsArray)
 					{
-						var typedMethod = _handleObjectArrayCommandMethod!.MakeGenericMethod(innerDataType);
+						var typedMethod = _handleObjectArrayCommandMethod.MakeGenericMethod(innerDataType);
 						typedMethod.Invoke(this, [packable]);
 					}
 					else
 					{
-						var typedMethod = _handleObjectCollectionCommandMethod!.MakeGenericMethod(collectionType, innerDataType);
+						var typedMethod = _handleObjectCollectionCommandMethod.MakeGenericMethod(collectionType, innerDataType);
 						typedMethod.Invoke(this, [packable]);
 					}
 				}
@@ -540,7 +539,7 @@ internal class MessagingSystem : IDisposable
 			else if (packable is ObjectCommand objectCommand)
 			{
 				var objectType = objectCommand.ObjectType;
-				var typedMethod = _handleObjectCommandMethod!.MakeGenericMethod(objectType);
+				var typedMethod = _handleObjectCommandMethod.MakeGenericMethod(objectType);
 				typedMethod.Invoke(this, [packable]);
 			}
 			else

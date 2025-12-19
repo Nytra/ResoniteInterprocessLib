@@ -69,7 +69,7 @@ public class Messenger
 
 	private static bool _runningFallbackSystemInit = false;
 
-	internal static object LockObj = new();
+	internal static readonly object LockObj = new();
 
 	internal static async Task<MessagingSystem?> GetFallbackSystem(bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
@@ -352,7 +352,7 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValue(id, value));
 			return;
@@ -368,12 +368,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendValueList<T>(string id, List<T> list) where T : unmanaged
+	public void SendValueList<T>(string id, List<T>? list) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValueList(id, list));
 			return;
@@ -389,12 +389,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendValueHashSet<T>(string id, HashSet<T> hashSet) where T : unmanaged
+	public void SendValueHashSet<T>(string id, HashSet<T>? hashSet) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValueHashSet(id, hashSet));
 			return;
@@ -410,12 +410,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendValueArray<T>(string id, T[] array) where T : unmanaged
+	public void SendValueArray<T>(string id, T[]? array) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendValueArray(id, array));
 			return;
@@ -431,12 +431,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendString(string id, string str)
+	public void SendString(string id, string? str)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendString(id, str));
 			return;
@@ -449,12 +449,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendStringList(string id, List<string> list)
+	public void SendStringList(string id, List<string?>? list)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendStringList(id, list));
 			return;
@@ -467,12 +467,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendStringArray(string id, string[] array)
+	public void SendStringArray(string id, string?[]? array)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendStringArray(id, array));
 			return;
@@ -485,12 +485,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendStringHashSet(string id, HashSet<string> set)
+	public void SendStringHashSet(string id, HashSet<string?>? set)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendStringHashSet(id, set));
 			return;
@@ -508,7 +508,7 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendEmptyCommand(id));
 			return;
@@ -520,12 +520,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObject<T>(string id, T? obj) where T : class, IMemoryPackable, new()
+	public void SendObject<T>(string id, T obj) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendObject(id, obj));
 			return;
@@ -542,12 +542,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(wrapper);
 	}
 
-	public void SendObjectList<T>(string id, List<T> list) where T : class, IMemoryPackable, new()
+	public void SendObjectList<T>(string id, List<T>? list) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendObjectList(id, list));
 			return;
@@ -563,12 +563,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObjectHashSet<T>(string id, HashSet<T> hashSet) where T : class, IMemoryPackable, new()
+	public void SendObjectHashSet<T>(string id, HashSet<T>? hashSet) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendObjectHashSet(id, hashSet));
 			return;
@@ -584,12 +584,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObjectArray<T>(string id, T[] array) where T : class, IMemoryPackable, new()
+	public void SendObjectArray<T>(string id, T[]? array) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => SendObjectArray(id, array));
 			return;
@@ -605,12 +605,12 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
+	public void ReceiveValue<T>(string id, Action<T>? callback) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValue(id, callback));
 			return;
@@ -622,12 +622,12 @@ public class Messenger
 		CurrentSystem!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveValueList<T>(string id, Action<List<T>> callback) where T : unmanaged
+	public void ReceiveValueList<T>(string id, Action<List<T>?>? callback) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValueList(id, callback));
 			return;
@@ -639,12 +639,12 @@ public class Messenger
 		CurrentSystem!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
 
-	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>> callback) where T : unmanaged
+	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValueHashSet(id, callback));
 			return;
@@ -656,12 +656,12 @@ public class Messenger
 		CurrentSystem!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
-	public void ReceiveValueArray<T>(string id, Action<T[]> callback) where T : unmanaged
+	public void ReceiveValueArray<T>(string id, Action<T[]?>? callback) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveValueArray(id, callback));
 			return;
@@ -673,12 +673,12 @@ public class Messenger
 		CurrentSystem!.RegisterValueArrayCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveString(string id, Action<string?> callback)
+	public void ReceiveString(string id, Action<string?>? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveString(id, callback));
 			return;
@@ -687,12 +687,12 @@ public class Messenger
 		CurrentSystem!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveStringList(string id, Action<List<string>?> callback)
+	public void ReceiveStringList(string id, Action<List<string?>?>? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveStringList(id, callback));
 			return;
@@ -701,12 +701,12 @@ public class Messenger
 		CurrentSystem!.RegisterStringListCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveStringArray(string id, Action<string[]?> callback)
+	public void ReceiveStringArray(string id, Action<string?[]?>? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveStringArray(id, callback));
 			return;
@@ -715,12 +715,12 @@ public class Messenger
 		CurrentSystem!.RegisterStringArrayCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveStringHashSet(string id, Action<HashSet<string>?> callback)
+	public void ReceiveStringHashSet(string id, Action<HashSet<string?>?>? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveStringHashSet(id, callback));
 			return;
@@ -729,12 +729,12 @@ public class Messenger
 		CurrentSystem!.RegisterStringHashSetCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveEmptyCommand(string id, Action callback)
+	public void ReceiveEmptyCommand(string id, Action? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveEmptyCommand(id, callback));
 			return;
@@ -743,12 +743,12 @@ public class Messenger
 		CurrentSystem!.RegisterEmptyCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveObject(id, callback));
 			return;
@@ -760,12 +760,12 @@ public class Messenger
 		CurrentSystem!.RegisterObjectCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveObjectList<T>(string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObjectList<T>(string id, Action<List<T>?>? callback) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveObjectList(id, callback));
 			return;
@@ -777,12 +777,12 @@ public class Messenger
 		CurrentSystem!.RegisterObjectCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
 
-	public void ReceiveObjectHashSet<T>(string id, Action<HashSet<T>> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObjectHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveObjectHashSet(id, callback));
 			return;
@@ -794,12 +794,12 @@ public class Messenger
 		CurrentSystem!.RegisterObjectCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
-	public void ReceiveObjectArray<T>(string id, Action<T[]> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObjectArray<T>(string id, Action<T[]?>? callback) where T : class, IMemoryPackable, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (IsInitialized != true)
+		if (!IsInitialized)
 		{
 			RunPostInit(() => ReceiveObjectArray(id, callback));
 			return;
@@ -831,7 +831,7 @@ public class Messenger
 	// 	if (type is null)
 	// 		throw new ArgumentNullException(nameof(type));
 
-	// 	if (IsInitialized != true)
+	// 	if (!IsInitialized)
 	// 	{
 	// 		RunPostInit(() => SendTypeCommand(type));
 	// 		return;

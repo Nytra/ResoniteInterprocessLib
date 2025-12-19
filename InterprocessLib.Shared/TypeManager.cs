@@ -11,26 +11,26 @@ internal class TypeManager
 
 	private bool _initializedCoreTypes = false;
 
-	private static MethodInfo? _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Instance);
+	private static readonly MethodInfo _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterAdditionalValueType));
 
-	private static MethodInfo? _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(TypeManager.RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Instance);
+	private static readonly MethodInfo _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterAdditionalObjectType));
 
-	private List<Type> _newTypes = new();
+	private readonly List<Type> _newTypes = new();
 
-	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!  ?? throw new MissingFieldException("types");
 
-	private List<Func<IMemoryPackable>> _borrowers = new();
+	private readonly List<Func<IMemoryPackable>> _borrowers = new();
 
-	private List<Action<IMemoryPackable>> _returners = new();
+	private readonly List<Action<IMemoryPackable>> _returners = new();
 
-	private Dictionary<Type, int> _typeToIndex = new();
+	private readonly Dictionary<Type, int> _typeToIndex = new();
 
 	private IMemoryPackerEntityPool _pool;
 
-	private static MethodInfo? _borrowMethod = typeof(TypeManager).GetMethod("Borrow", BindingFlags.Instance | BindingFlags.NonPublic, null, [], null);
-	private static MethodInfo? _returnMethod = typeof(TypeManager).GetMethod("Return", BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null);
+	private static readonly MethodInfo _borrowMethod = typeof(TypeManager).GetMethod(nameof(Borrow), BindingFlags.Instance | BindingFlags.NonPublic, null, [], null) ?? throw new MissingMethodException(nameof(Borrow));
+	private static readonly MethodInfo _returnMethod = typeof(TypeManager).GetMethod(nameof(Return), BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null) ?? throw new MissingMethodException(nameof(Return));
 
-	private static Type[] _valueTypes =
+	private static readonly Type[] _valueTypes =
 	{
 		typeof(bool),
 		typeof(byte),
@@ -73,7 +73,7 @@ internal class TypeManager
 	{
 		if (_initializedCoreTypes) return;
 
-		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringListCommand), typeof(TypeCommand), typeof(PingCommand)]);
+		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringListCommand), typeof(StringArrayCommand), typeof(StringHashSetCommand), typeof(TypeCommand), typeof(PingCommand)]);
 
 		foreach (var valueType in TypeManager._valueTypes)
 		{

@@ -35,6 +35,8 @@ public static class Tests
 		TestValueArray();
 		TestObjectArray();
 		TestObjectHashSet();
+		TestStringHashSet();
+		TestStringArray();
 
 		//TestTypeCommand();
 
@@ -336,7 +338,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveObjectList<TestPackable>("TestObjectList", (list) =>
 		{
-			_logCallback!($"TestObjectList: {string.Join(",", list)}");
+			_logCallback!($"TestObjectList: {string.Join(",", list!)}");
 		});
 
 		var list = new List<TestPackable>();
@@ -367,13 +369,47 @@ public static class Tests
 			_logCallback!($"TestStringList: {string.Join(",", list!.Select(s => s ?? "NULL"))}");
 		});
 
-		var list = new List<string>();
+		var list = new List<string?>();
 		list.Add("Hello");
 		list.Add("World");
 		list.Add("owo");
-		list.Add(null!);
+		list.Add(null);
 		list.Add("x3");
 		_messenger.SendStringList("TestStringList", list);
+	}
+
+	static void TestStringArray()
+	{
+		_messenger!.ReceiveStringArray("TestStringArray", (arr) =>
+		{
+			_logCallback!($"TestStringArray: {string.Join(",", arr!.Select(s => s ?? "NULL"))}");
+		});
+
+		var arr = new string?[]
+		{
+			"Hello",
+			"World",
+			"owo",
+			null,
+			"x3"
+		};
+		_messenger.SendStringArray("TestStringArray", arr);
+	}
+
+	static void TestStringHashSet()
+	{
+		_messenger!.ReceiveStringHashSet("TestStringHashSet", (set) =>
+		{
+			_logCallback!($"TestStringHashSet: {string.Join(",", set!.Select(s => s ?? "NULL"))}");
+		});
+
+		var set = new HashSet<string?>();
+		set.Add("Hello");
+		set.Add("World");
+		set.Add("owo");
+		set.Add(null);
+		set.Add("x3");
+		_messenger.SendStringHashSet("TestStringHashSet", set);
 	}
 
 	static void TestVanillaObject()
