@@ -75,7 +75,6 @@ internal static class FrooxEngineInit
 		lock (Messenger.LockObj)
 		{
 			Messenger.PreInit(system);
-			
 			Messenger.SetDefaultSystem(system);
 			system.Initialize();
 		}

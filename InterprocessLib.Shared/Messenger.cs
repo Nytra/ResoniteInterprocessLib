@@ -61,8 +61,6 @@ public class Messenger
 
 	private string _ownerId;
 
-	//private static HashSet<string> _defaultBackendRegisteredOwnerIds = new();
-
 	private List<Type>? _additionalObjectTypes;
 
 	private List<Type>? _additionalValueTypes;
@@ -88,7 +86,6 @@ public class Messenger
 		int minuteInDay = now.Hour * 60 + now.Minute;
 		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 		system1.Connect();
-		system1.Initialize();
 		if (isAuthority)
 		{
 			_fallbackSystem = system1;
@@ -119,7 +116,6 @@ public class Messenger
 			var cancel2 = new CancellationTokenSource(); 
 			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 			system2.Connect();
-			system2.Initialize();
 			system2.PingCallback = (latency) => 
 			{ 
 				cancel2.Cancel();
@@ -256,9 +252,13 @@ public class Messenger
 
 		Register();
 
-		if (!_customSystem!.IsInitialized)
+		if (!_customSystem.IsConnected)
 		{
 			_customSystem.Connect();
+		}
+
+		if (!_customSystem!.IsInitialized)
+		{
 			_customSystem.Initialize();
 		}
 	}
@@ -266,7 +266,7 @@ public class Messenger
 	internal static void PreInit(MessagingSystem system)
 	{
 		system.SetPostInitActions(_defaultPostInitActions);
-		//_defaultPostInitActions = null;
+		_defaultPostInitActions = null;
 
 		foreach (var act in _defaultPreInitActions!)
 		{
@@ -285,7 +285,6 @@ public class Messenger
 	internal static void SetDefaultSystem(MessagingSystem system)
 	{
 		_defaultSystem = system;
-		_defaultPostInitActions = null;
 	}
 
 	private void RunPostInit(Action act)
@@ -464,7 +463,43 @@ public class Messenger
 		var command = new StringListCommand();
 		command.Owner = _ownerId;
 		command.Id = id;
-		command.Values = list;
+		command.Strings = list;
+		CurrentSystem!.SendPackable(command);
+	}
+
+	public void SendStringArray(string id, string[] array)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => SendStringArray(id, array));
+			return;
+		}
+
+		var command = new StringArrayCommand();
+		command.Owner = _ownerId;
+		command.Id = id;
+		command.Strings = array;
+		CurrentSystem!.SendPackable(command);
+	}
+
+	public void SendStringHashSet(string id, HashSet<string> set)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => SendStringHashSet(id, set));
+			return;
+		}
+
+		var command = new StringHashSetCommand();
+		command.Owner = _ownerId;
+		command.Id = id;
+		command.Strings = set;
 		CurrentSystem!.SendPackable(command);
 	}
 
@@ -570,27 +605,6 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	//public void SendObjectCollection<C, T>(string id, C collection) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
-	//{
-	//	if (id is null)
-	//		throw new ArgumentNullException(nameof(id));
-
-	//	if (IsInitialized != true)
-	//	{
-	//		RunPostInit(() => SendObjectCollection<C, T>(id, collection));
-	//		return;
-	//	}
-
-	//	if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-	//		throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-	//	var command = new ObjectCollectionCommand<C, T>();
-	//	command.Owner = _ownerId;
-	//	command.Id = id;
-	//	command.Objects = collection;
-	//	CurrentSystem!.SendPackable(command);
-	//}
-
 	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
 	{
 		if (id is null)
@@ -659,24 +673,6 @@ public class Messenger
 		CurrentSystem!.RegisterValueArrayCallback(_ownerId, id, callback);
 	}
 
-	// This won't work because we can't possibly register every type of collection ahead of time
-	//public void ReceiveValueCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : unmanaged
-	//{
-	//	if (id is null)
-	//		throw new ArgumentNullException(nameof(id));
-
-	//	if (IsInitialized != true)
-	//	{
-	//		RunPostInit(() => ReceiveValueCollection<C, T>(id, callback));
-	//		return;
-	//	}
-
-	//	if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-	//		throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-	//	CurrentSystem!.RegisterValueCollectionCallback<C, T>(_ownerId, id, callback);
-	//}
-
 	public void ReceiveString(string id, Action<string?> callback)
 	{
 		if (id is null)
@@ -703,6 +699,34 @@ public class Messenger
 		}
 
 		CurrentSystem!.RegisterStringListCallback(_ownerId, id, callback);
+	}
+
+	public void ReceiveStringArray(string id, Action<string[]?> callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => ReceiveStringArray(id, callback));
+			return;
+		}
+
+		CurrentSystem!.RegisterStringArrayCallback(_ownerId, id, callback);
+	}
+
+	public void ReceiveStringHashSet(string id, Action<HashSet<string>?> callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (IsInitialized != true)
+		{
+			RunPostInit(() => ReceiveStringHashSet(id, callback));
+			return;
+		}
+
+		CurrentSystem!.RegisterStringHashSetCallback(_ownerId, id, callback);
 	}
 
 	public void ReceiveEmptyCommand(string id, Action callback)
@@ -802,7 +826,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(pingCommand);
 	}
 
-	// public void SendTypeCommand(Type type)
+	// internal void SendTypeCommand(Type type)
 	// {
 	// 	if (type is null)
 	// 		throw new ArgumentNullException(nameof(type));
@@ -816,25 +840,6 @@ public class Messenger
 	// 	var typeCommand = new TypeCommand();
 	// 	typeCommand.Type = type;
 
-	// 	Messenger.OnDebug?.Invoke($"Sending new type to register: {type.FullName}");
 	// 	CurrentSystem!.SendPackable(typeCommand);
 	// }
-
-	// This won't work because we can't possibly register every type of collection ahead of time
-	//public void ReceiveObjectCollection<C, T>(string id, Action<C> callback) where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
-	//{
-	//	if (id is null)
-	//		throw new ArgumentNullException(nameof(id));
-
-	//	if (IsInitialized != true)
-	//	{
-	//		RunPostInit(() => ReceiveObjectCollection<C, T>(id, callback));
-	//		return;
-	//	}
-
-	//	if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-	//		throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-	//	CurrentSystem!.RegisterObjectCollectionCallback<C, T>(_ownerId, id, callback);
-	//}
 }

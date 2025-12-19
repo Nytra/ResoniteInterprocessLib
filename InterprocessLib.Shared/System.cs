@@ -22,6 +22,10 @@ internal class MessagingSystem : IDisposable
 		// not List<string?>, because FrooxEngine just takes List<string>
 		public readonly Dictionary<string, Action<List<string>?>?> StringListCallbacks = new();
 
+		public readonly Dictionary<string, Action<string[]?>?> StringArrayCallbacks = new();
+
+		public readonly Dictionary<string, Action<HashSet<string>?>?> StringHashSetCallbacks = new();
+
 		public readonly Dictionary<string, object?> ObjectArrayCallbacks = new();
 
 		public readonly Dictionary<string, object?> ObjectCollectionCallbacks = new();
@@ -73,8 +77,6 @@ internal class MessagingSystem : IDisposable
 
 	private static Dictionary<string, MessagingSystem> _backends = new();
 
-	//private IMemoryPackerEntityPool _pool;
-
 	internal Action<TimeSpan>? PingCallback;
 
 	internal void SetPostInitActions(List<Action>? actions)
@@ -99,7 +101,7 @@ internal class MessagingSystem : IDisposable
 		if (IsInitialized)
 			throw new InvalidOperationException("Already initialized!");
 
-		if (!IsAuthority) // Put back into Connect?
+		if (!IsAuthority)
 		{
 			SendPackable(new MessengerReadyCommand());
 		}
@@ -167,6 +169,16 @@ internal class MessagingSystem : IDisposable
 	public void RegisterStringListCallback(string owner, string id, Action<List<string>?> callback)
 	{
 		_ownerData[owner].StringListCallbacks[id] = callback;
+	}
+
+	public void RegisterStringArrayCallback(string owner, string id, Action<string[]?> callback)
+	{
+		_ownerData[owner].StringArrayCallbacks[id] = callback;
+	}
+
+	public void RegisterStringHashSetCallback(string owner, string id, Action<HashSet<string>?> callback)
+	{
+		_ownerData[owner].StringHashSetCallbacks[id] = callback;
 	}
 
 	public void RegisterEmptyCallback(string owner, string id, Action callback)
@@ -301,12 +313,42 @@ internal class MessagingSystem : IDisposable
 		{
 			if (callback != null)
 			{
-				callback.Invoke(command.Values);
+				callback.Invoke(command.Strings);
 			}
 		}
 		else
 		{
 			_onWarning?.Invoke($"StringListCommand with Id \"{command.Id}\" is not registered to receive a callback!");
+		}
+	}
+
+	private void HandleStringArrayCommand(StringArrayCommand command)
+	{
+		if (_ownerData[command.Owner].StringArrayCallbacks.TryGetValue(command.Id, out var callback))
+		{
+			if (callback != null)
+			{
+				callback.Invoke(command.Strings);
+			}
+		}
+		else
+		{
+			_onWarning?.Invoke($"StringArrayCommand with Id \"{command.Id}\" is not registered to receive a callback!");
+		}
+	}
+
+	private void HandleStringHashSetCommand(StringHashSetCommand command)
+	{
+		if (_ownerData[command.Owner].StringHashSetCallbacks.TryGetValue(command.Id, out var callback))
+		{
+			if (callback != null)
+			{
+				callback.Invoke(command.Strings);
+			}
+		}
+		else
+		{
+			_onWarning?.Invoke($"StringArrayCommand with Id \"{command.Id}\" is not registered to receive a callback!");
 		}
 	}
 
@@ -372,19 +414,21 @@ internal class MessagingSystem : IDisposable
 
 	private void HandlePingCommand(PingCommand ping)
 	{
-		PingCallback?.Invoke(DateTime.UtcNow - ping.Time);
-			PingCallback = null;
-
 		if (!ping.Received)
 		{
 			ping.Received = true;
 			SendPackable(ping);
 		}
+		else
+		{
+			PingCallback?.Invoke(DateTime.UtcNow - ping.Time);
+			PingCallback = null;
+		}
 	}
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
-		while (!IsInitialized && !IsAuthority)
+		while (!IsInitialized && !IsAuthority) // needed?
 			Thread.Sleep(1);
 
 		_onCommandReceived?.Invoke(command, messageSize);
@@ -401,6 +445,12 @@ internal class MessagingSystem : IDisposable
 			return;
 		}
 
+		if (packable is PingCommand pingCommand)
+		{
+			HandlePingCommand(pingCommand);
+			return;
+		}
+
 		if (!IsInitialized && IsAuthority)
 		{
 			if (packable is MessengerReadyCommand)
@@ -412,12 +462,6 @@ internal class MessagingSystem : IDisposable
 			{
 				throw new InvalidDataException($"The first command needs to be the MessengerReadyCommand when not initialized!");
 			}
-		}
-
-		if (packable is PingCommand pingCommand)
-		{
-			HandlePingCommand(pingCommand);
-			return;
 		}
 
 		// if (packable is TypeCommand typeCommand)
@@ -454,9 +498,17 @@ internal class MessagingSystem : IDisposable
 			{
 				var collectionType = collectionCommand.CollectionType;
 				var innerDataType = collectionCommand.StoredType;
-				if (innerDataType == typeof(string))
+				if (collectionType == typeof(List<string>))
 				{
 					HandleStringListCommand((StringListCommand)collectionCommand);
+				}
+				else if (collectionType == typeof(string[]))
+				{
+					HandleStringArrayCommand((StringArrayCommand)collectionCommand);
+				}
+				else if (collectionType == typeof(HashSet<string>))
+				{
+					HandleStringHashSetCommand((StringHashSetCommand)collectionCommand);
 				}
 				else if (innerDataType.IsValueType)
 				{

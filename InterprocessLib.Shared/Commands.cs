@@ -152,13 +152,6 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 		Values = new T[len]; // ToDo: use pool borrowing here?
 		ReadOnlySpan<T> data = unpacker.Access<T>(len);
 		data.CopyTo(Values);
-
-		//for (int i = 0; i < len; i++)
-		//{
-		//	T val = default;
-		//	unpacker.Read(ref val);
-		//	Values[i] = val;
-		//}
 	}
 }
 
@@ -361,26 +354,110 @@ internal sealed class TypeCommand : IMemoryPackable
 
 internal sealed class StringListCommand : CollectionCommand
 {
-	public List<string>? Values;
+	public List<string>? Strings;
 
-	public override IEnumerable? UntypedCollection => Values;
+	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
 	public override Type CollectionType => typeof(List<string>);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		packer.WriteStringList(Values!);
+		packer.WriteStringList(Strings!);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-		unpacker.ReadStringList(ref Values!);
+		unpacker.ReadStringList(ref Strings!);
 	}
 }
 
-// StringArrayCommand ???
+internal sealed class StringArrayCommand : CollectionCommand
+{
+	public string[]? Strings;
+
+	public override IEnumerable? UntypedCollection => Strings;
+	public override Type StoredType => typeof(string);
+	public override Type CollectionType => typeof(string[]);
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
+		if (Strings is null)
+		{
+			packer.Write(-1);
+			return;
+		}
+		int len = Strings.Length;
+		packer.Write(len);
+		foreach (var str in Strings)
+		{
+			packer.Write(str);
+		}
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		base.Unpack(ref unpacker);
+		int len = 0;
+		unpacker.Read(ref len);
+		if (len == -1)
+		{
+			Strings = null;
+			return;
+		}
+		Strings = new string[len]; // ToDo: use pool borrowing here?
+		for (int i = 0; i < len; i++)
+		{
+			unpacker.Read(ref Strings[i]!);
+		}
+	}
+}
+
+internal sealed class StringHashSetCommand : CollectionCommand
+{
+	public HashSet<string>? Strings;
+
+	public override IEnumerable? UntypedCollection => Strings;
+	public override Type StoredType => typeof(string);
+	public override Type CollectionType => typeof(HashSet<string>);
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
+		if (Strings is null)
+		{
+			packer.Write(-1);
+			return;
+		}
+		int len = Strings.Count;
+		packer.Write(len);
+		foreach (var str in Strings)
+		{
+			packer.Write(str);
+		}
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		base.Unpack(ref unpacker);
+		int len = 0;
+		unpacker.Read(ref len);
+		if (len == -1)
+		{
+			Strings = null;
+			return;
+		}
+		Strings = new(); // ToDo: use pool borrowing here?
+		for (int i = 0; i < len; i++)
+		{
+			string? str = default;
+			unpacker.Read(ref str!);
+			Strings.Add(str);
+		}
+	}
+}
 
 internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
 {
