@@ -38,7 +38,7 @@ public static class Tests
 		TestStringHashSet();
 		TestStringArray();
 
-		//TestTypeCommand();
+		TestTypeCommand();
 
 		try
 		{
@@ -82,12 +82,10 @@ public static class Tests
 		}
 	}
 
-	// static void TestTypeCommand()
-	// {
-	// 	_messenger!.SendTypeCommand(typeof(TestNewTypeToRegister));
-	// 	_messenger!.SendTypeCommand(typeof(ColorProfile));
-	// 	_messenger!.SendTypeCommand(typeof(ValueCollectionCommand<LinkedList<float>, float>));
-	// }
+	static void TestTypeCommand()
+	{
+		_messenger!.SendType("TestTypeCommand", typeof(Dictionary<LinkedList<float>, float>));
+	}
 
 	static void TestValueArray()
 	{

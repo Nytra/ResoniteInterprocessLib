@@ -17,10 +17,9 @@ internal static class UnityInit
 
 		Messenger.DefaultInitStarted = true;
 
-		//Task.Run(InitLoop);
-		InitLoop();
+		InnerInit();
 	}
-	private static async void InitLoop()
+	private static void InnerInit()
 	{
 		Messenger.OnWarning = (msg) =>
 		{
@@ -74,14 +73,6 @@ internal static class UnityInit
 			Messenger.SetDefaultSystem(system);
 			system.Initialize();
 		}
-
-		// while (RenderingManager.Instance is null)
-		// 	await Task.Delay(1);
-
-		// var initFinalizedField = typeof(RenderingManager).GetField("_initFinalized", BindingFlags.Instance | BindingFlags.NonPublic);
-
-		// while ((bool)initFinalizedField.GetValue(RenderingManager.Instance) != true)
-		// 	await Task.Delay(1);
 
 		//UnityEngine.Debug.Log("DONE");
 	}

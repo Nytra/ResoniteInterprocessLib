@@ -46,7 +46,7 @@ namespace InterprocessLibStandaloneTest
 			Messenger.OnFailure = FailHandler;
 			Messenger.OnDebug = DebugHandler;
 			
-			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!, additionalObjectTypes: [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], additionalValueTypes: [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!);
 
 			Tests.RunTests(messenger, Console.WriteLine);
 

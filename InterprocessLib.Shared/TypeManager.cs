@@ -15,6 +15,8 @@ internal class TypeManager
 
 	private static readonly MethodInfo _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterAdditionalObjectType));
 
+	private static readonly MethodInfo _registerDirectCommandTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterDirectCommandType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterDirectCommandType));
+
 	private readonly List<Type> _newTypes = new();
 
 	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!  ?? throw new MissingFieldException("types");
@@ -30,24 +32,20 @@ internal class TypeManager
 	private static readonly MethodInfo _borrowMethod = typeof(TypeManager).GetMethod(nameof(Borrow), BindingFlags.Instance | BindingFlags.NonPublic, null, [], null) ?? throw new MissingMethodException(nameof(Borrow));
 	private static readonly MethodInfo _returnMethod = typeof(TypeManager).GetMethod(nameof(Return), BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null) ?? throw new MissingMethodException(nameof(Return));
 
-	private static readonly Type[] _valueTypes =
-	{
-		typeof(bool),
-		typeof(byte),
-		typeof(ushort),
-		typeof(uint),
-		typeof(ulong),
-		typeof(sbyte),
-		typeof(short),
-		typeof(int),
-		typeof(long),
-		typeof(float),
-		typeof(double),
-		typeof(decimal),
-		typeof(char),
-		typeof(DateTime),
-		typeof(TimeSpan)
-	};
+	private static readonly List<Type> _coreTypes =
+	[
+		typeof(MessengerReadyCommand),
+		typeof(TypeRegistrationCommand),
+		typeof(EmptyCommand),
+		typeof(StringCommand),
+		typeof(StringCollectionCommand<List<string?>>),
+		typeof(StringCollectionCommand<HashSet<string?>>),
+		typeof(StringArrayCommand),
+		typeof(TypeCommand),
+		typeof(PingCommand)
+	];
+
+	private Action<Type>? _onRegisteredCallback;
 
 	static TypeManager()
 	{
@@ -63,9 +61,10 @@ internal class TypeManager
 		WrapperCommand.InitNewTypes(list);
 	}
 
-	internal TypeManager(IMemoryPackerEntityPool pool)
+	internal TypeManager(IMemoryPackerEntityPool pool, Action<Type>? onRegisteredCallback)
 	{
 		_pool = pool;
+		_onRegisteredCallback = onRegisteredCallback;
 		InitializeCoreTypes();
 	}
 
@@ -73,19 +72,7 @@ internal class TypeManager
 	{
 		if (_initializedCoreTypes) return;
 
-		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringCollectionCommand<List<string?>>), typeof(StringCollectionCommand<HashSet<string?>>), typeof(StringArrayCommand), typeof(TypeCommand), typeof(PingCommand)]);
-
-		foreach (var valueType in TypeManager._valueTypes)
-		{
-			try
-			{
-				_registerValueTypeMethod!.MakeGenericMethod(valueType).Invoke(this, null);
-			}
-			catch (Exception ex)
-			{
-				Messenger.OnWarning?.Invoke($"Could not register additional value type {valueType.Name}!\n{ex}");
-			}
-		}
+		PushNewTypes(_coreTypes);
 
 		_initializedCoreTypes = true;
 	}
@@ -184,6 +171,19 @@ internal class TypeManager
 		_registeredObjectTypes.Add(type);
 	}
 
+	internal void InitDirectCommandType(Type type)
+	{
+		Messenger.OnDebug?.Invoke($"Registering direct command type: {type.Name}");
+		_registerDirectCommandTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
+	}
+
+	private void RegisterDirectCommandType<T>() where T : class, IMemoryPackable, new()
+	{
+		var type = typeof(T);
+
+		PushNewTypes([type]);
+	}
+
 	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()
 	{
 		return _pool.Borrow<T>();
@@ -212,6 +212,9 @@ internal class TypeManager
 			_borrowers.Add((Func<IMemoryPackable>)_borrowMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Func<IMemoryPackable>), this));
 			_returners.Add((Action<IMemoryPackable>)_returnMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Action<IMemoryPackable>), this));
 			_typeToIndex[type] = _newTypes.Count - 1;
+
+			if (!_coreTypes.Contains(type))
+				_onRegisteredCallback?.Invoke(type);
 		}
 	}
 }

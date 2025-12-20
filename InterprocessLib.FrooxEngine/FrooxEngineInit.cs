@@ -48,10 +48,10 @@ internal static class FrooxEngineInit
 			UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Backend!\n{ex}");
 		};
 #if DEBUG
-			Messenger.OnDebug = (msg) => 
-			{
-				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
-			};
+		Messenger.OnDebug = (msg) => 
+		{
+			UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
+		};
 #endif
 
 		MessagingSystem? system = null;

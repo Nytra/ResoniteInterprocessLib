@@ -61,10 +61,6 @@ public class Messenger
 
 	private string _ownerId;
 
-	private List<Type>? _additionalObjectTypes;
-
-	private List<Type>? _additionalValueTypes;
-
 	private static MessagingSystem? _fallbackSystem = null;
 
 	private static bool _runningFallbackSystemInit = false;
@@ -145,8 +141,8 @@ public class Messenger
 	/// Creates an instance with a unique owner
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
-	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
-	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
+	/// <param name="additionalObjectTypes">Unused parameter kept for backwards compatibility.</param>
+	/// <param name="additionalValueTypes">Unused parameter kept for backwards compatibility.</param>
 	/// <exception cref="ArgumentNullException"></exception>
 	/// <exception cref="EntryPointNotFoundException"></exception>
 	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
@@ -156,9 +152,54 @@ public class Messenger
 
 		_ownerId = ownerId;
 
-		_additionalObjectTypes = additionalObjectTypes;
+		if (_defaultSystem is null)
+		{
+			DefaultRunPreInit(Register);
+		}
+		else
+		{
+			Register();
+		}
 
-		_additionalValueTypes = additionalValueTypes;
+		if (_defaultSystem is null && !DefaultInitStarted)
+		{
+			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
+			if (frooxEngineInitType is not null)
+			{
+				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+			}
+			else
+			{
+				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
+				if (unityInitType is not null)
+				{
+					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+				}
+				else
+				{
+					var fallbackSystemTask = GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
+					fallbackSystemTask.Wait();
+					if (fallbackSystemTask.Result is not MessagingSystem fallbackSystem)
+						throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
+					else
+						_defaultSystem = fallbackSystemTask.Result;
+				}
+			}
+		}
+	}
+
+	/// <summary>
+	/// Creates an instance with a unique owner
+	/// </summary>
+	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
+	/// <exception cref="ArgumentNullException"></exception>
+	/// <exception cref="EntryPointNotFoundException"></exception>
+	public Messenger(string ownerId)
+	{
+		if (ownerId is null)
+			throw new ArgumentNullException(nameof(ownerId));
+
+		_ownerId = ownerId;
 
 		if (_defaultSystem is null)
 		{
@@ -204,11 +245,9 @@ public class Messenger
 	/// <param name="queueName">Custom queue name. Should match the other process.</param>
 	/// <param name="pool">Custom pool for borrowing and returning memory-packable types.</param>
 	/// <param name="queueCapacity">Capacity for the custom queue in bytes.</param>
-	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
-	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
 	/// <exception cref="ArgumentNullException"></exception>
 	/// <exception cref="EntryPointNotFoundException"></exception>
-	public Messenger(string ownerId, bool isAuthority, string queueName, IMemoryPackerEntityPool? pool = null, long queueCapacity = 1024*1024, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
+	public Messenger(string ownerId, bool isAuthority, string queueName, IMemoryPackerEntityPool? pool = null, long queueCapacity = 1024*1024)
 	{
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
@@ -248,10 +287,6 @@ public class Messenger
 		}
 
 		_ownerId = ownerId;
-
-		_additionalObjectTypes = additionalObjectTypes;
-
-		_additionalValueTypes = additionalValueTypes;
 
 		Register();
 
@@ -314,15 +349,6 @@ public class Messenger
 		}
 		else
 			system.RegisterOwner(_ownerId);
-
-		if (_additionalObjectTypes is not null)
-		{
-			system.TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !system.TypeManager.IsObjectTypeInitialized(t)).ToList());
-		}
-		if (_additionalValueTypes is not null)
-		{
-			system.TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !system.TypeManager.IsValueTypeInitialized(t)).ToList());
-		}
 	}
 
 	private void Register()
@@ -361,8 +387,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {value.GetType().Name} needs to be registered first!");
+		CurrentSystem!.EnsureValueTypeInitialized<T>();
 
 		var command = new ValueCommand<T>();
 		command.Owner = _ownerId;
@@ -382,8 +407,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureValueTypeInitialized<T>();
 
 		var command = new ValueCollectionCommand<List<T>, T>();
 		command.Owner = _ownerId;
@@ -403,8 +427,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureValueTypeInitialized<T>();
 
 		var command = new ValueCollectionCommand<HashSet<T>, T>();
 		command.Owner = _ownerId;
@@ -424,8 +447,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureValueTypeInitialized<T>();
 
 		var command = new ValueArrayCommand<T>();
 		command.Owner = _ownerId;
@@ -534,8 +556,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureObjectTypeInitialized<T>();
 
 		var wrapper = new ObjectCommand<T>();
 		wrapper.Object = obj;
@@ -556,8 +577,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureObjectTypeInitialized<T>();
 
 		var command = new ObjectCollectionCommand<List<T>, T>();
 		command.Owner = _ownerId;
@@ -577,8 +597,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureObjectTypeInitialized<T>();
 
 		var command = new ObjectCollectionCommand<HashSet<T>, T>();
 		command.Owner = _ownerId;
@@ -598,8 +617,7 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
+		CurrentSystem!.EnsureObjectTypeInitialized<T>();
 
 		var command = new ObjectArrayCommand<T>();
 		command.Owner = _ownerId;
@@ -619,9 +637,6 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
 		CurrentSystem!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
@@ -635,9 +650,6 @@ public class Messenger
 			RunPostInit(() => ReceiveValueList(id, callback));
 			return;
 		}
-
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		CurrentSystem!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
@@ -653,9 +665,6 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
 		CurrentSystem!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
@@ -669,9 +678,6 @@ public class Messenger
 			RunPostInit(() => ReceiveValueArray(id, callback));
 			return;
 		}
-
-		if (!CurrentSystem!.TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		CurrentSystem!.RegisterValueArrayCallback(_ownerId, id, callback);
 	}
@@ -757,9 +763,6 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
 		CurrentSystem!.RegisterObjectCallback(_ownerId, id, callback);
 	}
 
@@ -773,9 +776,6 @@ public class Messenger
 			RunPostInit(() => ReceiveObjectList(id, callback));
 			return;
 		}
-
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		CurrentSystem!.RegisterObjectCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
@@ -791,9 +791,6 @@ public class Messenger
 			return;
 		}
 
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
 		CurrentSystem!.RegisterObjectCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
@@ -807,9 +804,6 @@ public class Messenger
 			RunPostInit(() => ReceiveObjectArray(id, callback));
 			return;
 		}
-
-		if (!CurrentSystem!.TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
 
 		CurrentSystem!.RegisterObjectArrayCallback(_ownerId, id, callback);
 	}
@@ -829,20 +823,36 @@ public class Messenger
 		CurrentSystem!.SendPackable(pingCommand);
 	}
 
-	// internal void SendTypeCommand(Type type)
-	// {
-	// 	if (type is null)
-	// 		throw new ArgumentNullException(nameof(type));
+	public void SendType(string id, Type? type)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
 
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendTypeCommand(type));
-	// 		return;
-	// 	}
+		if (!IsInitialized)
+		{
+			RunPostInit(() => SendType(id, type));
+			return;
+		}
 
-	// 	var typeCommand = new TypeCommand();
-	// 	typeCommand.Type = type;
+		var typeCmd = new IdentifiableTypeCommand();
+		typeCmd.Owner = _ownerId;
+		typeCmd.Id = id;
+		typeCmd.Type = type;
 
-	// 	CurrentSystem!.SendPackable(typeCommand);
-	// }
+		CurrentSystem!.SendPackable(typeCmd);
+	}
+
+	public void ReceiveType(string id, Action<Type?>? callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		if (!IsInitialized)
+		{
+			RunPostInit(() => ReceiveType(id, callback));
+			return;
+		}
+
+		CurrentSystem!.RegisterTypeCallback(_ownerId, id, callback);
+	}
 }

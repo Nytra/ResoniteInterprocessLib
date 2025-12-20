@@ -200,6 +200,46 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 //	}
 //}
 
+internal sealed class TypeRegistrationCommand : IMemoryPackable
+{
+	public Type? Type;
+
+	public void Pack(ref MemoryPacker packer)
+	{
+		var typeCommand = new TypeCommand();
+		typeCommand.Type = Type;
+		typeCommand.Pack(ref packer);
+	}
+
+	public void Unpack(ref MemoryUnpacker unpacker)
+	{
+		var typeCommand = new TypeCommand();
+		typeCommand.Unpack(ref unpacker);
+		Type = typeCommand.Type;
+	}
+}
+
+internal sealed class IdentifiableTypeCommand : IdentifiableCommand
+{
+	public Type? Type;
+
+	public override void Pack(ref MemoryPacker packer)
+	{
+		base.Pack(ref packer);
+		var typeCommand = new TypeCommand();
+		typeCommand.Type = Type;
+		typeCommand.Pack(ref packer);
+	}
+
+	public override void Unpack(ref MemoryUnpacker unpacker)
+	{
+		base.Unpack(ref unpacker);
+		var typeCommand = new TypeCommand();
+		typeCommand.Unpack(ref unpacker);
+		Type = typeCommand.Type;
+	}
+}
+
 internal sealed class TypeCommand : IMemoryPackable
 {
 	public Type? Type;
@@ -281,12 +321,14 @@ internal sealed class TypeCommand : IMemoryPackable
 
 	private Type? FindType(string typeString)
 	{
+		Messenger.OnDebug?.Invoke($"Looking for Type: {typeString}");
+
 		if (_typeCache.TryGetValue(typeString, out var type))
 		{
+			Messenger.OnDebug?.Invoke($"Found in cache: {type.FullName}");
 			return type;
 		}
-
-		Messenger.OnDebug?.Invoke($"Looking for Type: {typeString}");
+		
 		type = Type.GetType(typeString);
 		if (type is null)
 		{
@@ -298,12 +340,12 @@ internal sealed class TypeCommand : IMemoryPackable
 		}
 		if (type != null)
 		{
-			Messenger.OnDebug?.Invoke($"Found Type: {type.FullName}");
+			Messenger.OnDebug?.Invoke($"Found new Type to cache: {type.FullName}");
 			_typeCache[typeString] = type;
 		}
 		else
 		{
-			Messenger.OnDebug?.Invoke($"Could not find type.");
+			Messenger.OnDebug?.Invoke($"Could not find the type.");
 		}
 		return type;
 	}
@@ -405,7 +447,7 @@ internal sealed class StringArrayCommand : CollectionCommand
 
 internal sealed class StringCollectionCommand<C> : CollectionCommand where C : ICollection<string?>?, new()
 {
-	public IEnumerable<string?>? Strings;
+	public IEnumerable<string?>? Strings; // IEnumerable is required for covariance of string? and string
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -419,7 +461,7 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 			packer.Write(-1);
 			return;
 		}
-		int len = Strings.Count();
+		int len = Strings.Count(); // could be optimized?
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
@@ -674,10 +716,10 @@ internal sealed class WrapperCommand : RendererCommand
 		}
 
 		var packedType = Packable.GetType();
-		packer.Write(system.TypeManager.GetTypeIndex(packedType));
+		packer.Write(system.OutgoingTypeManager.GetTypeIndex(packedType));
 		packer.Write(QueueName);
 		Packable.Pack(ref packer);
-		system.TypeManager.Return(packedType, Packable);
+		system.OutgoingTypeManager.Return(packedType, Packable);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -696,9 +738,9 @@ internal sealed class WrapperCommand : RendererCommand
 
 		if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
 
-		var type = backend.TypeManager.GetTypeFromIndex(TypeIndex);
+		var type = backend.IncomingTypeManager.GetTypeFromIndex(TypeIndex);
 
-		Packable = backend.TypeManager.Borrow(type);
+		Packable = backend.IncomingTypeManager.Borrow(type);
 
 		Packable.Unpack(ref unpacker);
 	}
