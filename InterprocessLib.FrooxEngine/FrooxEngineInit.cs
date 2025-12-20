@@ -29,14 +29,19 @@ internal static class FrooxEngineInit
 
 		Messenger.DefaultInitStarted = true;
 
-		Task.Run(InitLoop);
+		InnerInit();
 	}
-	private static async void InitLoop()
+	private static void InnerInit()
 	{
-		// Engine.SharedMemoryPrefix is assigned just before the RenderSystem is created
-		while (Engine.Current?.RenderSystem is null)
+		var args = Environment.GetCommandLineArgs();
+		string? queueName = null;
+		for (int i = 0; i < args.Length; i++)
 		{
-			await Task.Delay(1);
+			if (args[i].Equals("-shmprefix", StringComparison.InvariantCultureIgnoreCase))
+			{
+				queueName = args[i + 1];
+				break;
+			}
 		}
 
 		Messenger.OnWarning = (msg) =>
@@ -55,12 +60,13 @@ internal static class FrooxEngineInit
 #endif
 
 		MessagingSystem? system = null;
-		string uniqueId = Engine.Current.SharedMemoryPrefix;
 
-		if (uniqueId is null)
+		if (queueName is null)
 		{
 			Messenger.OnDebug?.Invoke("Shared memory unique id is null! Attempting to use fallback...");
-			system = await Messenger.GetFallbackSystem(true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var task = Messenger.GetFallbackSystem(true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			task.Wait();
+			system = task.Result;
 			if (system is null)
 			{
 				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
@@ -68,7 +74,7 @@ internal static class FrooxEngineInit
 		}
 		else
 		{
-			system = new MessagingSystem(true, $"InterprocessLib-{uniqueId}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system = new MessagingSystem(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			system.Connect();
 		}
 
@@ -79,6 +85,6 @@ internal static class FrooxEngineInit
 			system.Initialize();
 		}
 		
-		Engine.Current.OnShutdown += system.Dispose; // this might fix the rare occurence that Renderite.Host stays open after exiting Resonite
+		//Engine.Current.OnShutdown += system.Dispose; // this might fix the rare occurence that Renderite.Host stays open after exiting Resonite
 	}
 }

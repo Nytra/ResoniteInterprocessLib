@@ -30,10 +30,10 @@ internal static class UnityInit
 			UnityEngine.Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
 		};
 #if DEBUG
-			Messenger.OnDebug = (msg) => 
-			{
-				UnityEngine.Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
-			};
+		Messenger.OnDebug = (msg) => 
+		{
+			UnityEngine.Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
+		};
 #endif
 
 		//UnityEngine.Debug.Log("Init");
@@ -42,7 +42,7 @@ internal static class UnityInit
 		string? fullQueueName = null;
 		for (int i = 0; i < args.Length; i++)
 		{
-			if (args[i].EndsWith("QueueName", StringComparison.InvariantCultureIgnoreCase))
+			if (args[i].Equals("-QueueName", StringComparison.InvariantCultureIgnoreCase))
 			{
 				fullQueueName = args[i + 1];
 				break;

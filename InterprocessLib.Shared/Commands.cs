@@ -71,7 +71,7 @@ internal sealed class EmptyCommand : IdentifiableCommand
 	}
 }
 
-internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : unmanaged
+internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>?, new() where T : unmanaged
 {
 	public C? Values;
 
@@ -703,9 +703,9 @@ internal sealed class WrapperCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
+		//if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
 
-		var system = MessagingSystem.TryGetRegisteredSystem(QueueName);
+		var system = MessagingSystem.TryGetRegisteredSystem(QueueName!);
 
 		if (system is null) throw new InvalidOperationException($"MessagingSystem with QueueName: {QueueName} is not registered.");
 
@@ -717,7 +717,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 		var packedType = Packable.GetType();
 		packer.Write(system.OutgoingTypeManager.GetTypeIndex(packedType));
-		packer.Write(QueueName);
+		packer.Write(QueueName!);
 		Packable.Pack(ref packer);
 		system.OutgoingTypeManager.Return(packedType, Packable);
 	}
@@ -736,9 +736,9 @@ internal sealed class WrapperCommand : RendererCommand
 
 		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName);
 
-		if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
+		//if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
 
-		var type = backend.IncomingTypeManager.GetTypeFromIndex(TypeIndex);
+		var type = backend!.IncomingTypeManager.GetTypeFromIndex(TypeIndex);
 
 		Packable = backend.IncomingTypeManager.Borrow(type);
 

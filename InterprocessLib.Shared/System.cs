@@ -82,6 +82,10 @@ internal class MessagingSystem : IDisposable
 
 	internal Action<TimeSpan>? PingCallback;
 
+	private readonly IMemoryPackerEntityPool _pool;
+
+	private bool _messengerReadyCommandReceived = false;
+
 	internal void SetPostInitActions(List<Action>? actions)
 	{
 		if (IsInitialized)
@@ -104,10 +108,7 @@ internal class MessagingSystem : IDisposable
 		if (IsInitialized)
 			throw new InvalidOperationException("Already initialized!");
 
-		if (!IsAuthority)
-		{
-			SendPackable(new MessengerReadyCommand());
-		}
+		SendPackable(new MessengerReadyCommand());
 
 		var actions = _postInitActions!.ToArray();
 		_postInitActions = null;
@@ -206,6 +207,9 @@ internal class MessagingSystem : IDisposable
 
 	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
+		if (queueName is null) throw new ArgumentNullException(nameof(queueName));
+		if (pool is null) throw new ArgumentNullException(nameof(pool));
+
 		IsAuthority = isAuthority;
 		QueueName = queueName;
 		QueueCapacity = queueCapacity;
@@ -217,9 +221,10 @@ internal class MessagingSystem : IDisposable
 
 		_postInitCallback = postInitCallback;
 
-		OutgoingTypeManager = new(pool, OnOutgoingTypeRegistered);
+		_pool = pool;
 
-		IncomingTypeManager = new(pool, null);
+		OutgoingTypeManager = new(_pool, OnOutgoingTypeRegistered);
+		IncomingTypeManager = new(_pool, null);
 
 		_primary = new MessagingManager(pool);
 		_primary.CommandHandler = CommandHandler;
@@ -265,7 +270,7 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
-	private void HandleValueCollectionCommand<C, T>(ValueCollectionCommand<C, T> command) where C : ICollection<T>, new() where T : unmanaged
+	private void HandleValueCollectionCommand<C, T>(ValueCollectionCommand<C, T> command) where C : ICollection<T>?, new() where T : unmanaged
 	{
 		if (_ownerData[command.Owner].ValueCollectionCallbacks.TryGetValue(command.Id, out var callback))
 		{
@@ -445,24 +450,32 @@ internal class MessagingSystem : IDisposable
 			return;
 		}
 
+		// ping command before ready command is okay (to check if the queue is active)b
 		if (packable is PingCommand pingCommand)
 		{
 			HandlePingCommand(pingCommand);
 			return;
 		}
 
-		// if (!IsInitialized && IsAuthority)
-		// {
-		// 	if (packable is MessengerReadyCommand)
-		// 	{
-		// 		Initialize();
-		// 		return;
-		// 	}
-		// 	else
-		// 	{
-		// 		throw new InvalidDataException($"The first command needs to be the MessengerReadyCommand when not initialized!");
-		// 	}
-		// }
+		// it's a bit unexpected if the non-authority process receives more than one of these, but it might be okay?
+		if (packable is MessengerReadyCommand)
+		{
+			if (_messengerReadyCommandReceived)
+			{
+				OutgoingTypeManager = new(_pool, OnOutgoingTypeRegistered);
+				IncomingTypeManager = new(_pool, null);
+			}
+			else
+			{
+				_messengerReadyCommandReceived = true;
+			}
+			return;
+		}
+
+		if (!_messengerReadyCommandReceived)
+		{
+			throw new InvalidDataException("MessengerReadyCommand needs to be first!");
+		}
 
 		if (packable is TypeRegistrationCommand typeRegCommand)
 		{
@@ -473,7 +486,7 @@ internal class MessagingSystem : IDisposable
 			}
 			else
 			{
-				throw new InvalidDataException("Tried to register a type that could not be found in this process!");
+				throw new InvalidDataException("Other process tried to register a type that could not be found in this process!");
 			}
 			return;
 		}
@@ -562,7 +575,7 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
-	public void SendPackable(IMemoryPackable? packable)
+	public void SendPackable(IMemoryPackable packable)
 	{
 		if (!IsConnected) throw new InvalidOperationException("Not connected!");
 
@@ -579,7 +592,7 @@ internal class MessagingSystem : IDisposable
 	{
 		if (!OutgoingTypeManager.IsValueTypeInitialized<T>())
 		{
-			OutgoingTypeManager.InitValueTypeList([typeof(T)]);
+			OutgoingTypeManager.RegisterAdditionalValueType<T>();
 		}
 	}
 
@@ -587,7 +600,7 @@ internal class MessagingSystem : IDisposable
 	{
 		if (!OutgoingTypeManager.IsObjectTypeInitialized<T>())
 		{
-			OutgoingTypeManager.InitObjectTypeList([typeof(T)]);
+			OutgoingTypeManager.RegisterAdditionalObjectType<T>();
 		}
 	}
 

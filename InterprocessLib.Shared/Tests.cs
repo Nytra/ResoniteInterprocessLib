@@ -8,9 +8,9 @@ namespace InterprocessLib.Tests;
 public static class Tests
 {
 	private static Messenger? _messenger;
-	private static Action<string>? _logCallback;
+	private static Action<string?>? _logCallback;
 
-	public static void RunTests(Messenger messenger, Action<string> logCallback)
+	public static void RunTests(Messenger messenger, Action<string?> logCallback)
 	{
 		_messenger = messenger;
 		_logCallback = logCallback;
@@ -38,47 +38,6 @@ public static class Tests
 		TestStringHashSet();
 		TestStringArray();
 		TestTypeCommand();
-
-		try
-		{
-			TestUnregisteredCommand();
-		}
-		catch (Exception ex) 
-		{
-			logCallback($"TestUnregisteredCommand threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredPackable();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredPackable threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredStruct();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredStruct threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredVanillaObject();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredVanillaObject threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredVanillaValue();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredVanillaValue threw an exception: {ex.Message}");
-		}
 	}
 
 	static void TestTypeCommand()
@@ -119,7 +78,7 @@ public static class Tests
 		arr[1] = null!;
 		arr[2] = new TestCommand();
 		arr[2]!.Value = 247;
-		_messenger.SendObjectArray<TestCommand>("TestObjectArray", arr);
+		_messenger.SendObjectArray("TestObjectArray", arr);
 	}
 
 	static void TestVanillaStruct()
@@ -146,17 +105,6 @@ public static class Tests
 		});
 		var val = ShadowType.Soft;
 		_messenger.SendValue<ShadowType>("TestVanillaEnum", val);
-	}
-
-	static void TestUnregisteredVanillaValue()
-	{
-		_messenger!.ReceiveValue<Chirality>("TestUnregisteredVanillaValue", (val) =>
-		{
-			_logCallback!($"TestUnregisteredVanillaValue: {val}");
-
-		});
-		var val = Chirality.Right;
-		_messenger.SendValue<Chirality>("TestUnregisteredVanillaValue", val);
 	}
 
 	static void TestUnknownCommandId()
@@ -274,39 +222,6 @@ public static class Tests
 		_messenger!.SendValue("TestNestedStruct", testNestedSruct);
 	}
 
-	static void TestUnregisteredCommand()
-	{
-		_messenger!.ReceiveObject<UnregisteredCommand>("UnregisteredCommand", (recv) =>
-		{
-			_logCallback!($"UnregisteredCommand");
-		});
-
-		var unregistered = new UnregisteredCommand();
-		_messenger.SendObject("UnregisteredCommand", unregistered);
-	}
-
-	static void TestUnregisteredPackable()
-	{
-		_messenger!.ReceiveValue<UnregisteredPackable>("UnregisteredPackable", (recv) =>
-		{
-			_logCallback!($"UnregisteredPackable");
-		});
-
-		var unregistered = new UnregisteredPackable();
-		_messenger.SendValue("UnregisteredPackable", unregistered);
-	}
-
-	static void TestUnregisteredStruct()
-	{
-		_messenger!.ReceiveValue<UnregisteredStruct>("UnregisteredStruct", (recv) =>
-		{
-			_logCallback!($"UnregisteredStruct");
-		});
-
-		var unregistered = new UnregisteredStruct();
-		_messenger.SendValue("UnregisteredStruct", unregistered);
-	}
-
 	static void TestValueList()
 	{
 		_messenger!.ReceiveValueList<float>("TestValueList", (list) => 
@@ -422,17 +337,6 @@ public static class Tests
 
 		var obj = new RendererInitData();
 		_messenger.SendObject("TestVanillaObject", obj);
-	}
-
-	static void TestUnregisteredVanillaObject()
-	{
-		_messenger!.ReceiveObject<QualityConfig>("TestUnregisteredVanillaObject", (recv) =>
-		{
-			_logCallback!($"TestUnregisteredVanillaObject: {recv!.perPixelLights} {recv.shadowCascades} {recv.shadowResolution} {recv.shadowDistance} {recv.skinWeightMode}");
-		});
-
-		var obj = new QualityConfig();
-		_messenger.SendObject("TestUnregisteredVanillaObject", obj);
 	}
 
 #if TEST_COMPILATION

@@ -36,9 +36,11 @@ public class RML_Tests : ResoniteMod
 		_another = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
 
+#pragma warning disable CS8622
 		Tests.RunTests(_messenger, Msg);
 		Tests.RunTests(_unknownMessenger, Msg);
 		Tests.RunTests(_another, Msg);
+#pragma warning restore CS8622
 
 		_messenger.CheckLatency(latency => LatencyMilliseconds!.Value = latency.TotalMilliseconds);
 
@@ -47,9 +49,11 @@ public class RML_Tests : ResoniteMod
 		RunTestsToggle!.OnChanged += (object? newValue) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
+#pragma warning disable CS8622
 			Tests.RunTests(_messenger, Msg);
 			Tests.RunTests(_unknownMessenger, Msg);
 			Tests.RunTests(_another, Msg);
+#pragma warning restore CS8622
 			_messenger.CheckLatency(latency => LatencyMilliseconds!.Value = latency.TotalMilliseconds);
 		};
 		CheckSyncToggle!.OnChanged += (object? newValue) =>

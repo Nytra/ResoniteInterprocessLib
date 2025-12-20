@@ -11,10 +11,6 @@ internal class TypeManager
 
 	private bool _initializedCoreTypes = false;
 
-	private static readonly MethodInfo _registerValueTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterAdditionalValueType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterAdditionalValueType));
-
-	private static readonly MethodInfo _registerObjectTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterAdditionalObjectType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterAdditionalObjectType));
-
 	private static readonly MethodInfo _registerDirectCommandTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterDirectCommandType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterDirectCommandType));
 
 	private readonly List<Type> _newTypes = new();
@@ -88,32 +84,9 @@ internal class TypeManager
 		return _typeToIndex[type];
 	}
 
-	internal void InitValueTypeList(List<Type> types)
-	{
-		Messenger.OnDebug?.Invoke($"Registering additional value types: {string.Join(",", types.Select(t => t.Name))}");
-		foreach (var type in types)
-		{
-			_registerValueTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
-		}
-	}
-
-	internal void InitObjectTypeList(List<Type> types)
-	{
-		Messenger.OnDebug?.Invoke($"Registering additional object types: {string.Join(",", types.Select(t => t.Name))}");
-		foreach (var type in types)
-		{
-			_registerObjectTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
-		}
-	}
-
 	internal bool IsValueTypeInitialized<T>() where T : unmanaged
 	{
 		return _registeredValueTypes.Contains(typeof(T));
-	}
-
-	internal bool IsValueTypeInitialized(Type t)
-	{
-		return _registeredValueTypes.Contains(t);
 	}
 
 	internal bool IsObjectTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
@@ -121,14 +94,16 @@ internal class TypeManager
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
-	internal bool IsObjectTypeInitialized(Type t)
-	{
-		return _registeredObjectTypes.Contains(t);
-	}
+	// internal bool IsDirectCommandTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
+	// {
+	// 	return _typeToIndex.ContainsKey(typeof(T));
+	// }
 
-	private void RegisterAdditionalValueType<T>() where T : unmanaged
+	internal void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
 		var type = typeof(T);
+
+		Messenger.OnDebug?.Invoke($"Registering additional value type: {type.Name}");
 
 		if (_registeredValueTypes.Contains(type))
 			throw new InvalidOperationException($"Type {type.Name} is already registered!");
@@ -149,9 +124,11 @@ internal class TypeManager
 		_registeredValueTypes.Add(type);
 	}
 
-	private void RegisterAdditionalObjectType<T>() where T : class, IMemoryPackable, new()
+	internal void RegisterAdditionalObjectType<T>() where T : class?, IMemoryPackable?, new()
 	{
 		var type = typeof(T);
+
+		Messenger.OnDebug?.Invoke($"Registering additional object type: {type.Name}");
 
 		if (_registeredObjectTypes.Contains(type))
 			throw new InvalidOperationException($"Type {type.Name} is already registered!");
@@ -174,13 +151,14 @@ internal class TypeManager
 
 	internal void InitDirectCommandType(Type type)
 	{
-		Messenger.OnDebug?.Invoke($"Registering direct command type: {type.Name}");
 		_registerDirectCommandTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 	}
 
 	private void RegisterDirectCommandType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
+
+		Messenger.OnDebug?.Invoke($"Registering direct command type: {type.Name}");
 
 		PushNewTypes([type]);
 	}

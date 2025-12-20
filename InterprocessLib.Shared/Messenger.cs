@@ -70,7 +70,7 @@ public class Messenger
 	internal static async Task<MessagingSystem?> GetFallbackSystem(bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
 		var startTime = DateTime.UtcNow;
-		int waitTimeMs = 2500;
+		int waitTimeMs = 500;
 		while (_runningFallbackSystemInit && (DateTime.UtcNow - startTime).TotalMilliseconds < waitTimeMs * 2)
 			await Task.Delay(1);
 
@@ -152,40 +152,7 @@ public class Messenger
 
 		_ownerId = ownerId;
 
-		if (_defaultSystem is null)
-		{
-			DefaultRunPreInit(Register);
-		}
-		else
-		{
-			Register();
-		}
-
-		if (_defaultSystem is null && !DefaultInitStarted)
-		{
-			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
-			if (frooxEngineInitType is not null)
-			{
-				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-			}
-			else
-			{
-				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
-				if (unityInitType is not null)
-				{
-					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-				}
-				else
-				{
-					var fallbackSystemTask = GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
-					fallbackSystemTask.Wait();
-					if (fallbackSystemTask.Result is not MessagingSystem fallbackSystem)
-						throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
-					else
-						_defaultSystem = fallbackSystemTask.Result;
-				}
-			}
-		}
+		DefaultInit();
 	}
 
 	/// <summary>
@@ -201,6 +168,11 @@ public class Messenger
 
 		_ownerId = ownerId;
 
+		DefaultInit();
+	}
+
+	private void DefaultInit()
+	{
 		if (_defaultSystem is null)
 		{
 			DefaultRunPreInit(Register);
