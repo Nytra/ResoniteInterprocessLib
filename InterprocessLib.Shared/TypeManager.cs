@@ -73,7 +73,7 @@ internal class TypeManager
 	{
 		if (_initializedCoreTypes) return;
 
-		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringListCommand), typeof(StringArrayCommand), typeof(StringHashSetCommand), typeof(TypeCommand), typeof(PingCommand)]);
+		PushNewTypes([typeof(MessengerReadyCommand), typeof(EmptyCommand), typeof(StringCommand), typeof(StringCollectionCommand<List<string?>>), typeof(StringCollectionCommand<HashSet<string?>>), typeof(StringArrayCommand), typeof(TypeCommand), typeof(PingCommand)]);
 
 		foreach (var valueType in TypeManager._valueTypes)
 		{
@@ -128,7 +128,7 @@ internal class TypeManager
 		return _registeredValueTypes.Contains(t);
 	}
 
-	internal bool IsObjectTypeInitialized<T>() where T : class, IMemoryPackable, new()
+	internal bool IsObjectTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
 	{
 		return _registeredObjectTypes.Contains(typeof(T));
 	}

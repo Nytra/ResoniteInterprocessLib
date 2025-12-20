@@ -213,6 +213,9 @@ public class Messenger
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
+		if (queueName is null)
+			throw new ArgumentNullException(nameof(queueName));
+
 		IMemoryPackerEntityPool? actualPool = pool;
 		if (actualPool is null)
 		{
@@ -449,7 +452,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendStringList(string id, List<string?>? list)
+	public void SendStringList(string id, IEnumerable<string?>? list)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -460,7 +463,7 @@ public class Messenger
 			return;
 		}
 
-		var command = new StringListCommand();
+		var command = new StringCollectionCommand<List<string?>>();
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Strings = list;
@@ -485,7 +488,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendStringHashSet(string id, HashSet<string?>? set)
+	public void SendStringHashSet(string id, IEnumerable<string?>? set)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -496,7 +499,7 @@ public class Messenger
 			return;
 		}
 
-		var command = new StringHashSetCommand();
+		var command = new StringCollectionCommand<HashSet<string?>>();
 		command.Owner = _ownerId;
 		command.Id = id;
 		command.Strings = set;
@@ -520,7 +523,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObject<T>(string id, T obj) where T : class, IMemoryPackable, new()
+	public void SendObject<T>(string id, T obj) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -542,7 +545,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(wrapper);
 	}
 
-	public void SendObjectList<T>(string id, List<T>? list) where T : class, IMemoryPackable, new()
+	public void SendObjectList<T>(string id, List<T>? list) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -563,7 +566,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObjectHashSet<T>(string id, HashSet<T>? hashSet) where T : class, IMemoryPackable, new()
+	public void SendObjectHashSet<T>(string id, HashSet<T>? hashSet) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -584,7 +587,7 @@ public class Messenger
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObjectArray<T>(string id, T[]? array) where T : class, IMemoryPackable, new()
+	public void SendObjectArray<T>(string id, T[]? array) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -698,7 +701,7 @@ public class Messenger
 			return;
 		}
 
-		CurrentSystem!.RegisterStringListCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterStringCollectionCallback<List<string?>>(_ownerId, id, callback);
 	}
 
 	public void ReceiveStringArray(string id, Action<string?[]?>? callback)
@@ -712,7 +715,7 @@ public class Messenger
 			return;
 		}
 
-		CurrentSystem!.RegisterStringArrayCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterStringArrayCallback(_ownerId, id, callback!);
 	}
 
 	public void ReceiveStringHashSet(string id, Action<HashSet<string?>?>? callback)
@@ -726,7 +729,7 @@ public class Messenger
 			return;
 		}
 
-		CurrentSystem!.RegisterStringHashSetCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterStringCollectionCallback<HashSet<string?>>(_ownerId, id, callback);
 	}
 
 	public void ReceiveEmptyCommand(string id, Action? callback)
@@ -743,7 +746,7 @@ public class Messenger
 		CurrentSystem!.RegisterEmptyCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -760,7 +763,7 @@ public class Messenger
 		CurrentSystem!.RegisterObjectCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveObjectList<T>(string id, Action<List<T>?>? callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObjectList<T>(string id, Action<List<T>?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -777,7 +780,7 @@ public class Messenger
 		CurrentSystem!.RegisterObjectCollectionCallback<List<T>, T>(_ownerId, id, callback);
 	}
 
-	public void ReceiveObjectHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObjectHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -794,7 +797,7 @@ public class Messenger
 		CurrentSystem!.RegisterObjectCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
 	}
 
-	public void ReceiveObjectArray<T>(string id, Action<T[]?>? callback) where T : class, IMemoryPackable, new()
+	public void ReceiveObjectArray<T>(string id, Action<T[]?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));

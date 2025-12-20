@@ -8,7 +8,7 @@ namespace InterprocessLib;
 
 internal abstract class IdentifiableCommand : IMemoryPackable
 {
-	internal string Owner = "";
+	public string Owner = "";
 	public string Id = "";
 
 	public virtual void Pack(ref MemoryPacker packer)
@@ -65,8 +65,6 @@ internal abstract class ObjectCommand : IdentifiableCommand
 
 internal sealed class EmptyCommand : IdentifiableCommand
 {
-	// owo
-
 	public override string ToString()
 	{
 		return $"EmptyCommand:{Owner}:{Id}";
@@ -363,27 +361,6 @@ internal sealed class TypeCommand : IMemoryPackable
 //	}
 //}
 
-internal sealed class StringListCommand : CollectionCommand
-{
-	public List<string?>? Strings;
-
-	public override IEnumerable? UntypedCollection => Strings;
-	public override Type StoredType => typeof(string);
-	public override Type CollectionType => typeof(List<string>);
-
-	public override void Pack(ref MemoryPacker packer)
-	{
-		base.Pack(ref packer);
-		packer.WriteStringList(Strings!);
-	}
-
-	public override void Unpack(ref MemoryUnpacker unpacker)
-	{
-		base.Unpack(ref unpacker);
-		unpacker.ReadStringList(ref Strings!);
-	}
-}
-
 internal sealed class StringArrayCommand : CollectionCommand
 {
 	public string?[]? Strings;
@@ -426,13 +403,13 @@ internal sealed class StringArrayCommand : CollectionCommand
 	}
 }
 
-internal sealed class StringHashSetCommand : CollectionCommand
+internal sealed class StringCollectionCommand<C> : CollectionCommand where C : ICollection<string?>?, new()
 {
-	public HashSet<string?>? Strings;
+	public IEnumerable<string?>? Strings;
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
-	public override Type CollectionType => typeof(HashSet<string>);
+	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
@@ -442,7 +419,7 @@ internal sealed class StringHashSetCommand : CollectionCommand
 			packer.Write(-1);
 			return;
 		}
-		int len = Strings.Count;
+		int len = Strings.Count();
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
@@ -457,20 +434,21 @@ internal sealed class StringHashSetCommand : CollectionCommand
 		unpacker.Read(ref len);
 		if (len == -1)
 		{
-			Strings = null;
+			Strings = default;
 			return;
 		}
-		Strings = new(); // ToDo: use pool borrowing here?
+		var collection = new C(); // ToDo: use pool borrowing here?
 		for (int i = 0; i < len; i++)
 		{
 			string? str = default;
 			unpacker.Read(ref str!);
-			Strings.Add(str);
+			collection.Add(str);
 		}
+		Strings = collection;
 	}
 }
 
-internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>, new() where T : class, IMemoryPackable, new()
+internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 {
 	public C? Objects;
 
@@ -490,8 +468,12 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 		packer.Write(len);
 		foreach (var obj in Objects)
 		{
-			packer.WriteObject(obj);
-		}
+#pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+            packer.WriteObject(obj);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+#pragma warning restore CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+        }
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -508,15 +490,19 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 		for (int i = 0; i < len; i++)
 		{
 			T obj = new();
-			unpacker.ReadObject(ref obj!);
-			Objects.Add(obj);
+#pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+            unpacker.ReadObject(ref obj!);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+#pragma warning restore CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+            Objects.Add(obj);
 		}
 	}
 }
 
-internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class, IMemoryPackable, new()
+internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?, IMemoryPackable?, new()
 {
-	public T?[]? Objects;
+	public T[]? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
@@ -534,8 +520,12 @@ internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class,
 		packer.Write(len);
 		foreach (var obj in Objects)
 		{
-			packer.WriteObject(obj);
-		}
+#pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+            packer.WriteObject(obj);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+#pragma warning restore CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+        }
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
@@ -551,12 +541,16 @@ internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class,
 		Objects = new T[len]; // ToDo: use pool borrowing here?
 		for (int i = 0; i < len; i++)
 		{
-			unpacker.ReadObject(ref Objects[i]);
-		}
+#pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+            unpacker.ReadObject(ref Objects[i]!);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+#pragma warning restore CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+        }
 	}
 }
 
-internal sealed class ObjectCommand<T> : ObjectCommand where T : class, IMemoryPackable, new()
+internal sealed class ObjectCommand<T> : ObjectCommand where T : class?, IMemoryPackable?, new()
 {
 	public T? Object;
 
@@ -566,14 +560,22 @@ internal sealed class ObjectCommand<T> : ObjectCommand where T : class, IMemoryP
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		packer.WriteObject(Object);
-	}
+#pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+        packer.WriteObject(Object);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+#pragma warning restore CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+    }
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-		unpacker.ReadObject(ref Object);
-	}
+#pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+#pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+        unpacker.ReadObject(ref Object);
+#pragma warning restore CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
+#pragma warning restore CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
+    }
 }
 
 internal sealed class ValueCommand<T> : ValueCommand where T : unmanaged

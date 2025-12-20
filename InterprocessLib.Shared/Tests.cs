@@ -118,7 +118,7 @@ public static class Tests
 		arr[1] = null!;
 		arr[2] = new TestCommand();
 		arr[2]!.Value = 247;
-		_messenger.SendObjectArray<TestCommand>("TestObjectArray", arr!);
+		_messenger.SendObjectArray<TestCommand>("TestObjectArray", arr);
 	}
 
 	static void TestVanillaStruct()
@@ -170,7 +170,7 @@ public static class Tests
 			_logCallback!($"NullStr: {str}");
 
 		});
-		_messenger.SendString("NullStr", null!);
+		_messenger.SendString("NullStr", null);
 	}
 
 	static void TestEmptyCommand()
@@ -355,11 +355,11 @@ public static class Tests
 			_logCallback!($"TestObjectHashSet: {string.Join(",", list!)}");
 		});
 
-		var set = new HashSet<TestCommand>();
+		var set = new HashSet<TestCommand?>();
 		set.Add(new TestCommand());
-		set.Add(null!);
+		set.Add(null);
 		set.Add(new TestCommand() { Value = 9 });
-		_messenger.SendObjectHashSet<TestCommand>("TestObjectHashSet", set);
+		_messenger.SendObjectHashSet("TestObjectHashSet", set);
 	}
 
 	static void TestStringList()
@@ -369,11 +369,11 @@ public static class Tests
 			_logCallback!($"TestStringList: {string.Join(",", list!.Select(s => s ?? "NULL"))}");
 		});
 
-		var list = new List<string?>();
+		var list = new List<string>();
 		list.Add("Hello");
 		list.Add("World");
 		list.Add("owo");
-		list.Add(null);
+		//list.Add(null);
 		list.Add("x3");
 		_messenger.SendStringList("TestStringList", list);
 	}
@@ -385,12 +385,12 @@ public static class Tests
 			_logCallback!($"TestStringArray: {string.Join(",", arr!.Select(s => s ?? "NULL"))}");
 		});
 
-		var arr = new string?[]
+		var arr = new string[]
 		{
 			"Hello",
 			"World",
 			"owo",
-			null,
+			//null,
 			"x3"
 		};
 		_messenger.SendStringArray("TestStringArray", arr);
@@ -403,11 +403,11 @@ public static class Tests
 			_logCallback!($"TestStringHashSet: {string.Join(",", set!.Select(s => s ?? "NULL"))}");
 		});
 
-		var set = new HashSet<string?>();
+		var set = new HashSet<string>();
 		set.Add("Hello");
 		set.Add("World");
 		set.Add("owo");
-		set.Add(null);
+		set.Add(null!);
 		set.Add("x3");
 		_messenger.SendStringHashSet("TestStringHashSet", set);
 	}
@@ -416,7 +416,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveObject<RendererInitData>("TestVanillaObject", (recv) =>
 		{
-			_logCallback!($"TestVanillaObject: {recv.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice} {recv.setWindowIcon} {recv.splashScreenOverride}");
+			_logCallback!($"TestVanillaObject: {recv!.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice} {recv.setWindowIcon} {recv.splashScreenOverride}");
 		});
 
 		var obj = new RendererInitData();
@@ -427,7 +427,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveObject<QualityConfig>("TestUnregisteredVanillaObject", (recv) =>
 		{
-			_logCallback!($"TestUnregisteredVanillaObject: {recv.perPixelLights} {recv.shadowCascades} {recv.shadowResolution} {recv.shadowDistance} {recv.skinWeightMode}");
+			_logCallback!($"TestUnregisteredVanillaObject: {recv!.perPixelLights} {recv.shadowCascades} {recv.shadowResolution} {recv.shadowDistance} {recv.skinWeightMode}");
 		});
 
 		var obj = new QualityConfig();

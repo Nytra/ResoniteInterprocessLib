@@ -1,3 +1,4 @@
+using System.Reflection;
 using Renderite.Shared;
 using Renderite.Unity;
 
@@ -19,7 +20,7 @@ internal static class UnityInit
 		//Task.Run(InitLoop);
 		InitLoop();
 	}
-	private static void InitLoop()
+	private static async void InitLoop()
 	{
 		Messenger.OnWarning = (msg) =>
 		{
@@ -50,7 +51,9 @@ internal static class UnityInit
 		}
 
 		MessagingSystem? system = null;
-		if (fullQueueName is null)
+
+		var engineSharedMemoryPrefix = fullQueueName?.Substring(0, fullQueueName.IndexOf('_'));
+		if (fullQueueName is null || engineSharedMemoryPrefix!.Length == 0)
 		{
 			var fallbackTask = Messenger.GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			fallbackTask.Wait();
@@ -60,7 +63,7 @@ internal static class UnityInit
 		}
 		else
 		{
-			var engineSharedMemoryPrefix = fullQueueName.Substring(0, fullQueueName.IndexOf('_'));
+			
 			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			system.Connect();
 		}
@@ -68,9 +71,17 @@ internal static class UnityInit
 		lock (Messenger.LockObj)
 		{
 			Messenger.PreInit(system);
-			Messenger.SetDefaultSystem(system); // ToDo: figure out the correct order of init steps (done?)
+			Messenger.SetDefaultSystem(system);
 			system.Initialize();
 		}
+
+		// while (RenderingManager.Instance is null)
+		// 	await Task.Delay(1);
+
+		// var initFinalizedField = typeof(RenderingManager).GetField("_initFinalized", BindingFlags.Instance | BindingFlags.NonPublic);
+
+		// while ((bool)initFinalizedField.GetValue(RenderingManager.Instance) != true)
+		// 	await Task.Delay(1);
 
 		//UnityEngine.Debug.Log("DONE");
 	}
