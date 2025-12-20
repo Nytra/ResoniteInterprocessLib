@@ -37,7 +37,6 @@ public static class Tests
 		TestObjectHashSet();
 		TestStringHashSet();
 		TestStringArray();
-
 		TestTypeCommand();
 
 		try
@@ -84,6 +83,10 @@ public static class Tests
 
 	static void TestTypeCommand()
 	{
+		_messenger!.ReceiveType("TestTypeCommand", (type) =>
+		{
+			_logCallback!($"TestTypeCommand: {type?.FullName ?? "NULL"}");
+		});
 		_messenger!.SendType("TestTypeCommand", typeof(Dictionary<LinkedList<float>, float>));
 	}
 
