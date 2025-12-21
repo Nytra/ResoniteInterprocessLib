@@ -70,12 +70,12 @@ public static class Tests
 		{
 			_logCallback!($"TestObjectArray: {string.Join<TestCommand>(",", arr!)}");
 		});
-		var arr = new TestCommand[3];
+		var arr = new TestCommand?[3];
 		arr[0] = new TestCommand();
 		arr[0]!.Value = 64;
 		arr[0]!.Text = "Pizza";
 		arr[0]!.Time = DateTime.Now;
-		arr[1] = null!;
+		arr[1] = null;
 		arr[2] = new TestCommand();
 		arr[2]!.Value = 247;
 		_messenger.SendObjectArray("TestObjectArray", arr);
@@ -285,11 +285,11 @@ public static class Tests
 			_logCallback!($"TestStringList: {string.Join(",", list!.Select(s => s ?? "NULL"))}");
 		});
 
-		var list = new List<string>();
+		var list = new List<string?>();
 		list.Add("Hello");
 		list.Add("World");
 		list.Add("owo");
-		//list.Add(null);
+		list.Add(null);
 		list.Add("x3");
 		_messenger.SendStringList("TestStringList", list);
 	}
@@ -301,12 +301,12 @@ public static class Tests
 			_logCallback!($"TestStringArray: {string.Join(",", arr!.Select(s => s ?? "NULL"))}");
 		});
 
-		var arr = new string[]
+		var arr = new string?[]
 		{
 			"Hello",
 			"World",
 			"owo",
-			//null,
+			null,
 			"x3"
 		};
 		_messenger.SendStringArray("TestStringArray", arr);
@@ -319,11 +319,11 @@ public static class Tests
 			_logCallback!($"TestStringHashSet: {string.Join(",", set!.Select(s => s ?? "NULL"))}");
 		});
 
-		var set = new HashSet<string>();
+		var set = new HashSet<string?>();
 		set.Add("Hello");
 		set.Add("World");
 		set.Add("owo");
-		set.Add(null!);
+		set.Add(null);
 		set.Add("x3");
 		_messenger.SendStringHashSet("TestStringHashSet", set);
 	}
@@ -453,42 +453,4 @@ public class InvalidType
 public struct StructWithObject
 {
 	public Assembly Assembly;
-}
-
-public struct UnregisteredPackable : IMemoryPackable
-{
-	public void Pack(ref MemoryPacker packer)
-	{
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
-	}
-}
-
-public class UnregisteredCommand : RendererCommand
-{
-	public override void Pack(ref MemoryPacker packer)
-	{
-	}
-
-	public override void Unpack(ref MemoryUnpacker unpacker)
-	{
-	}
-}
-
-public struct UnregisteredStruct
-{
-	public byte Value;
-}
-
-public class TestNewTypeToRegister : IMemoryPackable
-{
-	public void Pack(ref MemoryPacker packer)
-	{
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
-	}
 }

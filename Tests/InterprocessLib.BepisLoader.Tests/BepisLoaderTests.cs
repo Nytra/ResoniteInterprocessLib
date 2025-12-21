@@ -19,7 +19,7 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? RunTestsToggle;
 	public static Messenger? _messenger;
 	public static Messenger? _unknownMessenger;
-	public static Messenger? _another;
+	public static Messenger? _testObsoleteConstructor;
 	
 	public static ConfigEntry<int>? SyncTest;
 	public static ConfigEntry<bool>? CheckSyncToggle;
@@ -102,13 +102,13 @@ public class Plugin : BasePlugin
 			}
 		};
 
-		_messenger = new Messenger("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
-		_another = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+		_messenger = new Messenger("InterprocessLib.Tests");
+		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
 
 		Tests.RunTests(_messenger, Log!.LogInfo);
 		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
-		Tests.RunTests(_another, Log!.LogInfo);
+		Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
 
 #if TEST_SPAWN_PROCESS
 		SpawnProcess();
@@ -138,7 +138,7 @@ public class Plugin : BasePlugin
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Log!.LogInfo);
 			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
-			Tests.RunTests(_another, Log!.LogInfo);
+			Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
 			_messenger.CheckLatency(latency => 
 			{ 
 				LatencyMilliseconds.Value = latency.TotalMilliseconds;

@@ -257,7 +257,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleValueCommand<T>(ValueCommand<T> command) where T : unmanaged
 	{
-		if (_ownerData[command.Owner].ValueCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].ValueCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -272,7 +272,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleValueCollectionCommand<C, T>(ValueCollectionCommand<C, T> command) where C : ICollection<T>?, new() where T : unmanaged
 	{
-		if (_ownerData[command.Owner].ValueCollectionCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].ValueCollectionCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -287,7 +287,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleValueArrayCommand<T>(ValueArrayCommand<T> command) where T : unmanaged
 	{
-		if (_ownerData[command.Owner].ValueArrayCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].ValueArrayCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -302,7 +302,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleStringCommand(StringCommand command)
 	{
-		if (_ownerData[command.Owner].StringCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].StringCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -317,7 +317,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleStringArrayCommand(StringArrayCommand command)
 	{
-		if (_ownerData[command.Owner].StringArrayCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].StringArrayCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -332,7 +332,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleStringCollectionCommand<C>(StringCollectionCommand<C> command) where C : ICollection<string?>?, new()
 	{
-		if (_ownerData[command.Owner].StringCollectionCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].StringCollectionCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -347,7 +347,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleEmptyCommand(EmptyCommand command)
 	{
-		if (_ownerData[command.Owner].EmptyCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].EmptyCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -362,7 +362,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleObjectCommand<T>(ObjectCommand<T> command) where T : class?, IMemoryPackable?, new()
 	{
-		if (_ownerData[command.Owner].ObjectCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].ObjectCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -377,7 +377,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleObjectArrayCommand<T>(ObjectArrayCommand<T> command) where T : class?, IMemoryPackable?, new()
 	{
-		if (_ownerData[command.Owner].ObjectArrayCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].ObjectArrayCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -392,7 +392,7 @@ internal class MessagingSystem : IDisposable
 
 	private void HandleObjectCollectionCommand<C, T>(ObjectCollectionCommand<C, T> command) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 	{
-		if (_ownerData[command.Owner].ObjectCollectionCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].ObjectCollectionCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -419,9 +419,9 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
-	private void HandleTypeCommand(IdentifiableTypeCommand command)
+	private void HandleTypeCommand(TypeCommand command)
 	{
-		if (_ownerData[command.Owner].TypeCallbacks.TryGetValue(command.Id, out var callback))
+		if (_ownerData[command.Owner!].TypeCallbacks.TryGetValue(command.Id!, out var callback))
 		{
 			if (callback != null)
 			{
@@ -493,6 +493,8 @@ internal class MessagingSystem : IDisposable
 
 		if (packable is IdentifiableCommand identifiableCommand)
 		{
+			if (identifiableCommand.Owner is null) throw new InvalidDataException("Received IdentifiableCommand with null Owner!");
+			if (identifiableCommand.Id is null) throw new InvalidDataException("Received IdentifiableCommand with null Id!");
 			if (!_ownerData.TryGetValue(identifiableCommand.Owner, out var data))
 			{
 				_onWarning?.Invoke($"Owner \"{identifiableCommand.Owner}\" is not registered!");
@@ -522,9 +524,9 @@ internal class MessagingSystem : IDisposable
 			{
 				HandleStringArrayCommand(stringArrayCommand);
 			}
-			else if (packable is IdentifiableTypeCommand identifiableTypeCommand)
+			else if (packable is TypeCommand typeCommand)
 			{
-				HandleTypeCommand(identifiableTypeCommand);
+				HandleTypeCommand(typeCommand);
 			}
 			else if (packable is CollectionCommand collectionCommand)
 			{

@@ -11,14 +11,14 @@ public class UnityPlugin : BaseUnityPlugin
 	public static ManualLogSource? Log;
 	private static Messenger? _messenger;
 	private static Messenger? _unknownMessenger;
-	private static Messenger? _anotherOne;
+	private static Messenger? _testObsoleteConstructor;
 	public static ConfigEntry<int>? SyncTest;
 
 	void Awake()
 	{
 		Log = base.Logger;
-		_messenger = new("InterprocessLib.Tests", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
-		_anotherOne = new("InterprocessLib.Tests.Another", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+		_messenger = new("InterprocessLib.Tests");
+		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
 		_unknownMessenger = new("InterprocessLib.Tests.UnknownMessengerUnity");
 		SyncTest = Config.Bind("General", "SyncTest", 34);
 		_messenger.SyncConfigEntry(SyncTest);
@@ -26,7 +26,7 @@ public class UnityPlugin : BaseUnityPlugin
 		{
 			Tests.RunTests(_messenger, Log!.LogInfo);
 			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
-			Tests.RunTests(_anotherOne, Log!.LogInfo);
+			Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
 		});
 		_messenger.ReceiveEmptyCommand("CheckSync", () => 
 		{ 
@@ -38,6 +38,6 @@ public class UnityPlugin : BaseUnityPlugin
 		});
 		Tests.RunTests(_messenger, Log!.LogInfo);
 		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
-		Tests.RunTests(_anotherOne, Log!.LogInfo);
+		Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
 	}
 }

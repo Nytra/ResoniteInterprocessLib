@@ -39,7 +39,6 @@ internal class TypeManager
 		typeof(StringArrayCommand),
 		typeof(TypeCommand),
 		typeof(PingCommand),
-		typeof(IdentifiableTypeCommand)
 	];
 
 	private Action<Type>? _onRegisteredCallback;

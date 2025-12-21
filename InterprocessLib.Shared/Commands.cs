@@ -8,19 +8,19 @@ namespace InterprocessLib;
 
 internal abstract class IdentifiableCommand : IMemoryPackable
 {
-	public string Owner = "";
-	public string Id = "";
+	public string? Owner;
+	public string? Id;
 
 	public virtual void Pack(ref MemoryPacker packer)
 	{
-		packer.Write(Owner);
-		packer.Write(Id);
+		packer.Write(Owner!);
+		packer.Write(Id!);
 	}
 
 	public virtual void Unpack(ref MemoryUnpacker unpacker)
 	{
-		unpacker.Read(ref Owner);
-		unpacker.Read(ref Id);
+		unpacker.Read(ref Owner!);
+		unpacker.Read(ref Id!);
 	}
 
 	public override string ToString()
@@ -153,105 +153,28 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 	}
 }
 
-//internal sealed class ValueDictionaryCommand<TKey, TValue> : CollectionCommand where TKey : unmanaged where TValue : unmanaged
-//{
-//	public Dictionary<TKey, TValue>? Dict;
-
-//	public override IEnumerable? UntypedCollection => Dict;
-
-//	public override Type InnerDataType => typeof(KeyValuePair<TKey, TValue>);
-
-//	public override Type CollectionType => typeof(Dictionary<TKey, TValue>);
-
-//	public override void Pack(ref MemoryPacker packer)
-//	{
-//		base.Pack(ref packer);
-//		var len = Dict?.Count ?? -1;
-//		packer.Write(len);
-//		if (Dict != null)
-//		{
-//			foreach (var kvp in Dict)
-//			{
-//				packer.Write(kvp.Key);
-//				packer.Write(kvp.Value);
-//			}
-//		}
-//	}
-
-//	public override void Unpack(ref MemoryUnpacker unpacker)
-//	{
-//		base.Unpack(ref unpacker);
-//		int len = 0;
-//		unpacker.Read(ref len);
-//		if (len == -1)
-//		{
-//			Dict = null;
-//			return;
-//		}
-//		Dict = new(); // ToDo: use pool borrowing here?
-//		for (int i = 0; i < len; i++)
-//		{
-//			TKey key = default;
-//			unpacker.Read(ref key);
-//			TValue val = default;
-//			unpacker.Read(ref val);
-//			Dict[key] = val;
-//		}
-//	}
-//}
-
-internal sealed class TypeRegistrationCommand : IMemoryPackable
+internal sealed class TypeRegistrationCommand : TypeCommand
 {
-	public Type? Type;
-
-	public void Pack(ref MemoryPacker packer)
+	public override string ToString()
 	{
-		var typeCommand = new TypeCommand();
-		typeCommand.Type = Type;
-		typeCommand.Pack(ref packer);
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
-		var typeCommand = new TypeCommand();
-		typeCommand.Unpack(ref unpacker);
-		Type = typeCommand.Type;
+		return "TypeRegistrationCommand: " + Type?.FullName ?? "NULL";
 	}
 }
 
-internal sealed class IdentifiableTypeCommand : IdentifiableCommand
+internal class TypeCommand : IdentifiableCommand
 {
 	public Type? Type;
+	private static Dictionary<string, Type> _typeCache = new();
 
 	public override void Pack(ref MemoryPacker packer)
 	{
 		base.Pack(ref packer);
-		var typeCommand = new TypeCommand();
-		typeCommand.Type = Type;
-		typeCommand.Pack(ref packer);
+		PackType(Type, ref packer);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		base.Unpack(ref unpacker);
-		var typeCommand = new TypeCommand();
-		typeCommand.Unpack(ref unpacker);
-		Type = typeCommand.Type;
-	}
-}
-
-internal sealed class TypeCommand : IMemoryPackable
-{
-	public Type? Type;
-	private static Dictionary<string, Type> _typeCache = new();
-
-	public void Pack(ref MemoryPacker packer)
-	{
-		PackType(Type, ref packer);
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
 		Type = UnpackType(ref unpacker);
 	}
 
@@ -321,11 +244,9 @@ internal sealed class TypeCommand : IMemoryPackable
 
 	private Type? FindType(string typeString)
 	{
-		Messenger.OnDebug?.Invoke($"Looking for Type: {typeString}");
-
 		if (_typeCache.TryGetValue(typeString, out var type))
 		{
-			Messenger.OnDebug?.Invoke($"Found in cache: {type.FullName}");
+			Messenger.OnDebug?.Invoke($"Found Type in cache: {type.FullName}");
 			return type;
 		}
 		
@@ -340,68 +261,21 @@ internal sealed class TypeCommand : IMemoryPackable
 		}
 		if (type != null)
 		{
-			Messenger.OnDebug?.Invoke($"Found new Type to cache: {type.FullName}");
+			Messenger.OnDebug?.Invoke($"Found Type to add to cache: {type.FullName}");
 			_typeCache[typeString] = type;
 		}
 		else
 		{
-			Messenger.OnDebug?.Invoke($"Could not find the type.");
+			Messenger.OnWarning?.Invoke($"Could not find the Type: {typeString}");
 		}
 		return type;
 	}
 
 	public override string ToString()
 	{
-		return "TypeCommand: " + Type?.FullName ?? "NULL";
+		return $"TypeCommand: {Type?.FullName ?? "NULL"}:{Owner}:{Id}";
 	}
 }
-
-//internal sealed class ObjectDictionaryCommand<TKey, TValue> : CollectionCommand where TKey : class, IMemoryPackable, new() where TValue : class, IMemoryPackable, new()
-//{
-//	public Dictionary<TKey, TValue>? Dict;
-
-//	public override IEnumerable? UntypedCollection => Dict;
-
-//	public override Type InnerDataType => typeof(KeyValuePair<TKey, TValue>);
-
-//	public override Type CollectionType => typeof(Dictionary<TKey, TValue>);
-
-//	public override void Pack(ref MemoryPacker packer)
-//	{
-//		base.Pack(ref packer);
-//		var len = Dict?.Count ?? -1;
-//		packer.Write(len);
-//		if (Dict != null)
-//		{
-//			foreach (var kvp in Dict)
-//			{
-//				packer.WriteObject(kvp.Key);
-//				packer.WriteObject(kvp.Value);
-//			}
-//		}
-//	}
-
-//	public override void Unpack(ref MemoryUnpacker unpacker)
-//	{
-//		base.Unpack(ref unpacker);
-//		int len = 0;
-//		unpacker.Read(ref len);
-//		if (len == -1)
-//		{
-//			Dict = null;
-//			return;
-//		}
-//		Dict = new(); // ToDo: use pool borrowing here?
-//		for (int i = 0; i < len; i++)
-//		{
-//			TKey key = default;
-//			unpacker.ReadObject(ref key);
-//			TValue val = default;
-//			unpacker.ReadObject(ref val);
-//			Dict[key] = val;
-//		}
-//	}
-//}
 
 internal sealed class StringArrayCommand : CollectionCommand
 {
@@ -461,7 +335,7 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 			packer.Write(-1);
 			return;
 		}
-		int len = Strings.Count(); // could be optimized?
+		int len = ((ICollection)Strings).Count;
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
@@ -703,7 +577,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		//if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
+		if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
 
 		var system = MessagingSystem.TryGetRegisteredSystem(QueueName!);
 
@@ -736,7 +610,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName);
 
-		//if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
+		if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
 
 		var type = backend!.IncomingTypeManager.GetTypeFromIndex(TypeIndex);
 

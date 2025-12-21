@@ -145,6 +145,7 @@ public class Messenger
 	/// <param name="additionalValueTypes">Unused parameter kept for backwards compatibility.</param>
 	/// <exception cref="ArgumentNullException"></exception>
 	/// <exception cref="EntryPointNotFoundException"></exception>
+	[Obsolete("Use the other constructors that don't take Type lists")]
 	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
@@ -530,12 +531,12 @@ public class Messenger
 
 		CurrentSystem!.EnsureObjectTypeInitialized<T>();
 
-		var wrapper = new ObjectCommand<T>();
-		wrapper.Object = obj;
-		wrapper.Owner = _ownerId;
-		wrapper.Id = id;
+		var command = new ObjectCommand<T>();
+		command.Object = obj;
+		command.Owner = _ownerId;
+		command.Id = id;
 
-		CurrentSystem!.SendPackable(wrapper);
+		CurrentSystem!.SendPackable(command);
 	}
 
 	public void SendObjectList<T>(string id, List<T>? list) where T : class?, IMemoryPackable?, new()
@@ -806,7 +807,7 @@ public class Messenger
 			return;
 		}
 
-		var typeCmd = new IdentifiableTypeCommand();
+		var typeCmd = new TypeCommand();
 		typeCmd.Owner = _ownerId;
 		typeCmd.Id = id;
 		typeCmd.Type = type;
