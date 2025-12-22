@@ -244,6 +244,7 @@ internal class TypeCommand : IdentifiableCommand
 
 	private Type? FindType(string typeString)
 	{
+		//Messenger.OnDebug?.Invoke($"Looking for Type: {typeString}");
 		if (_typeCache.TryGetValue(typeString, out var type))
 		{
 			Messenger.OnDebug?.Invoke($"Found Type in cache: {type.FullName}");
@@ -319,9 +320,9 @@ internal sealed class StringArrayCommand : CollectionCommand
 	}
 }
 
-internal sealed class StringCollectionCommand<C> : CollectionCommand where C : ICollection<string?>?, new()
+internal sealed class StringCollectionCommand<C> : CollectionCommand where C : ICollection<string>?, new()
 {
-	public IEnumerable<string?>? Strings; // IEnumerable is required for covariance of string? and string
+	public IReadOnlyCollection<string?>? Strings; // IReadOnlyCollection is required for covariance of string? and string
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -335,7 +336,7 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 			packer.Write(-1);
 			return;
 		}
-		int len = Strings.Count(); // Is there a better way to get the Count?
+		int len = Strings.Count;
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
@@ -360,7 +361,7 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 			unpacker.Read(ref str!);
 			collection.Add(str);
 		}
-		Strings = collection;
+		Strings = (IReadOnlyCollection<string?>?)collection;
 	}
 }
 
@@ -418,7 +419,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 
 internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?, IMemoryPackable?, new()
 {
-	public T[]? Objects;
+	public T?[]? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);

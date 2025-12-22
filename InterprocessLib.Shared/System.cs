@@ -157,12 +157,12 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].ValueCallbacks[id] = callback;
 	}
 
-	public void RegisterValueCollectionCallback<C, T>(string owner, string id, Action<C>? callback) where C : ICollection<T>, new() where T : unmanaged
+	public void RegisterValueCollectionCallback<C, T>(string owner, string id, Action<C?>? callback) where C : ICollection<T>?, new() where T : unmanaged
 	{
 		_ownerData[owner].ValueCollectionCallbacks[id] = callback;
 	}
 
-	public void RegisterValueArrayCallback<T>(string owner, string id, Action<T[]>? callback) where T : unmanaged
+	public void RegisterValueArrayCallback<T>(string owner, string id, Action<T[]?>? callback) where T : unmanaged
 	{
 		_ownerData[owner].ValueArrayCallbacks[id] = callback;
 	}
@@ -177,7 +177,7 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].StringArrayCallbacks[id] = callback;
 	}
 
-	public void RegisterStringCollectionCallback<C>(string owner, string id, Action<C>? callback) where C : ICollection<string?>?, new()
+	public void RegisterStringCollectionCallback<C>(string owner, string id, Action<C?>? callback) where C : ICollection<string>?, new()
 	{
 		_ownerData[owner].StringCollectionCallbacks[id] = callback;
 	}
@@ -187,12 +187,12 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].EmptyCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectCallback<T>(string owner, string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
+	public void RegisterObjectCallback<T>(string owner, string id, Action<T?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		_ownerData[owner].ObjectCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]?>? callback) where T : class?, IMemoryPackable?, new()
+	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T?[]?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		_ownerData[owner].ObjectArrayCallbacks[id] = callback;
 	}
@@ -340,7 +340,7 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
-	private void HandleStringCollectionCommand<C>(StringCollectionCommand<C> command) where C : ICollection<string?>?, new()
+	private void HandleStringCollectionCommand<C>(StringCollectionCommand<C> command) where C : ICollection<string>?, new()
 	{
 		if (_ownerData[command.Owner!].StringCollectionCallbacks.TryGetValue(command.Id!, out var callback))
 		{
@@ -391,7 +391,7 @@ internal class MessagingSystem : IDisposable
 		{
 			if (callback != null)
 			{
-				((Action<T[]?>)callback).Invoke(command.Objects);
+				((Action<T?[]?>)callback).Invoke(command.Objects);
 			}
 		}
 		else
@@ -630,6 +630,30 @@ internal class MessagingSystem : IDisposable
 		if (!OutgoingTypeManager.IsObjectTypeInitialized<T>())
 		{
 			OutgoingTypeManager.RegisterAdditionalObjectType<T>();
+		}
+	}
+
+	internal void EnsureObjectCollectionTypeInitialized<C, T>() where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
+	{
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<ObjectCollectionCommand<C, T>>())
+		{
+			OutgoingTypeManager.RegisterDirectCommandType<ObjectCollectionCommand<C, T>>();
+		}
+	}
+
+	internal void EnsureValueCollectionTypeInitialized<C, T>() where C : ICollection<T>?, new() where T : unmanaged
+	{
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<ValueCollectionCommand<C, T>>())
+		{
+			OutgoingTypeManager.RegisterDirectCommandType<ValueCollectionCommand<C, T>>();
+		}
+	}
+
+	internal void EnsureStringCollectionTypeInitialized<C>() where C : ICollection<string>?, new()
+	{
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<StringCollectionCommand<C>>())
+		{
+			OutgoingTypeManager.RegisterDirectCommandType<StringCollectionCommand<C>>();
 		}
 	}
 

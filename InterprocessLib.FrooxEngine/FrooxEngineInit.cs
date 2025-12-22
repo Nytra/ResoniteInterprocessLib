@@ -1,7 +1,5 @@
 using Elements.Core;
-using FrooxEngine;
 using Renderite.Shared;
-using System.Reflection;
 
 namespace InterprocessLib;
 
@@ -63,7 +61,7 @@ internal static class FrooxEngineInit
 
 		if (queueName is null)
 		{
-			Messenger.OnDebug?.Invoke("Shared memory unique id is null! Attempting to use fallback...");
+			Messenger.OnDebug?.Invoke("Shared memory queue name is null! Attempting to use fallback...");
 			var task = Messenger.GetFallbackSystem("Resonite", true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			task.Wait();
 			system = task.Result;
@@ -85,6 +83,6 @@ internal static class FrooxEngineInit
 			system.Initialize();
 		}
 		
-		//Engine.Current.OnShutdown += system.Dispose; // this might fix the rare occurence that Renderite.Host stays open after exiting Resonite
+		//Engine.Current.OnShutdown += system.Dispose;
 	}
 }

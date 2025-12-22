@@ -1,4 +1,3 @@
-using System.Reflection;
 using Renderite.Shared;
 using Renderite.Unity;
 
@@ -23,16 +22,16 @@ internal static class UnityInit
 	{
 		Messenger.OnWarning = (msg) =>
 		{
-			UnityEngine.Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
+			Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
 		};
 		Messenger.OnFailure = (ex) =>
 		{
-			UnityEngine.Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
+			Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
 		};
 #if DEBUG
 		Messenger.OnDebug = (msg) => 
 		{
-			UnityEngine.Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
+			Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
 		};
 #endif
 

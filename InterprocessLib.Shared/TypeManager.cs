@@ -34,8 +34,8 @@ internal class TypeManager
 		typeof(TypeRegistrationCommand),
 		typeof(EmptyCommand),
 		typeof(StringCommand),
-		typeof(StringCollectionCommand<List<string?>>),
-		typeof(StringCollectionCommand<HashSet<string?>>),
+		//typeof(StringCollectionCommand<List<string?>>),
+		//typeof(StringCollectionCommand<HashSet<string?>>),
 		typeof(StringArrayCommand),
 		typeof(TypeCommand),
 		typeof(PingCommand),
@@ -93,10 +93,10 @@ internal class TypeManager
 		return _registeredObjectTypes.Contains(typeof(T));
 	}
 
-	// internal bool IsDirectCommandTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
-	// {
-	// 	return _typeToIndex.ContainsKey(typeof(T));
-	// }
+	internal bool IsDirectCommandTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
+	{
+		return _typeToIndex.ContainsKey(typeof(T));
+	}
 
 	internal void RegisterAdditionalValueType<T>() where T : unmanaged
 	{
@@ -153,7 +153,7 @@ internal class TypeManager
 		_registerDirectCommandTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 	}
 
-	private void RegisterDirectCommandType<T>() where T : class, IMemoryPackable, new()
+	internal void RegisterDirectCommandType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 
