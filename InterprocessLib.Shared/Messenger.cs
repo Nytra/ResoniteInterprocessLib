@@ -201,6 +201,7 @@ public class Messenger : IDisposable
 				}
 				else
 				{
+					// An external process will almost definitely not be an authority
 					var fallbackSystemTask = GetFallbackSystem(_ownerId, false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
 					fallbackSystemTask.Wait();
 					if (fallbackSystemTask.Result is not MessagingSystem fallbackSystem)
@@ -371,47 +372,19 @@ public class Messenger : IDisposable
 		CurrentSystem!.SendPackable(command);
 	}
 
-	// public void SendValueList<T>(string id, List<T>? list) where T : unmanaged
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
+	[Obsolete("Use SendValueCollection instead.")]
+	public void SendValueList<T>(string id, List<T>? list) where T : unmanaged
+	{
+		SendValueCollection<List<T>, T>(id, list);
+	}
 
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendValueList(id, list));
-	// 		return;
-	// 	}
+	[Obsolete("Use SendValueCollection instead.")]
+	public void SendValueHashSet<T>(string id, HashSet<T>? hashSet) where T : unmanaged
+	{
+		SendValueCollection<HashSet<T>, T>(id, hashSet);
+	}
 
-	// 	CurrentSystem!.EnsureValueTypeInitialized<T>();
-
-	// 	var command = new ValueCollectionCommand<List<T>, T>();
-	// 	command.Owner = _ownerId;
-	// 	command.Id = id;
-	// 	command.Values = list;
-	// 	CurrentSystem!.SendPackable(command);
-	// }
-
-	// public void SendValueHashSet<T>(string id, HashSet<T>? hashSet) where T : unmanaged
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendValueHashSet(id, hashSet));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.EnsureValueTypeInitialized<T>();
-
-	// 	var command = new ValueCollectionCommand<HashSet<T>, T>();
-	// 	command.Owner = _ownerId;
-	// 	command.Id = id;
-	// 	command.Values = hashSet;
-	// 	CurrentSystem!.SendPackable(command);
-	// }
-
-	public void SendValueCollection<C, T>(string id, C collection) where C : ICollection<T>?, new() where T : unmanaged
+	public void SendValueCollection<C, T>(string id, C? collection) where C : ICollection<T>?, new() where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -442,7 +415,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.EnsureValueTypeInitialized<T>();
+		CurrentSystem!.EnsureValueArrayTypeInitialized<T>();
 
 		var command = new ValueArrayCommand<T>();
 		command.Owner = _ownerId;
@@ -469,23 +442,11 @@ public class Messenger : IDisposable
 		CurrentSystem!.SendPackable(command);
 	}
 
-	// public void SendStringList(string id, IEnumerable<string?>? list)
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendStringList(id, list));
-	// 		return;
-	// 	}
-
-	// 	var command = new StringCollectionCommand<List<string?>>();
-	// 	command.Owner = _ownerId;
-	// 	command.Id = id;
-	// 	command.Strings = list;
-	// 	CurrentSystem!.SendPackable(command);
-	// }
+	[Obsolete("Use SendStringCollection instead.")]
+	public void SendStringList(string id, List<string>? list)
+	{
+		SendStringCollection<List<string>>(id, list);
+	}
 
 	public void SendStringCollection<C>(string id, IReadOnlyCollection<string?>? collection) where C : ICollection<string>?, new()
 	{
@@ -525,24 +486,6 @@ public class Messenger : IDisposable
 		CurrentSystem!.SendPackable(command);
 	}
 
-	// public void SendStringHashSet(string id, IEnumerable<string?>? set)
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendStringHashSet(id, set));
-	// 		return;
-	// 	}
-
-	// 	var command = new StringCollectionCommand<HashSet<string?>>();
-	// 	command.Owner = _ownerId;
-	// 	command.Id = id;
-	// 	command.Strings = set;
-	// 	CurrentSystem!.SendPackable(command);
-	// }
-
 	public void SendEmptyCommand(string id)
 	{
 		if (id is null)
@@ -581,47 +524,13 @@ public class Messenger : IDisposable
 		CurrentSystem!.SendPackable(command);
 	}
 
-	// public void SendObjectList<T>(string id, List<T>? list) where T : class?, IMemoryPackable?, new()
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
+	[Obsolete("Use SendObjectCollection instead.")]
+	public void SendObjectList<T>(string id, List<T>? list) where T : class?, IMemoryPackable?, new()
+	{
+		SendObjectCollection<List<T>, T>(id, list);
+	}
 
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendObjectList(id, list));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.EnsureObjectTypeInitialized<T>();
-
-	// 	var command = new ObjectCollectionCommand<List<T>, T>();
-	// 	command.Owner = _ownerId;
-	// 	command.Id = id;
-	// 	command.Objects = list;
-	// 	CurrentSystem!.SendPackable(command);
-	// }
-
-	// public void SendObjectHashSet<T>(string id, HashSet<T>? hashSet) where T : class?, IMemoryPackable?, new()
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => SendObjectHashSet(id, hashSet));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.EnsureObjectTypeInitialized<T>();
-
-	// 	var command = new ObjectCollectionCommand<HashSet<T>, T>();
-	// 	command.Owner = _ownerId;
-	// 	command.Id = id;
-	// 	command.Objects = hashSet;
-	// 	CurrentSystem!.SendPackable(command);
-	// }
-
-	public void SendObjectCollection<C, T>(string id, C collection) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
+	public void SendObjectCollection<C, T>(string id, C? collection) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -652,7 +561,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.EnsureObjectTypeInitialized<T>();
+		CurrentSystem!.EnsureObjectArrayTypeInitialized<T>();
 
 		var command = new ObjectArrayCommand<T>();
 		command.Owner = _ownerId;
@@ -675,19 +584,17 @@ public class Messenger : IDisposable
 		CurrentSystem!.RegisterValueCallback(_ownerId, id, callback);
 	}
 
-	// public void ReceiveValueList<T>(string id, Action<List<T>?>? callback) where T : unmanaged
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
+	[Obsolete("Use ReceiveValueCollection instead.")]
+	public void ReceiveValueList<T>(string id, Action<List<T>?>? callback) where T : unmanaged
+	{
+		ReceiveValueCollection<List<T>, T>(id, callback);
+	}
 
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => ReceiveValueList(id, callback));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
-	// }
+	[Obsolete("Use ReceiveValueCollection instead.")]
+	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : unmanaged
+	{
+		ReceiveValueCollection<HashSet<T>, T>(id, callback);
+	}
 
 	public void ReceiveValueCollection<C, T>(string id, Action<C?>? callback) where C : ICollection<T>?, new() where T : unmanaged
 	{
@@ -702,20 +609,6 @@ public class Messenger : IDisposable
 
 		CurrentSystem!.RegisterValueCollectionCallback<C, T>(_ownerId, id, callback);
 	}
-
-	// public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : unmanaged
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => ReceiveValueHashSet(id, callback));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
-	// }
 
 	public void ReceiveValueArray<T>(string id, Action<T[]?>? callback) where T : unmanaged
 	{
@@ -745,19 +638,11 @@ public class Messenger : IDisposable
 		CurrentSystem!.RegisterStringCallback(_ownerId, id, callback);
 	}
 
-	// public void ReceiveStringList(string id, Action<List<string?>?>? callback)
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => ReceiveStringList(id, callback));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.RegisterStringCollectionCallback<List<string?>>(_ownerId, id, callback);
-	// }
+	[Obsolete("Use ReceiveStringCollection instead.")]
+	public void ReceiveStringList(string id, Action<List<string>?>? callback)
+	{
+		ReceiveStringCollection(id, callback);
+	}
 
 	public void ReceiveStringCollection<C>(string id, Action<C?>? callback) where C : ICollection<string>?, new()
 	{
@@ -787,20 +672,6 @@ public class Messenger : IDisposable
 		CurrentSystem!.RegisterStringArrayCallback(_ownerId, id, callback!);
 	}
 
-	// public void ReceiveStringHashSet(string id, Action<HashSet<string?>?>? callback)
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => ReceiveStringHashSet(id, callback));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.RegisterStringCollectionCallback<HashSet<string?>>(_ownerId, id, callback);
-	// }
-
 	public void ReceiveEmptyCommand(string id, Action? callback)
 	{
 		if (id is null)
@@ -815,7 +686,7 @@ public class Messenger : IDisposable
 		CurrentSystem!.RegisterEmptyCallback(_ownerId, id, callback);
 	}
 
-	public void ReceiveObject<T>(string id, Action<T?>? callback) where T : class?, IMemoryPackable?, new()
+	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -829,19 +700,11 @@ public class Messenger : IDisposable
 		CurrentSystem!.RegisterObjectCallback(_ownerId, id, callback);
 	}
 
-	// public void ReceiveObjectList<T>(string id, Action<List<T>?>? callback) where T : class?, IMemoryPackable?, new()
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => ReceiveObjectList(id, callback));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.RegisterObjectCollectionCallback<List<T>, T>(_ownerId, id, callback);
-	// }
+	[Obsolete("Use ReceiveObjectCollection instead.")]
+	public void ReceiveObjectList<T>(string id, Action<List<T>?>? callback) where T : class?, IMemoryPackable?, new()
+	{
+		ReceiveObjectCollection<List<T>, T>(id, callback);
+	}
 
 	public void ReceiveObjectCollection<C, T>(string id, Action<C?>? callback) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 	{
@@ -857,21 +720,7 @@ public class Messenger : IDisposable
 		CurrentSystem!.RegisterObjectCollectionCallback<C, T>(_ownerId, id, callback);
 	}
 
-	// public void ReceiveObjectHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : class?, IMemoryPackable?, new()
-	// {
-	// 	if (id is null)
-	// 		throw new ArgumentNullException(nameof(id));
-
-	// 	if (!IsInitialized)
-	// 	{
-	// 		RunPostInit(() => ReceiveObjectHashSet(id, callback));
-	// 		return;
-	// 	}
-
-	// 	CurrentSystem!.RegisterObjectCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
-	// }
-
-	public void ReceiveObjectArray<T>(string id, Action<T?[]?>? callback) where T : class?, IMemoryPackable?, new()
+	public void ReceiveObjectArray<T>(string id, Action<T[]?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -883,6 +732,21 @@ public class Messenger : IDisposable
 		}
 
 		CurrentSystem!.RegisterObjectArrayCallback(_ownerId, id, callback);
+	}
+
+	// A dirty hack because I'm lazy
+	public void SendType(string id, Type? type)
+	{
+		var typeCmd = new TypeCommand();
+		typeCmd.Type = type;
+
+		SendObject(id, typeCmd);
+	}
+
+	// A dirty hack because I'm lazy
+	public void ReceiveType(string id, Action<Type?>? callback)
+	{
+		ReceiveObject<TypeCommand>(id, (typeCmd) => callback?.Invoke(typeCmd.Type));
 	}
 
 	public void CheckLatency(Action<TimeSpan, TimeSpan> callback)
@@ -898,39 +762,6 @@ public class Messenger : IDisposable
 		var pingCommand = new PingCommand();
 		pingCommand.SentTime = DateTime.UtcNow;
 		CurrentSystem!.SendPackable(pingCommand);
-	}
-
-	public void SendType(string id, Type? type)
-	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendType(id, type));
-			return;
-		}
-
-		var typeCmd = new TypeCommand();
-		typeCmd.Owner = _ownerId;
-		typeCmd.Id = id;
-		typeCmd.Type = type;
-
-		CurrentSystem!.SendPackable(typeCmd);
-	}
-
-	public void ReceiveType(string id, Action<Type?>? callback)
-	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveType(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterTypeCallback(_ownerId, id, callback);
 	}
 
     public void Dispose()

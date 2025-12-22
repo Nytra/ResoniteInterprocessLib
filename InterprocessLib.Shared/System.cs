@@ -27,8 +27,6 @@ internal class MessagingSystem : IDisposable
 
 		public readonly Dictionary<string, object?> ObjectCollectionCallbacks = new();
 
-		public readonly Dictionary<string, Action<Type?>?> TypeCallbacks = new();
-
 		public OwnerData()
 		{
 		}
@@ -85,8 +83,6 @@ internal class MessagingSystem : IDisposable
 	private readonly IMemoryPackerEntityPool _pool;
 
 	private bool _messengerReadyCommandReceived = false;
-
-	//private readonly CancellationTokenSource _cancel = new();
 
 	internal void SetPostInitActions(List<Action>? actions)
 	{
@@ -187,12 +183,12 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].EmptyCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectCallback<T>(string owner, string id, Action<T?>? callback) where T : class?, IMemoryPackable?, new()
+	public void RegisterObjectCallback<T>(string owner, string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		_ownerData[owner].ObjectCallbacks[id] = callback;
 	}
 
-	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T?[]?>? callback) where T : class?, IMemoryPackable?, new()
+	public void RegisterObjectArrayCallback<T>(string owner, string id, Action<T[]?>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		_ownerData[owner].ObjectArrayCallbacks[id] = callback;
 	}
@@ -200,11 +196,6 @@ internal class MessagingSystem : IDisposable
 	public void RegisterObjectCollectionCallback<C, T>(string owner, string id, Action<C?>? callback) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 	{
 		_ownerData[owner].ObjectCollectionCallbacks[id] = callback;
-	}
-
-	public void RegisterTypeCallback(string owner, string id, Action<Type?>? callback)
-	{
-		_ownerData[owner].TypeCallbacks[id] = callback;
 	}
 
 	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
@@ -242,15 +233,7 @@ internal class MessagingSystem : IDisposable
 		};
 
 		_backends.Add(QueueName, this);
-
-		// _primary.StartKeepAlive(2500);
-		// _cancel.Token.Register(Dispose);
 	}
-
-	// private void OnKeepAlive()
-	// {
-	// 	_cancel.CancelAfter(5000);
-	// }
 
 	public void Dispose()
 	{
@@ -429,30 +412,9 @@ internal class MessagingSystem : IDisposable
 		}
 	}
 
-	private void HandleTypeCommand(TypeCommand command)
-	{
-		if (_ownerData[command.Owner!].TypeCallbacks.TryGetValue(command.Id!, out var callback))
-		{
-			if (callback != null)
-			{
-				callback.Invoke(command.Type);
-			}
-		}
-		else
-		{
-			_onWarning?.Invoke($"IdentifiableTypeCommand with Id \"{command.Id}\" is not registered to receive a callback!");
-		}
-	}
-
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
 		_onCommandReceived?.Invoke(command, messageSize);
-
-		// if (command is KeepAlive)
-		// {
-		// 	OnKeepAlive();
-		// 	return;
-		// }
 
 		IMemoryPackable? packable = null;
 		if (command is WrapperCommand wrapperCommand)
@@ -538,10 +500,6 @@ internal class MessagingSystem : IDisposable
 			{
 				HandleStringArrayCommand(stringArrayCommand);
 			}
-			else if (packable is TypeCommand typeCommand)
-			{
-				HandleTypeCommand(typeCommand);
-			}
 			else if (packable is CollectionCommand collectionCommand)
 			{
 				var collectionType = collectionCommand.CollectionType;
@@ -588,6 +546,7 @@ internal class MessagingSystem : IDisposable
 			// packable is not identifiable, has no owner
 			// right now this should never happen
 			// but in the future maybe it can be handled with a custom user-supplied callback
+			throw new InvalidDataException($"Received unexpected wrapped packable of type {packable?.GetType().Name ?? "NULL"}");
 		}
 	}
 
@@ -606,30 +565,35 @@ internal class MessagingSystem : IDisposable
 		_primary!.SendCommand(wrapper);
 	}
 
-	public void SendRendererCommand(RendererCommand command)
-	{
-		if (command is null) throw new ArgumentNullException(nameof(command));
-
-		if (!IsConnected) throw new InvalidOperationException("Not connected!");
-
-		_onDebug?.Invoke($"Sending RendererCommand: {command}");
-
-		_primary!.SendCommand(command);
-	}
-
 	internal void EnsureValueTypeInitialized<T>() where T : unmanaged
 	{
-		if (!OutgoingTypeManager.IsValueTypeInitialized<T>())
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<ValueCommand<T>>())
 		{
-			OutgoingTypeManager.RegisterAdditionalValueType<T>();
+			OutgoingTypeManager.RegisterDirectCommandType<ValueCommand<T>>();
 		}
 	}
 
 	internal void EnsureObjectTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
 	{
-		if (!OutgoingTypeManager.IsObjectTypeInitialized<T>())
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<ObjectCommand<T>>())
 		{
-			OutgoingTypeManager.RegisterAdditionalObjectType<T>();
+			OutgoingTypeManager.RegisterDirectCommandType<ObjectCommand<T>>();
+		}
+	}
+
+	internal void EnsureValueArrayTypeInitialized<T>() where T : unmanaged
+	{
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<ValueArrayCommand<T>>())
+		{
+			OutgoingTypeManager.RegisterDirectCommandType<ValueArrayCommand<T>>();
+		}
+	}
+
+	internal void EnsureObjectArrayTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
+	{
+		if (!OutgoingTypeManager.IsDirectCommandTypeInitialized<ObjectArrayCommand<T>>())
+		{
+			OutgoingTypeManager.RegisterDirectCommandType<ObjectArrayCommand<T>>();
 		}
 	}
 

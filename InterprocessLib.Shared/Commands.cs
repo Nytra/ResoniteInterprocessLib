@@ -161,20 +161,18 @@ internal sealed class TypeRegistrationCommand : TypeCommand
 	}
 }
 
-internal class TypeCommand : IdentifiableCommand
+internal class TypeCommand : IMemoryPackable
 {
 	public Type? Type;
 	private static Dictionary<string, Type> _typeCache = new();
 
-	public override void Pack(ref MemoryPacker packer)
+	public void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		PackType(Type, ref packer);
 	}
 
-	public override void Unpack(ref MemoryUnpacker unpacker)
+	public void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		Type = UnpackType(ref unpacker);
 	}
 
@@ -274,7 +272,7 @@ internal class TypeCommand : IdentifiableCommand
 
 	public override string ToString()
 	{
-		return $"TypeCommand: {Type?.FullName ?? "NULL"}:{Owner}:{Id}";
+		return $"TypeCommand: {Type?.FullName ?? "NULL"}";
 	}
 }
 
@@ -419,7 +417,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 
 internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?, IMemoryPackable?, new()
 {
-	public T?[]? Objects;
+	public T[]? Objects;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
@@ -614,9 +612,7 @@ internal sealed class WrapperCommand : RendererCommand
 		if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
 
 		var type = backend!.IncomingTypeManager.GetTypeFromIndex(TypeIndex);
-
 		Packable = backend.IncomingTypeManager.Borrow(type);
-
 		Packable.Unpack(ref unpacker);
 	}
 }

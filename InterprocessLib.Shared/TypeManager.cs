@@ -5,10 +5,6 @@ namespace InterprocessLib;
 
 internal class TypeManager
 {
-	private readonly HashSet<Type> _registeredObjectTypes = new();
-
-	private readonly HashSet<Type> _registeredValueTypes = new();
-
 	private bool _initializedCoreTypes = false;
 
 	private static readonly MethodInfo _registerDirectCommandTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterDirectCommandType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterDirectCommandType));
@@ -34,8 +30,6 @@ internal class TypeManager
 		typeof(TypeRegistrationCommand),
 		typeof(EmptyCommand),
 		typeof(StringCommand),
-		//typeof(StringCollectionCommand<List<string?>>),
-		//typeof(StringCollectionCommand<HashSet<string?>>),
 		typeof(StringArrayCommand),
 		typeof(TypeCommand),
 		typeof(PingCommand),
@@ -83,69 +77,9 @@ internal class TypeManager
 		return _typeToIndex[type];
 	}
 
-	internal bool IsValueTypeInitialized<T>() where T : unmanaged
-	{
-		return _registeredValueTypes.Contains(typeof(T));
-	}
-
-	internal bool IsObjectTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
-	{
-		return _registeredObjectTypes.Contains(typeof(T));
-	}
-
 	internal bool IsDirectCommandTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
 	{
 		return _typeToIndex.ContainsKey(typeof(T));
-	}
-
-	internal void RegisterAdditionalValueType<T>() where T : unmanaged
-	{
-		var type = typeof(T);
-
-		Messenger.OnDebug?.Invoke($"Registering additional value type: {type.Name}");
-
-		if (_registeredValueTypes.Contains(type))
-			throw new InvalidOperationException($"Type {type.Name} is already registered!");
-
-		if (type.ContainsGenericParameters)
-			throw new ArgumentException($"Type must be a concrete type!");
-
-		var valueCommandType = typeof(ValueCommand<>).MakeGenericType(type);
-
-		var valueArrayCommandType = typeof(ValueArrayCommand<>).MakeGenericType(type);
-
-		var valueListCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
-
-		var valueHashSetCommandType = typeof(ValueCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
-
-		PushNewTypes([valueCommandType, valueArrayCommandType, valueListCommandType, valueHashSetCommandType]);
-
-		_registeredValueTypes.Add(type);
-	}
-
-	internal void RegisterAdditionalObjectType<T>() where T : class?, IMemoryPackable?, new()
-	{
-		var type = typeof(T);
-
-		Messenger.OnDebug?.Invoke($"Registering additional object type: {type.Name}");
-
-		if (_registeredObjectTypes.Contains(type))
-			throw new InvalidOperationException($"Type {type.Name} is already registered!");
-
-		if (type.ContainsGenericParameters)
-			throw new ArgumentException($"Type must be a concrete type!");
-
-		var objectCommandType = typeof(ObjectCommand<>).MakeGenericType(type);
-
-		var objectArrayCommandType = typeof(ObjectArrayCommand<>).MakeGenericType(type);
-
-		var objectListCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(List<T>), type);
-
-		var objectHashSetCommandType = typeof(ObjectCollectionCommand<,>).MakeGenericType(typeof(HashSet<T>), type);
-
-		PushNewTypes([type, objectCommandType, objectArrayCommandType, objectListCommandType, objectHashSetCommandType]);
-
-		_registeredObjectTypes.Add(type);
 	}
 
 	internal void InitDirectCommandType(Type type)

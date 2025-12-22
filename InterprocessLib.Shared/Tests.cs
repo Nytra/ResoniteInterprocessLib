@@ -50,7 +50,6 @@ public static class Tests
 
 	static void TestValueArray()
 	{
-		var test = new ValueArrayCommand<int>();
 		_messenger!.ReceiveValueArray<int>("TestValueArray", (arr) => 
 		{
 			_logCallback!($"TestValueArray: {string.Join(",", arr!)}");
@@ -64,8 +63,7 @@ public static class Tests
 
 	static void TestObjectArray()
 	{
-		var test = new ObjectArrayCommand<TestCommand>();
-		_messenger!.ReceiveObjectArray<TestCommand>("TestObjectArray", (arr) =>
+		_messenger!.ReceiveObjectArray<TestCommand?>("TestObjectArray", (arr) =>
 		{
 			_logCallback!($"TestObjectArray: {string.Join<TestCommand>(",", arr!)}");
 		});
