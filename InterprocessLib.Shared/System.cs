@@ -80,11 +80,13 @@ internal class MessagingSystem : IDisposable
 
 	private static readonly Dictionary<string, MessagingSystem> _backends = new();
 
-	internal Action<TimeSpan>? PingCallback;
+	internal Action<PingCommand>? PingCallback;
 
 	private readonly IMemoryPackerEntityPool _pool;
 
 	private bool _messengerReadyCommandReceived = false;
+
+	//private readonly CancellationTokenSource _cancel = new();
 
 	internal void SetPostInitActions(List<Action>? actions)
 	{
@@ -240,7 +242,15 @@ internal class MessagingSystem : IDisposable
 		};
 
 		_backends.Add(QueueName, this);
+
+		// _primary.StartKeepAlive(2500);
+		// _cancel.Token.Register(Dispose);
 	}
+
+	// private void OnKeepAlive()
+	// {
+	// 	_cancel.CancelAfter(5000);
+	// }
 
 	public void Dispose()
 	{
@@ -407,14 +417,14 @@ internal class MessagingSystem : IDisposable
 
 	private void HandlePingCommand(PingCommand ping)
 	{
-		if (!ping.Received)
+		if (!ping.ReceivedTime.HasValue)
 		{
-			ping.Received = true;
+			ping.ReceivedTime = DateTime.UtcNow;
 			SendPackable(ping);
 		}
 		else
 		{
-			PingCallback?.Invoke(DateTime.UtcNow - ping.Time);
+			PingCallback?.Invoke(ping);
 			PingCallback = null;
 		}
 	}
@@ -438,26 +448,31 @@ internal class MessagingSystem : IDisposable
 	{
 		_onCommandReceived?.Invoke(command, messageSize);
 
+		// if (command is KeepAlive)
+		// {
+		// 	OnKeepAlive();
+		// 	return;
+		// }
+
 		IMemoryPackable? packable = null;
 		if (command is WrapperCommand wrapperCommand)
 		{
 			packable = wrapperCommand.Packable;
-			_onDebug?.Invoke($"Received {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
+			_onDebug?.Invoke($"{QueueName}: Received {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
 		}
 		else
 		{
-			_onWarning?.Invoke($"Received an unexpected RendererCommand type! {command?.ToString() ?? command?.GetType().Name ?? "NULL"}");
+			_onWarning?.Invoke($"{QueueName}: Received an unexpected RendererCommand type! {command?.ToString() ?? command?.GetType().Name ?? "NULL"}");
 			return;
 		}
 
-		// ping command before ready command is okay (to check if the queue is active)b
+		// ping command before ready command is okay (to check if the queue is active)
 		if (packable is PingCommand pingCommand)
 		{
 			HandlePingCommand(pingCommand);
 			return;
 		}
 
-		// it's a bit unexpected if the non-authority process receives more than one of these, but it might be okay?
 		if (packable is MessengerReadyCommand)
 		{
 			if (_messengerReadyCommandReceived)
@@ -479,7 +494,6 @@ internal class MessagingSystem : IDisposable
 
 		if (packable is TypeRegistrationCommand typeRegCommand)
 		{
-			_onDebug?.Invoke($"Received new type to register: {typeRegCommand.Type?.FullName ?? "NULL"}");
 			if (typeRegCommand.Type is not null)
 			{
 				IncomingTypeManager.InitDirectCommandType(typeRegCommand.Type);
@@ -579,15 +593,28 @@ internal class MessagingSystem : IDisposable
 
 	public void SendPackable(IMemoryPackable packable)
 	{
+		if (packable is null) throw new ArgumentNullException(nameof(packable));
+
 		if (!IsConnected) throw new InvalidOperationException("Not connected!");
 
-		_onDebug?.Invoke($"Sending packable: {packable?.ToString() ?? packable?.GetType().Name ?? "NULL"}");
+		_onDebug?.Invoke($"Sending packable: {packable}");
 
 		var wrapper = new WrapperCommand();
 		wrapper.QueueName = QueueName;
 		wrapper.Packable = packable;
 
 		_primary!.SendCommand(wrapper);
+	}
+
+	public void SendRendererCommand(RendererCommand command)
+	{
+		if (command is null) throw new ArgumentNullException(nameof(command));
+
+		if (!IsConnected) throw new InvalidOperationException("Not connected!");
+
+		_onDebug?.Invoke($"Sending RendererCommand: {command}");
+
+		_primary!.SendCommand(command);
 	}
 
 	internal void EnsureValueTypeInitialized<T>() where T : unmanaged
@@ -611,5 +638,21 @@ internal class MessagingSystem : IDisposable
 		var typeRegCommand = new TypeRegistrationCommand();
 		typeRegCommand.Type = type;
 		SendPackable(typeRegCommand);
+	}
+
+	public void UnregisterOwner(string ownerId)
+	{
+		if (HasOwner(ownerId))
+		{
+			_ownerData.Remove(ownerId);
+		}
+		else
+		{
+			_onWarning?.Invoke($"Tried to unregister owner that was not registered: {ownerId}");
+		}
+		if (_ownerData.Count == 0)
+		{
+			Dispose();
+		}
 	}
 }

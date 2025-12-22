@@ -13,14 +13,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="Elements.Core">
-      <HintPath>$(GamePath)Elements.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="InterprocessLib.FrooxEngine">
-      <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
+    <Reference Include="InterprocessLib.Standalone">
+      <HintPath>..\..\out\InterprocessLib.Standalone.dll</HintPath>
     </Reference>
     <Reference Include="Renderite.Shared">
-      <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
+      <HintPath>$(GamePath)Renderer/Renderite.Renderer_Data/Managed/Renderite.Shared.dll</HintPath>
     </Reference>
   </ItemGroup>
   

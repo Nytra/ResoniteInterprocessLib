@@ -1,11 +1,11 @@
 ﻿//#define TEST_SPAWN_PROCESS
+//#define TEST_OBSOLETE_CONSTRUCTOR
 
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
 using Elements.Core;
-using Renderite.Shared;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -19,51 +19,43 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? RunTestsToggle;
 	public static Messenger? _messenger;
 	public static Messenger? _unknownMessenger;
+
+#if TEST_OBSOLETE_CONSTRUCTOR
 	public static Messenger? _testObsoleteConstructor;
+#endif
 	
 	public static ConfigEntry<int>? SyncTest;
 	public static ConfigEntry<bool>? CheckSyncToggle;
 	public static ConfigEntry<int>? SyncTestOutput;
 	public static ConfigEntry<bool>? ResetToggle;
-	public static ConfigEntry<double>? LatencyMilliseconds;
+	public static ConfigEntry<double>? SendLatencyMilliseconds;
+	public static ConfigEntry<double>? RecvLatencyMilliseconds;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
 	public static ConfigEntry<bool>? SpawnProcessToggle;
+	public static ConfigEntry<DateTime>? LastProcessHeartbeat;
 	private static Random _rand = new();
 	private static string? _customQueueName;
 	private static Process? _customProcess;
 #endif
 
-	private static void CommandHandler(RendererCommand command, int messageSize)
-	{
-	}
-
-	private static void FailHandler(Exception ex)
-	{
-		Log!.LogError($"[Child Process Messaging Host] Exception in custom messaging host: {ex}");
-	}
-
-	private static void WarnHandler(string msg)
-	{
-		Log!.LogWarning($"[Child Process Messaging Host] {msg}");
-	}
-
-	private static void DebugHandler(string msg)
-	{
-		Log!.LogDebug($"[Child Process Messaging Host] {msg}");
-	}
-
 #if TEST_SPAWN_PROCESS
 	private static void SpawnProcess()
 	{
-		if (_customProcess is not null && !_customProcess.HasExited) return;
-		_customQueueName ??= $"MyCustomQueue{_rand.Next()}";
+		_customProcess?.Kill();
+		_customQueueName = $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
-		_customMessenger ??= new Messenger("InterprocessLib.Tests", true, _customQueueName, additionalObjectTypes: [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], additionalValueTypes: [typeof(TestStruct), typeof(TestNestedStruct), typeof(HapticPointState), typeof(ShadowType)]);
+		_customMessenger = new Messenger("InterprocessLib.Tests", true, _customQueueName);
+		_customMessenger!.ReceiveEmptyCommand("Heartbeat", () =>
+		{
+			LastProcessHeartbeat!.Value = DateTime.Now;
+			_customMessenger.SendEmptyCommand("HeartbeatResponse");
+		});
 		_customProcess = new Process();
 
 		string projectConfiguration;
+
 #if DEBUG
 		projectConfiguration = "Debug";
 #else
@@ -75,8 +67,8 @@ public class Plugin : BasePlugin
 		else
 			_customProcess.StartInfo.FileName = @$"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/{projectConfiguration}/net10.0/InterprocessLib.Standalone.Tests";
 
-		_customProcess.StartInfo.Arguments = _customQueueName;
-		_customProcess.StartInfo.UseShellExecute = true; // Run in a new window
+		_customProcess.StartInfo.Arguments = $"{_customQueueName}";
+		//_customProcess.StartInfo.UseShellExecute = true; // Run in a new window
 		_customProcess.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
 		_customProcess.Start();
 		Tests.RunTests(_customMessenger, Log!.LogInfo);
@@ -103,12 +95,18 @@ public class Plugin : BasePlugin
 		};
 
 		_messenger = new Messenger("InterprocessLib.Tests");
-		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
 		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
+
+#if TEST_OBSOLETE_CONSTRUCTOR
+		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
+#endif
 
 		Tests.RunTests(_messenger, Log!.LogInfo);
 		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
+
+#if TEST_OBSOLETE_CONSTRUCTOR
 		Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
+#endif
 
 #if TEST_SPAWN_PROCESS
 		SpawnProcess();
@@ -117,6 +115,7 @@ public class Plugin : BasePlugin
 		{
 			SpawnProcess();
 		};
+		LastProcessHeartbeat = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
 #endif
 
 		SyncTest = Config.Bind("General", "SyncTest", 34);
@@ -126,11 +125,13 @@ public class Plugin : BasePlugin
 		CheckSyncToggle = Config.Bind("General", "CheckSync", false);
 		SyncTestOutput = Config.Bind("General", "SyncTestOutput", 0);
 		ResetToggle = Config.Bind("General", "ResetToggle", false);
-		LatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
+		SendLatencyMilliseconds = Config.Bind("General", "SendLatencyMilliseconds", -1.0);
+		RecvLatencyMilliseconds = Config.Bind("General", "RecvLatencyMilliseconds", -1.0);
 
-		_messenger.CheckLatency(latency =>
+		_messenger.CheckLatency((send, recv) =>
 		{
-			LatencyMilliseconds.Value = latency.TotalMilliseconds;
+			SendLatencyMilliseconds.Value = send.TotalMilliseconds;
+			RecvLatencyMilliseconds.Value = recv.TotalMilliseconds;
 		});
 
 		RunTestsToggle!.SettingChanged += (sender, args) =>
@@ -138,11 +139,16 @@ public class Plugin : BasePlugin
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Log!.LogInfo);
 			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
+
+#if TEST_OBSOLETE_CONSTRUCTOR
 			Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
-			_messenger.CheckLatency(latency => 
-			{ 
-				LatencyMilliseconds.Value = latency.TotalMilliseconds;
+#endif
+			_messenger.CheckLatency((send, recv) =>
+			{
+				SendLatencyMilliseconds.Value = send.TotalMilliseconds;
+				RecvLatencyMilliseconds.Value = recv.TotalMilliseconds;
 			});
+
 #if TEST_SPAWN_PROCESS
 			if (_customMessenger is not null && _customProcess != null && !_customProcess.HasExited)
 			{

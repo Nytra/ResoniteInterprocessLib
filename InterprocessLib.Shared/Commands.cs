@@ -335,7 +335,7 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 			packer.Write(-1);
 			return;
 		}
-		int len = ((ICollection)Strings).Count;
+		int len = Strings.Count(); // Is there a better way to get the Count?
 		packer.Write(len);
 		foreach (var str in Strings)
 		{
@@ -549,18 +549,18 @@ internal sealed class MessengerReadyCommand : IMemoryPackable
 
 internal sealed class PingCommand : IMemoryPackable
 {
-	public DateTime Time;
-	public bool Received;
+	public DateTime SentTime;
+	public DateTime? ReceivedTime;
 	public void Pack(ref MemoryPacker packer)
 	{
-		packer.Write(Time);
-		packer.Write(Received);
+		packer.Write(SentTime);
+		packer.Write(ReceivedTime);
 	}
 
 	public void Unpack(ref MemoryUnpacker unpacker)
 	{
-		unpacker.Read(ref Time);
-		unpacker.Read(ref Received);
+		unpacker.Read(ref SentTime);
+		unpacker.Read(ref ReceivedTime);
 	}
 }
 

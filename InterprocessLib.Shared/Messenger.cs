@@ -5,7 +5,7 @@ namespace InterprocessLib;
 /// <summary>
 /// Simple interprocess messaging API.
 /// </summary>
-public class Messenger
+public class Messenger : IDisposable
 {
 	private static MessagingSystem? _defaultSystem;
 
@@ -67,10 +67,12 @@ public class Messenger
 
 	internal static readonly object LockObj = new();
 
-	internal static async Task<MessagingSystem?> GetFallbackSystem(bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
+	internal static async Task<MessagingSystem?> GetFallbackSystem(string ownerId, bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
+		OnDebug?.Invoke("GetFallbackSystem called");
+
 		var startTime = DateTime.UtcNow;
-		int waitTimeMs = 500;
+		int waitTimeMs = 5000;
 		while (_runningFallbackSystemInit && (DateTime.UtcNow - startTime).TotalMilliseconds < waitTimeMs * 2)
 			await Task.Delay(1);
 
@@ -80,7 +82,7 @@ public class Messenger
 
 		var now = DateTime.UtcNow;
 		int minuteInDay = now.Hour * 60 + now.Minute;
-		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 		system1.Connect();
 		if (isAuthority)
 		{
@@ -89,11 +91,11 @@ public class Messenger
 			return system1;
 		}
 		var cancel1 = new CancellationTokenSource();
-		system1.PingCallback = (latency) => 
+		system1.PingCallback = (ping) => 
 		{ 
 			cancel1.Cancel();
 		};
-		system1.SendPackable(new PingCommand() { Time = now });
+		system1.SendPackable(new PingCommand() { SentTime = now });
 		try
 		{
 			await Task.Delay(waitTimeMs, cancel1.Token);
@@ -110,13 +112,13 @@ public class Messenger
 			// try the previous minute, in case the other process started just before the minute ticked over (too bad if it ticked over from 1439 to 0)
 			system1.Dispose();
 			var cancel2 = new CancellationTokenSource(); 
-			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
 			system2.Connect();
-			system2.PingCallback = (latency) => 
+			system2.PingCallback = (ping) => 
 			{ 
 				cancel2.Cancel();
 			};
-			system2.SendPackable(new PingCommand() { Time = now });
+			system2.SendPackable(new PingCommand() { SentTime = now });
 			try
 			{
 				await Task.Delay(waitTimeMs, cancel2.Token);
@@ -145,7 +147,7 @@ public class Messenger
 	/// <param name="additionalValueTypes">Unused parameter kept for backwards compatibility.</param>
 	/// <exception cref="ArgumentNullException"></exception>
 	/// <exception cref="EntryPointNotFoundException"></exception>
-	[Obsolete("Use the other constructors that don't take Type lists")]
+	[Obsolete("Use the other constructors that don't take Type lists", false)]
 	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
 		if (ownerId is null)
@@ -199,7 +201,7 @@ public class Messenger
 				}
 				else
 				{
-					var fallbackSystemTask = GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
+					var fallbackSystemTask = GetFallbackSystem(_ownerId, false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
 					fallbackSystemTask.Wait();
 					if (fallbackSystemTask.Result is not MessagingSystem fallbackSystem)
 						throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
@@ -245,7 +247,7 @@ public class Messenger
 				}
 				else
 				{
-					throw new EntryPointNotFoundException("Could not find default IMemoryPackerEntityPool!");
+					actualPool = FallbackPool.Instance;
 				}
 			}
 		}
@@ -781,7 +783,7 @@ public class Messenger
 		CurrentSystem!.RegisterObjectArrayCallback(_ownerId, id, callback);
 	}
 
-	public void CheckLatency(Action<TimeSpan> callback)
+	public void CheckLatency(Action<TimeSpan, TimeSpan> callback)
 	{
 		if (!IsInitialized)
 		{
@@ -789,10 +791,10 @@ public class Messenger
 			return;
 		}
 
-		CurrentSystem!.PingCallback = callback;
+		CurrentSystem!.PingCallback = (ping) => callback?.Invoke(ping.ReceivedTime!.Value - ping.SentTime, DateTime.UtcNow - ping.ReceivedTime!.Value);
 
 		var pingCommand = new PingCommand();
-		pingCommand.Time = DateTime.UtcNow;
+		pingCommand.SentTime = DateTime.UtcNow;
 		CurrentSystem!.SendPackable(pingCommand);
 	}
 
@@ -828,4 +830,10 @@ public class Messenger
 
 		CurrentSystem!.RegisterTypeCallback(_ownerId, id, callback);
 	}
+
+    public void Dispose()
+    {
+        CurrentSystem!.UnregisterOwner(_ownerId);
+		_customSystem = null;
+    }
 }

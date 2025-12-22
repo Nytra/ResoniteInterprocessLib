@@ -1,4 +1,5 @@
-﻿using Elements.Core;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using InterprocessLib;
 using InterprocessLib.Tests;
 using Renderite.Shared;
@@ -7,6 +8,7 @@ namespace InterprocessLibStandaloneTest
 {
 	internal class Program
     {
+		private static CancellationTokenSource _cancel = new();
 		private static void CommandHandler(RendererCommand command, int messageSize)
 		{
 		}
@@ -50,7 +52,21 @@ namespace InterprocessLibStandaloneTest
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			Console.ReadLine(); // Keeps the window open while also allowing it to continue to receive and display new data
+			messenger.ReceiveEmptyCommand("HeartbeatResponse", () =>
+			{
+				_cancel.CancelAfter(5000);
+			});
+
+			_cancel.CancelAfter(10000);
+
+			Task.Run(async () =>
+			{
+				while (!_cancel.IsCancellationRequested)
+				{
+					messenger.SendEmptyCommand("Heartbeat");
+					await Task.Delay(2500);
+				}
+			}).Wait();
 		}
     }
 }

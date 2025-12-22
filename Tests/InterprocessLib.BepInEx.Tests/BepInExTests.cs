@@ -1,7 +1,8 @@
-﻿using BepInEx;
+﻿//#define TEST_OBSOLETE_CONSTRUCTOR
+
+using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
-using Renderite.Shared;
 
 namespace InterprocessLib.Tests;
 
@@ -11,14 +12,20 @@ public class UnityPlugin : BaseUnityPlugin
 	public static ManualLogSource? Log;
 	private static Messenger? _messenger;
 	private static Messenger? _unknownMessenger;
+
+#if TEST_OBSOLETE_CONSTRUCTOR
 	private static Messenger? _testObsoleteConstructor;
+#endif
+
 	public static ConfigEntry<int>? SyncTest;
 
 	void Awake()
 	{
 		Log = base.Logger;
 		_messenger = new("InterprocessLib.Tests");
+#if TEST_OBSOLETE_CONSTRUCTOR
 		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
+#endif
 		_unknownMessenger = new("InterprocessLib.Tests.UnknownMessengerUnity");
 		SyncTest = Config.Bind("General", "SyncTest", 34);
 		_messenger.SyncConfigEntry(SyncTest);
@@ -26,7 +33,10 @@ public class UnityPlugin : BaseUnityPlugin
 		{
 			Tests.RunTests(_messenger, Log!.LogInfo);
 			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
+
+#if TEST_OBSOLETE_CONSTRUCTOR
 			Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
+#endif
 		});
 		_messenger.ReceiveEmptyCommand("CheckSync", () => 
 		{ 
@@ -38,6 +48,8 @@ public class UnityPlugin : BaseUnityPlugin
 		});
 		Tests.RunTests(_messenger, Log!.LogInfo);
 		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
+#if TEST_OBSOLETE_CONSTRUCTOR
 		Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
+#endif
 	}
 }

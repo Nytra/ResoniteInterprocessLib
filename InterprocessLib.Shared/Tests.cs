@@ -8,9 +8,9 @@ namespace InterprocessLib.Tests;
 public static class Tests
 {
 	private static Messenger? _messenger;
-	private static Action<string?>? _logCallback;
+	private static Action<string>? _logCallback;
 
-	public static void RunTests(Messenger messenger, Action<string?> logCallback)
+	public static void RunTests(Messenger messenger, Action<string> logCallback)
 	{
 		_messenger = messenger;
 		_logCallback = logCallback;

@@ -64,7 +64,7 @@ internal static class FrooxEngineInit
 		if (queueName is null)
 		{
 			Messenger.OnDebug?.Invoke("Shared memory unique id is null! Attempting to use fallback...");
-			var task = Messenger.GetFallbackSystem(true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var task = Messenger.GetFallbackSystem("Resonite", true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			task.Wait();
 			system = task.Result;
 			if (system is null)

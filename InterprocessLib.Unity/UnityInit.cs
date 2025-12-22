@@ -54,7 +54,7 @@ internal static class UnityInit
 		var engineSharedMemoryPrefix = fullQueueName?.Substring(0, fullQueueName.IndexOf('_'));
 		if (fullQueueName is null || engineSharedMemoryPrefix!.Length == 0)
 		{
-			var fallbackTask = Messenger.GetFallbackSystem(false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			var fallbackTask = Messenger.GetFallbackSystem("Resonite", false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			fallbackTask.Wait();
 			system = fallbackTask.Result;
 			if (system is null)
