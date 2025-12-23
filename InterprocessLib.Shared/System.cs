@@ -92,6 +92,9 @@ internal class MessagingSystem : IDisposable
 
 	public void RegisterCallback<T>(string owner, string id, Action<T>? callback) where T : IdentifiableCommand
 	{
+		if(!_ownerData[owner].TypedCallbacks.ContainsKey(typeof(T)))
+			_ownerData[owner].TypedCallbacks.Add(typeof(T), new());
+
 		_ownerData[owner].TypedCallbacks[typeof(T)][id] = callback;
 	}
 
@@ -157,8 +160,8 @@ internal class MessagingSystem : IDisposable
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
-		while (!IsInitialized)
-			Thread.Sleep(1);
+		//while (!IsInitialized)
+			//Thread.Sleep(1);
 
 		if (command is WrapperCommand wrapperCommand)
 		{

@@ -1,4 +1,5 @@
 using Elements.Core;
+using FrooxEngine;
 using Renderite.Shared;
 
 namespace InterprocessLib;
@@ -63,6 +64,9 @@ internal static class Initializer
 
 		Messenger.InitializeDefaultSystem(system);
 		
-		//Engine.Current.OnShutdown += system.Dispose;
+		while (Engine.Current is null)
+			await Task.Delay(100);
+
+		Engine.Current.OnShutdown += system.Dispose;
 	}
 }
