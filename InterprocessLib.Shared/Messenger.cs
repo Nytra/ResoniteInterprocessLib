@@ -67,7 +67,9 @@ public class Messenger : IDisposable
 
 	internal static readonly object LockObj = new();
 
-	internal static async Task<MessagingSystem?> GetFallbackSystem(string ownerId, bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, RenderCommandHandler? commandHandler = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
+	private DateTime _lastPingTime;
+
+	internal static async Task<MessagingSystem?> GetFallbackSystem(string ownerId, bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
 	{
 		OnDebug?.Invoke("GetFallbackSystem called");
 
@@ -82,7 +84,7 @@ public class Messenger : IDisposable
 
 		var now = DateTime.UtcNow;
 		int minuteInDay = now.Hour * 60 + now.Minute;
-		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, failhandler, warnHandler, debugHandler, postInitCallback);
 		system1.Connect();
 		if (isAuthority)
 		{
@@ -91,11 +93,12 @@ public class Messenger : IDisposable
 			return system1;
 		}
 		var cancel1 = new CancellationTokenSource();
-		system1.PingCallback = (ping) => 
+		system1.RegisterCallback<PingCommand>((ping) => 
 		{ 
 			cancel1.Cancel();
-		};
-		system1.SendPackable(new PingCommand() { SentTime = now });
+			system1.RegisterCallback<PingCommand>(null);
+		});
+		system1.SendPackable(new PingCommand());
 		try
 		{
 			await Task.Delay(waitTimeMs, cancel1.Token);
@@ -112,13 +115,14 @@ public class Messenger : IDisposable
 			// try the previous minute, in case the other process started just before the minute ticked over (too bad if it ticked over from 1439 to 0)
 			system1.Dispose();
 			var cancel2 = new CancellationTokenSource(); 
-			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, commandHandler, failhandler, warnHandler, debugHandler, postInitCallback);
+			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, failhandler, warnHandler, debugHandler, postInitCallback);
 			system2.Connect();
-			system2.PingCallback = (ping) => 
+			system2.RegisterCallback<PingCommand>((ping) => 
 			{ 
 				cancel2.Cancel();
-			};
-			system2.SendPackable(new PingCommand() { SentTime = now });
+				system2.RegisterCallback<PingCommand>(null);
+			});
+			system2.SendPackable(new PingCommand());
 			try
 			{
 				await Task.Delay(waitTimeMs, cancel2.Token);
@@ -187,28 +191,15 @@ public class Messenger : IDisposable
 
 		if (_defaultSystem is null && !DefaultInitStarted)
 		{
-			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
-			if (frooxEngineInitType is not null)
+			DefaultInitStarted = true;
+			var initType = Type.GetType("InterprocessLib.Initializer");
+			if (initType is not null)
 			{
-				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+				initType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
 			}
 			else
 			{
-				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
-				if (unityInitType is not null)
-				{
-					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-				}
-				else
-				{
-					// An external process will almost definitely not be an authority
-					var fallbackSystemTask = GetFallbackSystem(_ownerId, false, MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, null, OnFailure, OnWarning, OnDebug, null);
-					fallbackSystemTask.Wait();
-					if (fallbackSystemTask.Result is not MessagingSystem fallbackSystem)
-						throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
-					else
-						_defaultSystem = fallbackSystemTask.Result;
-				}
+				throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
 			}
 		}
 	}
@@ -255,7 +246,7 @@ public class Messenger : IDisposable
 
 		if (MessagingSystem.TryGetRegisteredSystem(queueName) is not MessagingSystem existingSystem)
 		{
-			_customSystem = new MessagingSystem(isAuthority, queueName, queueCapacity, actualPool, null, OnFailure, OnWarning, OnDebug);
+			_customSystem = new MessagingSystem(isAuthority, queueName, queueCapacity, actualPool, OnFailure, OnWarning, OnDebug);
 		}
 		else
 		{
@@ -363,8 +354,6 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.EnsureValueTypeInitialized<T>();
-
 		var command = new ValueCommand<T>();
 		command.Owner = _ownerId;
 		command.Id = id;
@@ -395,8 +384,6 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.EnsureValueCollectionTypeInitialized<C, T>();
-
 		var command = new ValueCollectionCommand<C, T>();
 		command.Owner = _ownerId;
 		command.Id = id;
@@ -414,8 +401,6 @@ public class Messenger : IDisposable
 			RunPostInit(() => SendValueArray(id, array));
 			return;
 		}
-
-		CurrentSystem!.EnsureValueArrayTypeInitialized<T>();
 
 		var command = new ValueArrayCommand<T>();
 		command.Owner = _ownerId;
@@ -459,8 +444,6 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.EnsureStringCollectionTypeInitialized<C>();
-
 		var command = new StringCollectionCommand<C>();
 		command.Owner = _ownerId;
 		command.Id = id;
@@ -503,7 +486,7 @@ public class Messenger : IDisposable
 		CurrentSystem!.SendPackable(command);
 	}
 
-	public void SendObject<T>(string id, T obj) where T : class?, IMemoryPackable?, new()
+	public void SendObject<T>(string id, T? obj) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -513,8 +496,6 @@ public class Messenger : IDisposable
 			RunPostInit(() => SendObject(id, obj));
 			return;
 		}
-
-		CurrentSystem!.EnsureObjectTypeInitialized<T>();
 
 		var command = new ObjectCommand<T>();
 		command.Object = obj;
@@ -541,8 +522,6 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.EnsureObjectCollectionTypeInitialized<C, T>();
-
 		var command = new ObjectCollectionCommand<C, T>();
 		command.Owner = _ownerId;
 		command.Id = id;
@@ -560,8 +539,6 @@ public class Messenger : IDisposable
 			RunPostInit(() => SendObjectArray(id, array));
 			return;
 		}
-
-		CurrentSystem!.EnsureObjectArrayTypeInitialized<T>();
 
 		var command = new ObjectArrayCommand<T>();
 		command.Owner = _ownerId;
@@ -581,7 +558,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterValueCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<ValueCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Value));
 	}
 
 	[Obsolete("Use ReceiveValueCollection instead.")]
@@ -596,7 +573,7 @@ public class Messenger : IDisposable
 		ReceiveValueCollection<HashSet<T>, T>(id, callback);
 	}
 
-	public void ReceiveValueCollection<C, T>(string id, Action<C?>? callback) where C : ICollection<T>?, new() where T : unmanaged
+	public void ReceiveValueCollection<C, T>(string id, Action<C>? callback) where C : ICollection<T>?, new() where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -607,7 +584,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterValueCollectionCallback<C, T>(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<ValueCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values!));
 	}
 
 	public void ReceiveValueArray<T>(string id, Action<T[]?>? callback) where T : unmanaged
@@ -621,7 +598,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterValueArrayCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<ValueArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values));
 	}
 
 	public void ReceiveString(string id, Action<string?>? callback)
@@ -635,7 +612,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterStringCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<StringCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.String));
 	}
 
 	[Obsolete("Use ReceiveStringCollection instead.")]
@@ -644,7 +621,7 @@ public class Messenger : IDisposable
 		ReceiveStringCollection(id, callback);
 	}
 
-	public void ReceiveStringCollection<C>(string id, Action<C?>? callback) where C : ICollection<string>?, new()
+	public void ReceiveStringCollection<C>(string id, Action<C>? callback) where C : ICollection<string>?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -655,7 +632,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterStringCollectionCallback<C>(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<StringCollectionCommand<C>>(_ownerId, id, (cmd) => callback?.Invoke((C)cmd.Strings!));
 	}
 
 	public void ReceiveStringArray(string id, Action<string?[]?>? callback)
@@ -669,7 +646,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterStringArrayCallback(_ownerId, id, callback!);
+		CurrentSystem!.RegisterCallback<StringArrayCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Strings));
 	}
 
 	public void ReceiveEmptyCommand(string id, Action? callback)
@@ -683,7 +660,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterEmptyCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<EmptyCommand>(_ownerId, id, (cmd) => callback?.Invoke());
 	}
 
 	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
@@ -697,7 +674,7 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterObjectCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<ObjectCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Object!));
 	}
 
 	[Obsolete("Use ReceiveObjectCollection instead.")]
@@ -706,7 +683,7 @@ public class Messenger : IDisposable
 		ReceiveObjectCollection<List<T>, T>(id, callback);
 	}
 
-	public void ReceiveObjectCollection<C, T>(string id, Action<C?>? callback) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
+	public void ReceiveObjectCollection<C, T>(string id, Action<C>? callback) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -717,10 +694,10 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterObjectCollectionCallback<C, T>(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<ObjectCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
 	}
 
-	public void ReceiveObjectArray<T>(string id, Action<T[]?>? callback) where T : class?, IMemoryPackable?, new()
+	public void ReceiveObjectArray<T>(string id, Action<T[]>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
@@ -731,37 +708,41 @@ public class Messenger : IDisposable
 			return;
 		}
 
-		CurrentSystem!.RegisterObjectArrayCallback(_ownerId, id, callback);
+		CurrentSystem!.RegisterCallback<ObjectArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
 	}
 
-	// A dirty hack because I'm lazy
-	public void SendType(string id, Type? type)
-	{
-		var typeCmd = new TypeCommand();
-		typeCmd.Type = type;
-
-		SendObject(id, typeCmd);
-	}
-
-	// A dirty hack because I'm lazy
-	public void ReceiveType(string id, Action<Type?>? callback)
-	{
-		ReceiveObject<TypeCommand>(id, (typeCmd) => callback?.Invoke(typeCmd.Type));
-	}
-
-	public void CheckLatency(Action<TimeSpan, TimeSpan> callback)
+	/// <summary>
+	/// Send a ping message which will be received and then sent back by the other process
+	/// Can be used to check if the other process is active, or to check the latency of the connection
+	/// Register a ping callback with <see cref="ReceivePing"/> first.
+	/// </summary>
+	public void SendPing()
 	{
 		if (!IsInitialized)
 		{
-			RunPostInit(() => CheckLatency(callback));
+			RunPostInit(() => SendPing());
 			return;
 		}
 
-		CurrentSystem!.PingCallback = (ping) => callback?.Invoke(ping.ReceivedTime!.Value - ping.SentTime, DateTime.UtcNow - ping.ReceivedTime!.Value);
-
 		var pingCommand = new PingCommand();
-		pingCommand.SentTime = DateTime.UtcNow;
+		_lastPingTime = DateTime.UtcNow;
 		CurrentSystem!.SendPackable(pingCommand);
+	}
+
+	/// <summary>
+	/// Register a delegate to be called when this process gets a ping response
+	/// Calling <see cref="SendPing"/> should then result in the delegate being called shortly after if the other process is active
+	/// </summary>
+	/// <param name="callback">The delegate to be called when the ping response gets received</param>
+	public void ReceivePing(Action<TimeSpan> callback)
+	{
+		if (!IsInitialized)
+		{
+			RunPostInit(() => ReceivePing(callback));
+			return;
+		}
+
+		CurrentSystem!.RegisterCallback<PingCommand>((ping) => callback?.Invoke(DateTime.UtcNow - _lastPingTime));
 	}
 
     public void Dispose()

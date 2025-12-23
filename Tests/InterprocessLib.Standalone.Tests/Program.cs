@@ -1,17 +1,11 @@
-﻿using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using InterprocessLib;
+﻿using InterprocessLib;
 using InterprocessLib.Tests;
-using Renderite.Shared;
 
 namespace InterprocessLibStandaloneTest
 {
 	internal class Program
     {
 		private static CancellationTokenSource _cancel = new();
-		private static void CommandHandler(RendererCommand command, int messageSize)
-		{
-		}
 
 		private static void FailHandler(Exception ex)
 		{
@@ -52,7 +46,7 @@ namespace InterprocessLibStandaloneTest
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			messenger.ReceiveEmptyCommand("HeartbeatResponse", () =>
+			messenger.ReceivePing((latency) =>
 			{
 				_cancel.CancelAfter(5000);
 			});
@@ -63,7 +57,7 @@ namespace InterprocessLibStandaloneTest
 			{
 				while (!_cancel.IsCancellationRequested)
 				{
-					messenger.SendEmptyCommand("Heartbeat");
+					messenger.SendPing();
 					await Task.Delay(2500);
 				}
 			}).Wait();

@@ -1,6 +1,4 @@
-﻿//#define TEST_OBSOLETE_CONSTRUCTOR
-
-using ResoniteModLoader;
+﻿using ResoniteModLoader;
 
 namespace InterprocessLib.Tests;
 
@@ -25,38 +23,23 @@ public class RML_Tests : ResoniteMod
 	[AutoRegisterConfigKey]
 	private static ModConfigurationKey<bool> ResetToggle = new ModConfigurationKey<bool>("ResetToggle", "ResetToggle:", () => false);
 	[AutoRegisterConfigKey]
-	private static ModConfigurationKey<double> SendLatencyMilliseconds = new ModConfigurationKey<double>("SendLatencyMilliseconds", "SendLatencyMilliseconds:", () => -1.0);
+	private static ModConfigurationKey<bool> CheckLatencyToggle = new ModConfigurationKey<bool>("CheckLatencyToggle", "CheckLatencyToggle:", () => false);
 	[AutoRegisterConfigKey]
-	private static ModConfigurationKey<double> RecvLatencyMilliseconds = new ModConfigurationKey<double>("RecvLatencyMilliseconds", "RecvLatencyMilliseconds:", () => -1.0);
+	private static ModConfigurationKey<double> LatencyMilliseconds = new ModConfigurationKey<double>("LatencyMilliseconds", "LatencyMilliseconds:", () => -1.0);
 
 	public static Messenger? _messenger;
-	public static Messenger? _unknownMessenger;
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-	public static Messenger? _testObsoleteConstructor;
-#endif
 
 	public override void OnEngineInit()
 	{
 		_messenger = new Messenger("InterprocessLib.Tests");
-		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
-#endif
 
 		Tests.RunTests(_messenger, Msg);
-		Tests.RunTests(_unknownMessenger, Msg);
 
-#if TEST_OBSOLETE_CONSTRUCTOR
-		Tests.RunTests(_testObsoleteConstructor, Msg);
-#endif
-
-		_messenger.CheckLatency((send, recv) =>
+		_messenger.ReceivePing((latency) =>
 		{
-			SendLatencyMilliseconds.Value = send.TotalMilliseconds;
-			RecvLatencyMilliseconds.Value = recv.TotalMilliseconds;
+			LatencyMilliseconds.Value = latency.TotalMilliseconds;
 		});
+		_messenger.SendPing();
 
 		_messenger.SyncConfigEntry(SyncTest);
 
@@ -64,16 +47,6 @@ public class RML_Tests : ResoniteMod
 		{
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Msg);
-			Tests.RunTests(_unknownMessenger, Msg);
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-			Tests.RunTests(_testObsoleteConstructor, Msg);
-#endif
-			_messenger.CheckLatency((send, recv) =>
-			{
-				SendLatencyMilliseconds.Value = send.TotalMilliseconds;
-				RecvLatencyMilliseconds.Value = recv.TotalMilliseconds;
-			});
 		};
 		CheckSyncToggle!.OnChanged += (object? newValue) =>
 		{
@@ -82,6 +55,10 @@ public class RML_Tests : ResoniteMod
 		ResetToggle!.OnChanged += (object? newValue) =>
 		{
 			_messenger.SendEmptyCommand("Reset");
+		};
+		CheckLatencyToggle.OnChanged += (object? newValue) =>
+		{
+			_messenger.SendPing();
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) =>
 		{

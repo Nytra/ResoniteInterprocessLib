@@ -161,7 +161,7 @@ internal sealed class TypeRegistrationCommand : TypeCommand
 	}
 }
 
-internal class TypeCommand : IMemoryPackable
+public class TypeCommand : IMemoryPackable
 {
 	public Type? Type;
 	private static Dictionary<string, Type> _typeCache = new();
@@ -548,18 +548,15 @@ internal sealed class MessengerReadyCommand : IMemoryPackable
 
 internal sealed class PingCommand : IMemoryPackable
 {
-	public DateTime SentTime;
-	public DateTime? ReceivedTime;
+	public bool Received;
 	public void Pack(ref MemoryPacker packer)
 	{
-		packer.Write(SentTime);
-		packer.Write(ReceivedTime);
+		packer.Write(Received);
 	}
 
 	public void Unpack(ref MemoryUnpacker unpacker)
 	{
-		unpacker.Read(ref SentTime);
-		unpacker.Read(ref ReceivedTime);
+		unpacker.Read(ref Received);
 	}
 }
 
@@ -576,17 +573,13 @@ internal sealed class WrapperCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
+		if (Packable is null) throw new InvalidOperationException("Cannot send WrapperCommand with null Packable!");
+
 		if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
 
 		var system = MessagingSystem.TryGetRegisteredSystem(QueueName!);
 
 		if (system is null) throw new InvalidOperationException($"MessagingSystem with QueueName: {QueueName} is not registered.");
-
-		if (Packable is null)
-		{
-			packer.Write(-1);
-			return;
-		}
 
 		var packedType = Packable.GetType();
 		packer.Write(system.OutgoingTypeManager.GetTypeIndex(packedType));
@@ -598,12 +591,6 @@ internal sealed class WrapperCommand : RendererCommand
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		unpacker.Read(ref TypeIndex);
-
-		if (TypeIndex == -1)
-		{
-			Packable = null;
-			return;
-		}
 
 		unpacker.Read(ref QueueName!);
 

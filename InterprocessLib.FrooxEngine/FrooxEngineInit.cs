@@ -18,18 +18,9 @@ internal class FrooxEnginePool : IMemoryPackerEntityPool
 	}
 }
 
-internal static class FrooxEngineInit
+internal static class Initializer
 {
 	public static void Init()
-	{
-		if (Messenger.DefaultInitStarted)
-			throw new InvalidOperationException("Messenger default backend initialization has already been started!");
-
-		Messenger.DefaultInitStarted = true;
-
-		InnerInit();
-	}
-	private static void InnerInit()
 	{
 		var args = Environment.GetCommandLineArgs();
 		string? queueName = null;
@@ -59,10 +50,11 @@ internal static class FrooxEngineInit
 
 		MessagingSystem? system = null;
 
+		// If the queue name is null then the engine doesn't have a renderer, such as when it's a headless
 		if (queueName is null)
 		{
-			Messenger.OnDebug?.Invoke("Shared memory queue name is null! Attempting to use fallback...");
-			var task = Messenger.GetFallbackSystem("Resonite", true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			Messenger.OnWarning?.Invoke("Default shared memory queue name is null! This can happen on headless. Attempting to use fallback...");
+			var task = Messenger.GetFallbackSystem("Fallback", true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			task.Wait();
 			system = task.Result;
 			if (system is null)
@@ -72,7 +64,7 @@ internal static class FrooxEngineInit
 		}
 		else
 		{
-			system = new MessagingSystem(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, null, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system = new MessagingSystem(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			system.Connect();
 		}
 

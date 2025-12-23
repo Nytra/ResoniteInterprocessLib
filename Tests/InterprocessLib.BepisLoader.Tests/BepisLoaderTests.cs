@@ -1,5 +1,4 @@
 ﻿//#define TEST_SPAWN_PROCESS
-//#define TEST_OBSOLETE_CONSTRUCTOR
 
 using BepInEx;
 using BepInEx.Configuration;
@@ -18,18 +17,13 @@ public class Plugin : BasePlugin
 	public static new ManualLogSource? Log;
 	public static ConfigEntry<bool>? RunTestsToggle;
 	public static Messenger? _messenger;
-	public static Messenger? _unknownMessenger;
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-	public static Messenger? _testObsoleteConstructor;
-#endif
 	
-	public static ConfigEntry<int>? SyncTest;
+	public static ConfigEntry<int>? MyValue;
 	public static ConfigEntry<bool>? CheckSyncToggle;
 	public static ConfigEntry<int>? SyncTestOutput;
 	public static ConfigEntry<bool>? ResetToggle;
-	public static ConfigEntry<double>? SendLatencyMilliseconds;
-	public static ConfigEntry<double>? RecvLatencyMilliseconds;
+	public static ConfigEntry<bool>? CheckLatencyToggle;
+	public static ConfigEntry<double>? LatencyMilliseconds;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
@@ -95,18 +89,8 @@ public class Plugin : BasePlugin
 		};
 
 		_messenger = new Messenger("InterprocessLib.Tests");
-		_unknownMessenger = new Messenger("InterprocessLib.Tests.UnknownMessengerFrooxEngine");
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-		_testObsoleteConstructor = new("InterprocessLib.Tests.ObsoleteConstructor", [], []);
-#endif
 
 		Tests.RunTests(_messenger, Log!.LogInfo);
-		Tests.RunTests(_unknownMessenger, Log!.LogInfo);
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-		Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
-#endif
 
 #if TEST_SPAWN_PROCESS
 		SpawnProcess();
@@ -118,36 +102,26 @@ public class Plugin : BasePlugin
 		LastProcessHeartbeat = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
 #endif
 
-		SyncTest = Config.Bind("General", "SyncTest", 34);
-		_messenger.SyncConfigEntry(SyncTest);
+		MyValue = Config.Bind("General", "SyncTest", 34);
+		_messenger.SyncConfigEntry(MyValue);
 
 		RunTestsToggle = Config.Bind("General", "RunTests", false);
 		CheckSyncToggle = Config.Bind("General", "CheckSync", false);
 		SyncTestOutput = Config.Bind("General", "SyncTestOutput", 0);
 		ResetToggle = Config.Bind("General", "ResetToggle", false);
-		SendLatencyMilliseconds = Config.Bind("General", "SendLatencyMilliseconds", -1.0);
-		RecvLatencyMilliseconds = Config.Bind("General", "RecvLatencyMilliseconds", -1.0);
+		LatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
+		CheckLatencyToggle = Config.Bind("General", "CheckLatencyToggle", false);
 
-		_messenger.CheckLatency((send, recv) =>
+		_messenger.ReceivePing((latency) =>
 		{
-			SendLatencyMilliseconds.Value = send.TotalMilliseconds;
-			RecvLatencyMilliseconds.Value = recv.TotalMilliseconds;
+			LatencyMilliseconds.Value = latency.TotalMilliseconds;
 		});
+		_messenger.SendPing();
 
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Log!.LogInfo);
-			Tests.RunTests(_unknownMessenger, Log!.LogInfo);
-
-#if TEST_OBSOLETE_CONSTRUCTOR
-			Tests.RunTests(_testObsoleteConstructor, Log!.LogInfo);
-#endif
-			_messenger.CheckLatency((send, recv) =>
-			{
-				SendLatencyMilliseconds.Value = send.TotalMilliseconds;
-				RecvLatencyMilliseconds.Value = recv.TotalMilliseconds;
-			});
 
 #if TEST_SPAWN_PROCESS
 			if (_customMessenger is not null && _customProcess != null && !_customProcess.HasExited)
@@ -163,6 +137,10 @@ public class Plugin : BasePlugin
 		ResetToggle!.SettingChanged += (sender, args) => 
 		{ 
 			_messenger.SendEmptyCommand("Reset");
+		};
+		CheckLatencyToggle!.SettingChanged += (sender, args) =>
+		{
+			_messenger.SendPing();
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) => 
 		{ 

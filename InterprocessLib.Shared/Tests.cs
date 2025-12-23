@@ -1,7 +1,4 @@
-//#define TEST_COMPILATION
-
 using Renderite.Shared;
-using System.Reflection;
 
 namespace InterprocessLib.Tests;
 
@@ -41,11 +38,11 @@ public static class Tests
 
 	static void TestTypeCommand()
 	{
-		_messenger!.ReceiveType("TestTypeCommand", (type) =>
+		_messenger!.ReceiveObject<TypeCommand>("TestTypeCommand", (cmd) =>
 		{
-			_logCallback!($"TestTypeCommand: {type?.FullName ?? "NULL"}");
+			_logCallback!($"TestTypeCommand: {cmd?.Type?.FullName ?? "NULL"}");
 		});
-		_messenger!.SendType("TestTypeCommand", typeof(Dictionary<LinkedList<float>, float>));
+		_messenger!.SendObject<TypeCommand>("TestTypeCommand", new() { Type = typeof(Dictionary<LinkedList<float>, float>) });
 	}
 
 	static void TestValueArray()
@@ -65,7 +62,7 @@ public static class Tests
 	{
 		_messenger!.ReceiveObjectArray<TestCommand?>("TestObjectArray", (arr) =>
 		{
-			_logCallback!($"TestObjectArray: {string.Join<TestCommand>(",", arr!)}");
+			_logCallback!($"TestObjectArray: {string.Join<TestCommand?>(",", arr)}");
 		});
 		var arr = new TestCommand?[3];
 		arr[0] = new TestCommand();
@@ -319,38 +316,6 @@ public static class Tests
 		var obj = new RendererInitData();
 		_messenger.SendObject("TestVanillaObject", obj);
 	}
-
-#if TEST_COMPILATION
-	//Won't compile
-	static void TestInvalidType()
-	{
-		_messenger!.ReceiveObject<InvalidType>("InvalidType", (recvInvalidType) =>
-		{
-			_logCallback!($"InvalidType: {recvInvalidType?.Exception}");
-		});
-
-		var invalid = new InvalidType();
-
-		invalid.Exception = new Exception();
-
-		_messenger!.SendObject("InvalidType", invalid);
-	}
-
-	// Won't compile
-	static void TestInvalidStruct()
-	{
-		_messenger!.ReceiveValue<StructWithObject>("StructWithObject", (recvStructWithObject) =>
-		{
-			_logCallback!($"StructWithObject: {recvStructWithObject.Assembly}");
-		});
-
-		var invalid = new StructWithObject();
-
-		invalid.Assembly = Assembly.GetExecutingAssembly();
-
-		_messenger!.SendValue("StructWithObject", invalid);
-	}
-#endif
 }
 
 public class TestCommand : RendererCommand
@@ -424,14 +389,4 @@ public struct TestStruct
 public struct TestNestedStruct
 {
 	public TestStruct Nested;
-}
-
-public class InvalidType
-{
-	public Exception? Exception;
-}
-
-public struct StructWithObject
-{
-	public Assembly Assembly;
 }

@@ -7,7 +7,7 @@ internal class TypeManager
 {
 	private bool _initializedCoreTypes = false;
 
-	private static readonly MethodInfo _registerDirectCommandTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterDirectCommandType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterDirectCommandType));
+	private static readonly MethodInfo _registerTypeMethod = typeof(TypeManager).GetMethod(nameof(RegisterType), BindingFlags.NonPublic | BindingFlags.Instance) ?? throw new MissingMethodException(nameof(RegisterType));
 
 	private readonly List<Type> _newTypes = new();
 
@@ -24,6 +24,7 @@ internal class TypeManager
 	private static readonly MethodInfo _borrowMethod = typeof(TypeManager).GetMethod(nameof(Borrow), BindingFlags.Instance | BindingFlags.NonPublic, null, [], null) ?? throw new MissingMethodException(nameof(Borrow));
 	private static readonly MethodInfo _returnMethod = typeof(TypeManager).GetMethod(nameof(Return), BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null) ?? throw new MissingMethodException(nameof(Return));
 
+	// These are types that will be assumed to be already registered in the other process
 	private static readonly List<Type> _coreTypes =
 	[
 		typeof(MessengerReadyCommand),
@@ -77,21 +78,21 @@ internal class TypeManager
 		return _typeToIndex[type];
 	}
 
-	internal bool IsDirectCommandTypeInitialized<T>() where T : class?, IMemoryPackable?, new()
+	internal bool IsTypeRegistered<T>() where T : class, IMemoryPackable, new()
 	{
 		return _typeToIndex.ContainsKey(typeof(T));
 	}
 
-	internal void InitDirectCommandType(Type type)
+	internal void InvokeRegisterType(Type type)
 	{
-		_registerDirectCommandTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
+		_registerTypeMethod!.MakeGenericMethod(type).Invoke(this, null);
 	}
 
-	internal void RegisterDirectCommandType<T>() where T : class, IMemoryPackable, new()
+	internal void RegisterType<T>() where T : class, IMemoryPackable, new()
 	{
 		var type = typeof(T);
 
-		Messenger.OnDebug?.Invoke($"Registering direct command type: {type.Name}");
+		Messenger.OnDebug?.Invoke($"Registering type: {type.Name}");
 
 		PushNewTypes([type]);
 	}
