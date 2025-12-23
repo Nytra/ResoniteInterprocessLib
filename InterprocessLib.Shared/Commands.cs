@@ -32,12 +32,13 @@ internal abstract class IdentifiableCommand : IMemoryPackable
 internal abstract class CollectionCommand : IdentifiableCommand
 {
 	public abstract IEnumerable? UntypedCollection { get; }
+	public abstract int? Count { get; }
 	public abstract Type StoredType { get; }
 	public abstract Type CollectionType { get; }
 
 	public override string ToString()
 	{
-		return $"CollectionCommand:{CollectionType.Name}<{StoredType.Name}>:{Owner}:{Id}:{UntypedCollection?.ToString() ?? "NULL"}";
+		return $"CollectionCommand:{CollectionType.Name}<{StoredType.Name}>:{Owner}:{Id}:Count={Count?.ToString() ?? "NULL"}";
 	}
 }
 
@@ -74,6 +75,8 @@ internal sealed class EmptyCommand : IdentifiableCommand
 internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>?, new() where T : unmanaged
 {
 	public C? Values;
+
+    public override int? Count => Values?.Count;
 
 	public override IEnumerable? UntypedCollection => Values;
 
@@ -119,6 +122,8 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 {
 	public T[]? Values;
 
+	public override int? Count => Values?.Length;
+
 	public override IEnumerable? UntypedCollection => Values;
 
 	public override Type StoredType => typeof(T);
@@ -157,7 +162,7 @@ internal sealed class TypeRegistrationCommand : TypeCommand
 {
 	public override string ToString()
 	{
-		return "TypeRegistrationCommand: " + Type?.FullName ?? "NULL";
+		return $"TypeRegistrationCommand:{Type?.Name ?? "NULL"}<{string.Join(",", (IEnumerable<Type>?)Type?.GenericTypeArguments ?? [])}>";
 	}
 }
 
@@ -242,10 +247,8 @@ public class TypeCommand : IMemoryPackable
 
 	private Type? FindType(string typeString)
 	{
-		//Messenger.OnDebug?.Invoke($"Looking for Type: {typeString}");
 		if (_typeCache.TryGetValue(typeString, out var type))
 		{
-			Messenger.OnDebug?.Invoke($"Found Type in cache: {type.FullName}");
 			return type;
 		}
 		
@@ -260,25 +263,22 @@ public class TypeCommand : IMemoryPackable
 		}
 		if (type != null)
 		{
-			Messenger.OnDebug?.Invoke($"Found Type to add to cache: {type.FullName}");
 			_typeCache[typeString] = type;
-		}
-		else
-		{
-			Messenger.OnWarning?.Invoke($"Could not find the Type: {typeString}");
 		}
 		return type;
 	}
 
 	public override string ToString()
 	{
-		return $"TypeCommand: {Type?.FullName ?? "NULL"}";
+		return $"TypeCommand:{Type?.Name ?? "NULL"}<{string.Join(",", (IEnumerable<Type>?)Type?.GenericTypeArguments ?? [])}>";
 	}
 }
 
 internal sealed class StringArrayCommand : CollectionCommand
 {
 	public string?[]? Strings;
+
+	public override int? Count => Strings?.Length;
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -321,7 +321,7 @@ internal sealed class StringArrayCommand : CollectionCommand
 internal sealed class StringCollectionCommand<C> : CollectionCommand where C : ICollection<string>?, new()
 {
 	public IReadOnlyCollection<string?>? Strings; // IReadOnlyCollection is required for covariance of string? and string
-
+	public override int? Count => Strings?.Count;
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
 	public override Type CollectionType => typeof(C);
@@ -366,7 +366,7 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 {
 	public C? Objects;
-
+	public override int? Count => Objects?.Count;
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
 	public override Type CollectionType => typeof(C);
@@ -418,6 +418,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?, IMemoryPackable?, new()
 {
 	public T[]? Objects;
+	public override int? Count => Objects?.Length;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
@@ -546,16 +547,18 @@ internal sealed class MessengerReadyCommand : IMemoryPackable
 	}
 }
 
-internal sealed class PingCommand : IMemoryPackable
+internal sealed class PingCommand : IdentifiableCommand
 {
 	public bool Received;
-	public void Pack(ref MemoryPacker packer)
+	public override void Pack(ref MemoryPacker packer)
 	{
+		base.Pack(ref packer);
 		packer.Write(Received);
 	}
 
-	public void Unpack(ref MemoryUnpacker unpacker)
+	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
+		base.Unpack(ref unpacker);
 		unpacker.Read(ref Received);
 	}
 }
@@ -573,7 +576,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		if (Packable is null) throw new InvalidOperationException("Cannot send WrapperCommand with null Packable!");
+		if (Packable is null) throw new ArgumentNullException(nameof(Packable));
 
 		if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
 

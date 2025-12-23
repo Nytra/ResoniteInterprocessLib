@@ -43,62 +43,49 @@ public class Messenger : IDisposable
 	/// <summary>
 	/// Called when the backend connection has a critical error
 	/// </summary>
-	public static Action<Exception>? OnFailure;
+	public static event Action<Exception>? OnFailure;
 
 	/// <summary>
 	/// Called when something potentially bad/unexpected happens
 	/// </summary>
-	public static Action<string>? OnWarning;
+	public static event Action<string>? OnWarning;
 
 	/// <summary>
 	/// Called with additional debugging information
 	/// </summary>
-	public static Action<string>? OnDebug;
+	public static event Action<string>? OnDebug;
 
 	private static List<Action>? _defaultPostInitActions = new();
 
-	private static List<Action<MessagingSystem>>? _defaultPreInitActions = new();
+	private static List<Action>? _defaultPreInitActions = new();
 
 	private string _ownerId;
-
-	private static MessagingSystem? _fallbackSystem = null;
-
-	private static bool _runningFallbackSystemInit = false;
 
 	internal static readonly object LockObj = new();
 
 	private DateTime _lastPingTime;
 
-	internal static async Task<MessagingSystem?> GetFallbackSystem(string ownerId, bool isAuthority, long queueCapacity, IMemoryPackerEntityPool? pool = null, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null, Action? postInitCallback = null)
+	internal static async Task<MessagingSystem> GetFallbackSystem(bool isAuthority)
 	{
-		OnDebug?.Invoke("GetFallbackSystem called");
+		DebugHandler("GetFallbackSystem called");
 
 		var startTime = DateTime.UtcNow;
-		int waitTimeMs = 5000;
-		while (_runningFallbackSystemInit && (DateTime.UtcNow - startTime).TotalMilliseconds < waitTimeMs * 2)
-			await Task.Delay(1);
-
-		if (_fallbackSystem is not null) return _fallbackSystem;
-
-		_runningFallbackSystemInit = true;
-
+		int waitTimeMs = 1000;
 		var now = DateTime.UtcNow;
 		int minuteInDay = now.Hour * 60 + now.Minute;
-		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay}", queueCapacity, pool ?? FallbackPool.Instance, failhandler, warnHandler, debugHandler, postInitCallback);
+		var system1 = new MessagingSystem(isAuthority, $"InterprocessLib-{minuteInDay}", MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 		system1.Connect();
+
 		if (isAuthority)
-		{
-			_fallbackSystem = system1;
-			_runningFallbackSystemInit = false;
 			return system1;
-		}
+
 		var cancel1 = new CancellationTokenSource();
-		system1.RegisterCallback<PingCommand>((ping) => 
+		system1.RegisterCallback<PingCommand>("InterprocessLib", "Ping", (ping) => 
 		{ 
 			cancel1.Cancel();
-			system1.RegisterCallback<PingCommand>(null);
+			system1.RegisterCallback<PingCommand>("InterprocessLib", "Ping", null);
 		});
-		system1.SendPackable(new PingCommand());
+		system1.SendPackable(new PingCommand() { Owner = "InterprocessLib", Id = "Ping" });
 		try
 		{
 			await Task.Delay(waitTimeMs, cancel1.Token);
@@ -106,23 +93,19 @@ public class Messenger : IDisposable
 		catch (TaskCanceledException)
 		{
 		}
-		if (cancel1.IsCancellationRequested)
+		if (!cancel1.IsCancellationRequested)
 		{
-			_fallbackSystem = system1;
-		}
-		else
-		{
-			// try the previous minute, in case the other process started just before the minute ticked over (too bad if it ticked over from 1439 to 0)
+			// try the previous minute, in case the other process started just before the minute ticked over
 			system1.Dispose();
 			var cancel2 = new CancellationTokenSource(); 
-			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{ownerId}{minuteInDay - 1}", queueCapacity, pool ?? FallbackPool.Instance, failhandler, warnHandler, debugHandler, postInitCallback);
+			var system2 = new MessagingSystem(isAuthority, $"InterprocessLib-{(minuteInDay - 1) % 60*24}", MessagingManager.DEFAULT_CAPACITY, FallbackPool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
 			system2.Connect();
-			system2.RegisterCallback<PingCommand>((ping) => 
+			system2.RegisterCallback<PingCommand>("InterprocessLib", "Ping", (ping) => 
 			{ 
 				cancel2.Cancel();
-				system2.RegisterCallback<PingCommand>(null);
+				system2.RegisterCallback<PingCommand>("InterprocessLib", "Ping", null);
 			});
-			system2.SendPackable(new PingCommand());
+			system2.SendPackable(new PingCommand() { Owner = "InterprocessLib", Id = "Ping" });
 			try
 			{
 				await Task.Delay(waitTimeMs, cancel2.Token);
@@ -130,17 +113,20 @@ public class Messenger : IDisposable
 			catch (TaskCanceledException)
 			{
 			}
-			if (cancel2.IsCancellationRequested)
+			if (!cancel2.IsCancellationRequested)
 			{
-				_fallbackSystem = system2;
+				system2.Dispose();
+				throw new EntryPointNotFoundException("Could not find an active default queue!");
 			}
 			else
 			{
-				system2.Dispose();
+				return system2;
 			}
 		}
-		_runningFallbackSystemInit = false;
-		return _fallbackSystem;
+		else
+		{
+			return system1;
+		}
 	}
 
 	/// <summary>
@@ -183,24 +169,24 @@ public class Messenger : IDisposable
 		if (_defaultSystem is null)
 		{
 			DefaultRunPreInit(Register);
+
+			if (!DefaultInitStarted)
+			{
+				DefaultInitStarted = true;
+				var initType = Type.GetType("InterprocessLib.Initializer");
+				if (initType is not null)
+				{
+					initType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
+				}
+				else
+				{
+					throw new EntryPointNotFoundException("Could not find default InterprocessLib initialization type!");
+				}
+			}
 		}
 		else
 		{
 			Register();
-		}
-
-		if (_defaultSystem is null && !DefaultInitStarted)
-		{
-			DefaultInitStarted = true;
-			var initType = Type.GetType("InterprocessLib.Initializer");
-			if (initType is not null)
-			{
-				initType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-			}
-			else
-			{
-				throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
-			}
 		}
 	}
 
@@ -268,79 +254,94 @@ public class Messenger : IDisposable
 		}
 	}
 
-	internal static void PreInit(MessagingSystem system)
+	internal static void WarnHandler(string str)
 	{
-		system.SetPostInitActions(_defaultPostInitActions);
-		_defaultPostInitActions = null;
+		OnWarning?.Invoke(str);
+	}
 
-		foreach (var act in _defaultPreInitActions!)
+	internal static void FailHandler(Exception ex)
+	{
+		OnFailure?.Invoke(ex);
+	}
+
+	internal static void DebugHandler(string str)
+	{
+		OnDebug?.Invoke(str);
+	}
+
+	internal static void InitializeDefaultSystem(MessagingSystem system)
+	{
+		lock (LockObj)
 		{
-			try
+			_defaultSystem = system;
+
+			foreach (var act in _defaultPreInitActions!)
 			{
-				act(system);
+				try
+				{
+					act();
+				}
+				catch (Exception ex)
+				{
+					WarnHandler($"Exception running pre-init action:\n{ex}");
+				}
 			}
-			catch (Exception ex)
+			_defaultPreInitActions = null;
+			
+			system.Initialize();
+
+			foreach (var act in _defaultPostInitActions!)
 			{
-				OnWarning?.Invoke($"Exception running pre-init action:\n{ex}");
+				try
+				{
+					act();
+				}
+				catch (Exception ex)
+				{
+					WarnHandler($"Exception running post-init action:\n{ex}");
+				}
 			}
+			_defaultPostInitActions = null;
 		}
-		_defaultPreInitActions = null;
 	}
 
-	internal static void SetDefaultSystem(MessagingSystem system)
-	{
-		_defaultSystem = system;
-	}
-
-	private void RunPostInit(Action act)
+	private void DefaultRunPostInit(Action act)
 	{
 		lock (LockObj)
 		{
 			if (IsInitialized)
-			{
 				act();
-				return;
-			}
-			if (CurrentSystem is null)
-				DefaultRunPostInit(act);
 			else
-				CurrentSystem.RunPostInit(act);
+				_defaultPostInitActions!.Add(act);
 		}
 	}
 
-	private void Register(MessagingSystem system)
+	private void DefaultRunPreInit(Action act)
 	{
-		if (system.HasOwner(_ownerId))
+		lock (LockObj)
 		{
-			OnWarning?.Invoke($"Owner {_ownerId} has already been registered in this process for messaging backend with queue name: {system.QueueName}");
+			if (IsInitialized)
+				act();
+			else
+				_defaultPreInitActions!.Add(act);
 		}
-		else
-			system.RegisterOwner(_ownerId);
 	}
 
 	private void Register()
 	{
-		Register(CurrentSystem!);
-	}
-
-	private static void DefaultRunPreInit(Action<MessagingSystem> act)
-	{
-		if (_defaultSystem is null)
-		{
-			_defaultPreInitActions!.Add(act);
-		}
+		if (CurrentSystem!.HasOwner(_ownerId))
+			WarnHandler($"Owner {_ownerId} has already been registered!");
 		else
-			throw new InvalidOperationException("Default host already did pre-init!");
-	}
+			CurrentSystem.RegisterOwner(_ownerId);
 
-	private static void DefaultRunPostInit(Action act)
-	{
-		if (_defaultSystem is null)
-		{
-			_defaultPostInitActions!.Add(act);
-		}
-		else
-			throw new InvalidOperationException("Default host already initialized!");
+		// CurrentSystem.RegisterCallback<ValueCommand<bool>>(_ownerId, "Ping", (ping) =>
+		// {
+		// 	if (!ping.Value)
+		// 	{
+		// 		ping.Value = true;
+		// 		CurrentSystem.SendPackable(ping);
+		// 	}
+		// });
 	}
 
 	public void SendValue<T>(string id, T value) where T : unmanaged
@@ -350,7 +351,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendValue(id, value));
+			DefaultRunPostInit(() => SendValue(id, value));
 			return;
 		}
 
@@ -380,7 +381,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendValueCollection<C, T>(id, collection));
+			DefaultRunPostInit(() => SendValueCollection<C, T>(id, collection));
 			return;
 		}
 
@@ -398,7 +399,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendValueArray(id, array));
+			DefaultRunPostInit(() => SendValueArray(id, array));
 			return;
 		}
 
@@ -416,7 +417,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendString(id, str));
+			DefaultRunPostInit(() => SendString(id, str));
 			return;
 		}
 
@@ -440,7 +441,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendStringCollection<C>(id, collection));
+			DefaultRunPostInit(() => SendStringCollection<C>(id, collection));
 			return;
 		}
 
@@ -458,7 +459,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendStringArray(id, array));
+			DefaultRunPostInit(() => SendStringArray(id, array));
 			return;
 		}
 
@@ -476,7 +477,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendEmptyCommand(id));
+			DefaultRunPostInit(() => SendEmptyCommand(id));
 			return;
 		}
 
@@ -493,7 +494,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendObject(id, obj));
+			DefaultRunPostInit(() => SendObject(id, obj));
 			return;
 		}
 
@@ -518,7 +519,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendObjectCollection<C, T>(id, collection));
+			DefaultRunPostInit(() => SendObjectCollection<C, T>(id, collection));
 			return;
 		}
 
@@ -536,7 +537,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendObjectArray(id, array));
+			DefaultRunPostInit(() => SendObjectArray(id, array));
 			return;
 		}
 
@@ -554,7 +555,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveValue(id, callback));
+			DefaultRunPostInit(() => ReceiveValue(id, callback));
 			return;
 		}
 
@@ -580,7 +581,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveValueCollection<C, T>(id, callback));
+			DefaultRunPostInit(() => ReceiveValueCollection<C, T>(id, callback));
 			return;
 		}
 
@@ -594,7 +595,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveValueArray(id, callback));
+			DefaultRunPostInit(() => ReceiveValueArray(id, callback));
 			return;
 		}
 
@@ -608,7 +609,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveString(id, callback));
+			DefaultRunPostInit(() => ReceiveString(id, callback));
 			return;
 		}
 
@@ -628,7 +629,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveStringCollection(id, callback));
+			DefaultRunPostInit(() => ReceiveStringCollection(id, callback));
 			return;
 		}
 
@@ -642,7 +643,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveStringArray(id, callback));
+			DefaultRunPostInit(() => ReceiveStringArray(id, callback));
 			return;
 		}
 
@@ -656,7 +657,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveEmptyCommand(id, callback));
+			DefaultRunPostInit(() => ReceiveEmptyCommand(id, callback));
 			return;
 		}
 
@@ -670,7 +671,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveObject(id, callback));
+			DefaultRunPostInit(() => ReceiveObject(id, callback));
 			return;
 		}
 
@@ -690,7 +691,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveObjectCollection<C, T>(id, callback));
+			DefaultRunPostInit(() => ReceiveObjectCollection<C, T>(id, callback));
 			return;
 		}
 
@@ -704,7 +705,7 @@ public class Messenger : IDisposable
 
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceiveObjectArray(id, callback));
+			DefaultRunPostInit(() => ReceiveObjectArray(id, callback));
 			return;
 		}
 
@@ -720,34 +721,35 @@ public class Messenger : IDisposable
 	{
 		if (!IsInitialized)
 		{
-			RunPostInit(() => SendPing());
+			DefaultRunPostInit(() => SendPing());
 			return;
 		}
 
-		var pingCommand = new PingCommand();
+		var cmd = new PingCommand();
+		cmd.Owner = _ownerId;
+		cmd.Id = "Ping";
 		_lastPingTime = DateTime.UtcNow;
-		CurrentSystem!.SendPackable(pingCommand);
+		CurrentSystem!.SendPackable(cmd);
 	}
 
 	/// <summary>
-	/// Register a delegate to be called when this process gets a ping response
-	/// Calling <see cref="SendPing"/> should then result in the delegate being called shortly after if the other process is active
+	/// Register a delegate to be called when this process gets a ping
+	/// Calling <see cref="SendPing"/> will then result in the delegate being called shortly after if the other process is active
 	/// </summary>
 	/// <param name="callback">The delegate to be called when the ping response gets received</param>
 	public void ReceivePing(Action<TimeSpan> callback)
 	{
 		if (!IsInitialized)
 		{
-			RunPostInit(() => ReceivePing(callback));
+			DefaultRunPostInit(() => ReceivePing(callback));
 			return;
 		}
 
-		CurrentSystem!.RegisterCallback<PingCommand>((ping) => callback?.Invoke(DateTime.UtcNow - _lastPingTime));
+		CurrentSystem!.RegisterCallback<PingCommand>(_ownerId, "Ping", (ping) => callback?.Invoke(DateTime.UtcNow - _lastPingTime));
 	}
 
     public void Dispose()
     {
-        CurrentSystem!.UnregisterOwner(_ownerId);
-		_customSystem = null;
+        CurrentSystem?.UnregisterOwner(_ownerId);
     }
 }

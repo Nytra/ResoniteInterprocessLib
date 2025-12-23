@@ -7,23 +7,6 @@ namespace InterprocessLibStandaloneTest
     {
 		private static CancellationTokenSource _cancel = new();
 
-		private static void FailHandler(Exception ex)
-		{
-			Console.WriteLine($"[InterprocessLib.Tests] [ERROR] Exception in custom messaging backend: {ex}");
-		}
-
-		private static void WarnHandler(string msg)
-		{
-			Console.WriteLine($"[InterprocessLib.Tests] [WARN] {msg}");
-		}
-
-		private static void DebugHandler(string msg)
-		{
-#if DEBUG
-			Console.WriteLine($"[InterprocessLib.Tests] [DEBUG] {msg}");
-#endif
-		}
-
 		static void Main(string[] args)
         {
 			string? queueName;
@@ -37,10 +20,21 @@ namespace InterprocessLibStandaloneTest
 				Console.WriteLine("Queue name:");
 				queueName = Console.ReadLine();
 			}
-				
-			Messenger.OnWarning = WarnHandler;
-			Messenger.OnFailure = FailHandler;
-			Messenger.OnDebug = DebugHandler;
+
+			Messenger.OnWarning += (msg) =>
+			{
+				Console.WriteLine($"[InterprocessLib] [WARN] {msg}");
+			};
+			Messenger.OnFailure += (ex) =>
+			{
+				Console.WriteLine($"[InterprocessLib] [ERROR] {ex}");
+			};
+#if DEBUG
+			Messenger.OnDebug += (msg) => 
+			{
+				Console.WriteLine($"[InterprocessLib] [DEBUG] {msg}");
+			};
+#endif
 			
 			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!);
 

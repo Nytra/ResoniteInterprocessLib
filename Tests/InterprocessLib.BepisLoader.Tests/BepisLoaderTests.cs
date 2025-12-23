@@ -1,10 +1,9 @@
-﻿//#define TEST_SPAWN_PROCESS
+﻿#define TEST_SPAWN_PROCESS
 
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
-using Elements.Core;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -23,12 +22,13 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<int>? SyncTestOutput;
 	public static ConfigEntry<bool>? ResetToggle;
 	public static ConfigEntry<bool>? CheckLatencyToggle;
-	public static ConfigEntry<double>? LatencyMilliseconds;
+	public static ConfigEntry<double>? UnityLatencyMilliseconds;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
 	public static ConfigEntry<bool>? SpawnProcessToggle;
-	public static ConfigEntry<DateTime>? LastProcessHeartbeat;
+	public static ConfigEntry<DateTime>? LastChildProcessPing;
+	public static ConfigEntry<double>? ChildProcessLatencyMilliseconds;
 	private static Random _rand = new();
 	private static string? _customQueueName;
 	private static Process? _customProcess;
@@ -41,10 +41,10 @@ public class Plugin : BasePlugin
 		_customQueueName = $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
 		_customMessenger = new Messenger("InterprocessLib.Tests", true, _customQueueName);
-		_customMessenger!.ReceiveEmptyCommand("Heartbeat", () =>
+		_customMessenger.ReceivePing((latency) =>
 		{
-			LastProcessHeartbeat!.Value = DateTime.Now;
-			_customMessenger.SendEmptyCommand("HeartbeatResponse");
+			LastChildProcessPing!.Value = DateTime.Now;
+			ChildProcessLatencyMilliseconds!.Value = latency.TotalMilliseconds;
 		});
 		_customProcess = new Process();
 
@@ -72,34 +72,24 @@ public class Plugin : BasePlugin
 	public override void Load()
 	{
 		Log = base.Log;
-		Log.LogEvent += (sender, eventArgs) => 
-		{
-			switch (eventArgs.Level)
-			{
-				case LogLevel.Error:
-					UniLog.Error($"[{PluginMetadata.NAME}] {eventArgs.Data}");
-					break;
-				case LogLevel.Warning:
-					UniLog.Warning($"[{PluginMetadata.NAME}] {eventArgs.Data}");
-					break;
-				default:
-					UniLog.Log($"[{PluginMetadata.NAME}] {eventArgs.Data}");
-					break;
-			}
-		};
+
+		Messenger.OnWarning += Log.LogWarning;
+		Messenger.OnFailure += Log.LogError;
+		Messenger.OnDebug += Log.LogDebug;
 
 		_messenger = new Messenger("InterprocessLib.Tests");
 
 		Tests.RunTests(_messenger, Log!.LogInfo);
 
 #if TEST_SPAWN_PROCESS
-		SpawnProcess();
 		SpawnProcessToggle = Config.Bind("General", "SpawnChildProcess", false);
 		SpawnProcessToggle.SettingChanged += (sender, args) =>
 		{
 			SpawnProcess();
 		};
-		LastProcessHeartbeat = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
+		LastChildProcessPing = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
+		ChildProcessLatencyMilliseconds = Config.Bind("General", "ChildProcessLatencyMilliseconds", -1.0);
+		SpawnProcess();
 #endif
 
 		MyValue = Config.Bind("General", "SyncTest", 34);
@@ -109,12 +99,12 @@ public class Plugin : BasePlugin
 		CheckSyncToggle = Config.Bind("General", "CheckSync", false);
 		SyncTestOutput = Config.Bind("General", "SyncTestOutput", 0);
 		ResetToggle = Config.Bind("General", "ResetToggle", false);
-		LatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
+		UnityLatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
 		CheckLatencyToggle = Config.Bind("General", "CheckLatencyToggle", false);
 
 		_messenger.ReceivePing((latency) =>
 		{
-			LatencyMilliseconds.Value = latency.TotalMilliseconds;
+			UnityLatencyMilliseconds.Value = latency.TotalMilliseconds;
 		});
 		_messenger.SendPing();
 

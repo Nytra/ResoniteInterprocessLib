@@ -9,18 +9,18 @@ namespace InterprocessLib;
 
 internal static class Initializer
 {
-	public static void Init()
+	public static async void Init()
 	{
-		Messenger.OnWarning = (msg) =>
+		Messenger.OnWarning += (msg) =>
 		{
 			Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
 		};
-		Messenger.OnFailure = (ex) =>
+		Messenger.OnFailure += (ex) =>
 		{
-			Debug.LogError($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Host!\n{ex}");
+			Debug.LogError($"[InterprocessLib] [ERROR] {ex}");
 		};
 #if DEBUG
-		Messenger.OnDebug = (msg) => 
+		Messenger.OnDebug += (msg) => 
 		{
 			Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
 		};
@@ -44,24 +44,15 @@ internal static class Initializer
 		var engineSharedMemoryPrefix = fullQueueName?.Substring(0, fullQueueName.IndexOf('_'));
 		if (fullQueueName is null || engineSharedMemoryPrefix!.Length == 0)
 		{
-			var fallbackTask = Messenger.GetFallbackSystem("Resonite", false, MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			fallbackTask.Wait();
-			system = fallbackTask.Result;
-			if (system is null)
-				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
+			system = await Messenger.GetFallbackSystem(false);
 		}
 		else
 		{
-			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
 			system.Connect();
 		}
 
-		lock (Messenger.LockObj)
-		{
-			Messenger.PreInit(system);
-			Messenger.SetDefaultSystem(system);
-			system.Initialize();
-		}
+		Messenger.InitializeDefaultSystem(system);
 
 		//UnityEngine.Debug.Log("DONE");
 	}

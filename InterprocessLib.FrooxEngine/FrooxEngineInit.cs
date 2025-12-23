@@ -20,7 +20,7 @@ internal class FrooxEnginePool : IMemoryPackerEntityPool
 
 internal static class Initializer
 {
-	public static void Init()
+	public static async void Init()
 	{
 		var args = Environment.GetCommandLineArgs();
 		string? queueName = null;
@@ -33,47 +33,35 @@ internal static class Initializer
 			}
 		}
 
-		Messenger.OnWarning = (msg) =>
+		Messenger.OnWarning += (msg) =>
 		{
 			UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
 		};
-		Messenger.OnFailure = (ex) =>
+		Messenger.OnFailure += (ex) =>
 		{
-			UniLog.Error($"[InterprocessLib] [ERROR] Error in InterprocessLib Messaging Backend!\n{ex}");
+			UniLog.Error($"[InterprocessLib] [ERROR] {ex}");
 		};
 #if DEBUG
-		Messenger.OnDebug = (msg) => 
+		Messenger.OnDebug += (msg) => 
 		{
 			UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
 		};
 #endif
 
-		MessagingSystem? system = null;
+		MessagingSystem system;
 
-		// If the queue name is null then the engine doesn't have a renderer, such as when it's a headless
 		if (queueName is null)
 		{
-			Messenger.OnWarning?.Invoke("Default shared memory queue name is null! This can happen on headless. Attempting to use fallback...");
-			var task = Messenger.GetFallbackSystem("Fallback", true, MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
-			task.Wait();
-			system = task.Result;
-			if (system is null)
-			{
-				throw new EntryPointNotFoundException("Unable to get fallback messaging system!");
-			}
+			Messenger.WarnHandler("Default shared memory queue name is null! This can happen on headless. Attempting to use fallback...");
+			system = await Messenger.GetFallbackSystem(true);
 		}
 		else
 		{
-			system = new MessagingSystem(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.OnFailure, Messenger.OnWarning, Messenger.OnDebug);
+			system = new MessagingSystem(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
 			system.Connect();
 		}
 
-		lock (Messenger.LockObj)
-		{
-			Messenger.PreInit(system);
-			Messenger.SetDefaultSystem(system);
-			system.Initialize();
-		}
+		Messenger.InitializeDefaultSystem(system);
 		
 		//Engine.Current.OnShutdown += system.Dispose;
 	}

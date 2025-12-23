@@ -92,8 +92,6 @@ internal class TypeManager
 	{
 		var type = typeof(T);
 
-		Messenger.OnDebug?.Invoke($"Registering type: {type.Name}");
-
 		PushNewTypes([type]);
 	}
 

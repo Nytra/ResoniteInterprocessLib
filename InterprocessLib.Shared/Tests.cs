@@ -12,7 +12,6 @@ public static class Tests
 		_messenger = messenger;
 		_logCallback = logCallback;
 
-		TestUnknownCommandId();
 		TestNullString();
 		TestEmptyCommand();
 		TestString();
@@ -99,11 +98,6 @@ public static class Tests
 		});
 		var val = ShadowType.Soft;
 		_messenger.SendValue<ShadowType>("TestVanillaEnum", val);
-	}
-
-	static void TestUnknownCommandId()
-	{
-		_messenger!.SendEmptyCommand("UnknownIdTest");
 	}
 
 	static void TestNullString()
