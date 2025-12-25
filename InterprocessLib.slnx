@@ -6,6 +6,10 @@
     <Platform Name="x86" />
   </Configurations>
 
+  <Project Path="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
+  <Project Path="InterprocessLib.Standalone/InterprocessLib.Standalone.csproj" />
+  <Project Path="InterprocessLib.Unity/InterprocessLib.Unity.csproj" />
+
   <Folder Name="/Extensions/">
     <Project Path="Extensions/InterprocessLib.BepInEx_Extensions/InterprocessLib.BepInEx_Extensions.csproj">
       <BuildDependency Project="InterprocessLib.Unity/InterprocessLib.Unity.csproj" />
@@ -35,9 +39,5 @@
       <BuildDependency Project="InterprocessLib.Standalone/InterprocessLib.Standalone.csproj" />
     </Project>
   </Folder>
-  
-  <Project Path="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
-  <Project Path="InterprocessLib.Standalone/InterprocessLib.Standalone.csproj" />
-  <Project Path="InterprocessLib.Unity/InterprocessLib.Unity.csproj" />
   
 </Solution>

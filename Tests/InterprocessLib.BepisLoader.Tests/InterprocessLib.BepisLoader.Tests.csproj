@@ -55,9 +55,11 @@
   <ItemGroup>
     <Reference Include="InterprocessLib.BepisLoader_Extensions">
       <HintPath>..\..\out\InterprocessLib.BepisLoader_Extensions.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="InterprocessLib.FrooxEngine">
       <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
 
@@ -66,8 +68,8 @@
       <PluginFiles Include="$(TargetPath)" />
     </ItemGroup>
   
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
-    <Message Text="Copied plugin files to out dir" Importance="high" />
+    <!-- <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+    <Message Text="Copied plugin files to out dir" Importance="high" /> -->
     
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
     <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />

@@ -12,7 +12,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
@@ -21,16 +20,14 @@
     <RestoreAdditionalProjectSources>
       https://nuget-modding.resonite.net/v3/index.json;
     </RestoreAdditionalProjectSources>
-    <Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
 
-  <!-- Modding dependencies -->
   <ItemGroup>
     <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
   </ItemGroup>
   
   <ItemGroup Condition="!Exists('$(GamePath)')">
-    <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
+    <PackageReference Include="Resonite.GameLibs" Version="2025.*" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Local game references -->
@@ -56,12 +53,14 @@
   <ItemGroup>
     <Reference Include="InterprocessLib.FrooxEngine">
       <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
+      <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
     </ItemGroup>
   
   <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />

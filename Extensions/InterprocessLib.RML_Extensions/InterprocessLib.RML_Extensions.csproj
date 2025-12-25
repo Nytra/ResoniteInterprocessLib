@@ -5,25 +5,19 @@
     <Authors>Nytra</Authors>
     <TargetFramework>net10.0</TargetFramework>
     <Langversion>14</Langversion>
-    <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.RML_Extensions</PackageId>
-    <Product>InterprocessLib.RML_Extensions</Product>
-    <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyToPlugins>true</CopyToPlugins>
     <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
     <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
     <GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
     <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
-    <Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
   
   <ItemGroup Condition="!Exists('$(GamePath)')">
-    <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
+    <PackageReference Include="Resonite.GameLibs" Version="2025.*" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Local game references -->
@@ -49,18 +43,17 @@
   <ItemGroup>
     <Reference Include="InterprocessLib.FrooxEngine">
       <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
+      <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
     </ItemGroup>
   
-  <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
     <Message Text="Copied files to out dir" Importance="high" />
-    
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(GamePath)rml_libs" Condition="'$(CopyToPlugins)' == 'true'" />
-    <Message Text="Copied plugin files to $(GamePath)rml_libs" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
   </Target>
 </Project>
