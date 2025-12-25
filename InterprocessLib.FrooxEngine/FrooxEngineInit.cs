@@ -53,8 +53,7 @@ internal static class Initializer
 
 		if (queueName is null)
 		{
-			Messenger.WarnHandler("Default shared memory queue name is null! This can happen on headless. Attempting to use fallback...");
-			system = await Messenger.GetFallbackSystem(true);
+			throw new InvalidDataException("Could not get default FrooxEngine queue name! If this is a headless, you need to use the other Messenger constructor to manually specify a queue name.");
 		}
 		else
 		{
@@ -65,7 +64,7 @@ internal static class Initializer
 		Messenger.InitializeDefaultSystem(system);
 		
 		while (Engine.Current is null)
-			await Task.Delay(100);
+			await Task.Delay(1);
 
 		Engine.Current.OnShutdown += system.Dispose;
 	}

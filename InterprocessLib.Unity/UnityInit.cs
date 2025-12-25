@@ -41,7 +41,7 @@ internal static class Initializer
 		var engineSharedMemoryPrefix = fullQueueName?.Substring(0, fullQueueName.IndexOf('_'));
 		if (fullQueueName is null || engineSharedMemoryPrefix!.Length == 0)
 		{
-			system = await Messenger.GetFallbackSystem(false);
+			throw new InvalidDataException("Could not get default Unity queue name!");
 		}
 		else
 		{
