@@ -21,7 +21,7 @@ internal class FrooxEnginePool : IMemoryPackerEntityPool
 
 internal static class Initializer
 {
-	public static async void Init()
+	public static void Init()
 	{
 		var args = Environment.GetCommandLineArgs();
 		string? queueName = null;
@@ -61,10 +61,13 @@ internal static class Initializer
 		}
 
 		Messenger.InitializeDefaultSystem(system);
-		
-		while (Engine.Current is null)
-			await Task.Delay(1);
 
-		Engine.Current.OnShutdown += system.Dispose; // This is important- as the authority process we need to dispose of the queue on shutdown, otherwise the shared memory files don't get deleted (at least on Linux)
+		Task.Run(async () =>
+		{
+			while (Engine.Current is null)
+				await Task.Delay(1);
+
+			Engine.Current.OnShutdown += system.Dispose; // This is important- as the authority process we need to dispose of the queue on shutdown, otherwise the shared memory files don't get deleted (at least on Linux)
+		});
 	}
 }

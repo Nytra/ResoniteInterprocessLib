@@ -13,35 +13,12 @@ public class Messenger : IDisposable
 
 	private MessagingSystem? CurrentSystem => _customSystem ?? _defaultSystem;
 
-	/// <summary>
-	/// The underlying interprocess queue name for this instance
-	/// </summary>
-	public string? QueueName => CurrentSystem?.QueueName;
-
-	/// <summary>
-	/// The capacity of the underlying interprocess queue for this instance
-	/// </summary>
-	public long? QueueCapacity => CurrentSystem?.QueueCapacity;
-
-	/// <summary>
-	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the non-authority process initializes its interprocess connection.
-	/// </summary>
-	public bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
-
-	/// <summary>
-	/// Does this process have authority over the other process? Might be null if the library has not fully initialized yet
-	/// </summary>
-	public bool? IsAuthority => CurrentSystem?.IsAuthority;
-
-	/// <summary>
-	/// Is the interprocess connection available? this might be false if the library has not fully initialized, or if there has been a failure in the interprocess queue
-	/// </summary>
-	public bool IsConnected => CurrentSystem?.IsConnected ?? false;
+	private bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
 
 	internal static bool DefaultInitStarted = false;
 
 	/// <summary>
-	/// Called when the backend connection has a critical error
+	/// Called when the interprocess queue has a critical error
 	/// </summary>
 	public static event Action<Exception>? OnFailure;
 
@@ -51,7 +28,7 @@ public class Messenger : IDisposable
 	public static event Action<string>? OnWarning;
 
 	/// <summary>
-	/// Called with additional debugging information
+	/// Called with debugging information
 	/// </summary>
 	public static event Action<string>? OnDebug;
 

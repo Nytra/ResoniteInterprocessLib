@@ -184,7 +184,6 @@ internal class MessagingSystem : IDisposable
 					_onDebug?.Invoke($"{LogPrefix}Received additional MessengerReadyCommand! Registered types will be reset!");
 					OutgoingTypeManager = new(_pool, OnOutgoingTypeRegistered);
 					IncomingTypeManager = new(_pool, null);
-					SendPackable(new MessengerReadyCommand());
 				}
 				else
 				{

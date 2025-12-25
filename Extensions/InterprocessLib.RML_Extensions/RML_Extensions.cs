@@ -10,8 +10,6 @@ public static class RML_Extensions
 	{
 		messenger.ReceiveConfigEntry<T>(configEntry);
 		_syncStates[configEntry] = true;
-		if (messenger.IsAuthority == true)
-			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.OnChanged += (object? newValue) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
@@ -23,8 +21,6 @@ public static class RML_Extensions
 	{
 		messenger.ReceiveConfigEntry(configEntry);
 		_syncStates[configEntry] = true;
-		if (messenger.IsAuthority == true)
-			messenger.SendConfigEntry(configEntry);
 		configEntry.OnChanged += (object? newValue) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)

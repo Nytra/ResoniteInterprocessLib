@@ -6,7 +6,7 @@ namespace InterprocessLib;
 
 internal static class Initializer
 {
-	public static async void Init()
+	public static void Init()
 	{
 		Messenger.OnWarning += (msg) =>
 		{

@@ -10,8 +10,6 @@ public static class BepInExExtensions
 	{
 		messenger.ReceiveConfigEntry<T>(configEntry);
 		_syncStates[configEntry] = true;
-		if (messenger.IsAuthority == true)
-			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
@@ -23,8 +21,6 @@ public static class BepInExExtensions
 	{
 		messenger.ReceiveConfigEntry(configEntry);
 		_syncStates[configEntry] = true;
-		if (messenger.IsAuthority == true)
-			messenger.SendConfigEntry(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
