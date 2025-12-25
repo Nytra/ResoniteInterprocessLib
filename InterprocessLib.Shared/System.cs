@@ -142,7 +142,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 	{
 		if (command is WrapperCommand wrapperCommand)
 		{
-			var ownerData = wrapperCommand.OwnerData!;
+			var ownerData = _ownerData[wrapperCommand.Owner!];
 
 			IMemoryPackable packable = wrapperCommand.Packable!;
 			_onDebug?.Invoke($"{QueueName}:{ownerData.Id} Received {packable}");
@@ -190,8 +190,8 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 	public void SendPackable<T>(string ownerId, string id, T packable) where T : class, IMemoryPackable, new()
 	{
 		if (packable is null) throw new ArgumentNullException(nameof(packable));
-
 		if (ownerId is null) throw new ArgumentNullException(nameof(ownerId));
+		if (id is null) throw new ArgumentNullException(nameof(id));
 
 		_onDebug?.Invoke($"{QueueName}:{ownerId} Sending: {packable}");
 
@@ -205,11 +205,13 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 
 		var wrapper = new WrapperCommand();
 		wrapper.TypeIndex = ownerData.OutgoingTypeManager.GetTypeIndex(typeof(T));
-		wrapper.OwnerData = ownerData;
+		wrapper.Owner = ownerId;
 		wrapper.Id = id;
 		wrapper.Packable = packable;
 
 		_primary.SendCommand(wrapper);
+
+		ownerData.OutgoingTypeManager.Return(typeof(T), packable);
 	}
 
 	public void UnregisterOwner(string ownerId)

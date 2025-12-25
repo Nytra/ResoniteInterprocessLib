@@ -542,7 +542,7 @@ internal sealed class WrapperCommand : RendererCommand
 {
 	public int TypeIndex;
 	public IMemoryPackable? Packable;
-	internal MessagingQueue.OwnerData? OwnerData;
+	public string? Owner;
 	public string? Id;
 
 	public static void InitNewTypes(List<Type> types)
@@ -554,33 +554,31 @@ internal sealed class WrapperCommand : RendererCommand
 	{
 		if (Packable is null) throw new ArgumentNullException(nameof(Packable));
 		if (Id is null) throw new ArgumentNullException(nameof(Id));
-		if (OwnerData is null) throw new ArgumentNullException(nameof(OwnerData));
+		if (Owner is null) throw new ArgumentNullException(nameof(Owner));
 
-		packer.Write(OwnerData.Id!);
+		packer.Write(Owner!);
 
 		packer.Write(Id!);
 
 		packer.Write(TypeIndex);
 		
 		Packable!.Pack(ref packer);
-		OwnerData.OutgoingTypeManager.Return(Packable.GetType(), Packable);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
 		var queue = (MessagingQueue)unpacker.Pool; // dirty hack
 
-		string? ownerId = null;
-		unpacker.Read(ref ownerId!);
-		if (!queue.HasOwner(ownerId)) throw new InvalidDataException($"Cannot unpack for unregistered owner: {ownerId}"); // No reason to throw an exception for this
+		unpacker.Read(ref Owner!);
+		if (!queue.HasOwner(Owner)) throw new InvalidDataException($"Cannot unpack for unregistered owner: {Owner}"); // No reason to throw an exception for this
 
-		OwnerData = queue.GetOwnerData(ownerId);
+		var ownerData = queue.GetOwnerData(Owner);
 
 		unpacker.Read(ref Id!);
 
 		unpacker.Read(ref TypeIndex);
 
-		Packable = OwnerData.IncomingTypeManager.BorrowByTypeIndex(TypeIndex);
+		Packable = ownerData.IncomingTypeManager.BorrowByTypeIndex(TypeIndex);
 		Packable.Unpack(ref unpacker);
 	}
 }
