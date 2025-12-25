@@ -4,48 +4,49 @@ using UnityEngine;
 
 namespace InterprocessLib;
 
-internal static class Initializer
+internal class Defaults
 {
-	public static void Init()
+	private static MessagingQueue? _defaultQueue;
+	public static IMemoryPackerEntityPool DefaultPool => PackerMemoryPool.Instance;
+	public static MessagingQueue DefaultQueue
 	{
-		Messenger.OnWarning += (msg) =>
+		get
 		{
-			Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
-		};
-		Messenger.OnFailure += (ex) =>
-		{
-			Debug.LogError($"[InterprocessLib] [ERROR] {ex}");
-		};
-#if DEBUG
-		Messenger.OnDebug += (msg) => 
-		{
-			Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
-		};
-#endif
+			if (_defaultQueue is not null) return _defaultQueue;
 
-		var args = Environment.GetCommandLineArgs();
-		string? fullQueueName = null;
-		for (int i = 0; i < args.Length; i++)
-		{
-			if (args[i].Equals("-QueueName", StringComparison.InvariantCultureIgnoreCase))
+			Messenger.OnWarning += (msg) =>
 			{
-				fullQueueName = args[i + 1];
-				break;
+				Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
+			};
+			Messenger.OnFailure += (ex) =>
+			{
+				Debug.LogError($"[InterprocessLib] [ERROR] {ex}");
+			};
+	#if DEBUG
+			Messenger.OnDebug += (msg) => 
+			{
+				Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
+			};
+	#endif
+
+			var args = Environment.GetCommandLineArgs();
+			string? fullQueueName = null;
+			for (int i = 0; i < args.Length; i++)
+			{
+				if (args[i].Equals("-QueueName", StringComparison.InvariantCultureIgnoreCase))
+				{
+					fullQueueName = args[i + 1];
+					break;
+				}
 			}
-		}
 
-		MessagingSystem? system = null;
+			if (fullQueueName is null) throw new InvalidDataException("QueueName argument is null!");
 
-		var engineSharedMemoryPrefix = fullQueueName?.Substring(0, fullQueueName.IndexOf('_'));
-		if (fullQueueName is null || engineSharedMemoryPrefix!.Length == 0)
-		{
-			throw new InvalidDataException("Could not get default Unity queue name!");
-		}
-		else
-		{
-			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
-		}
+			var engineSharedMemoryPrefix = fullQueueName.Substring(0, fullQueueName.IndexOf('_'));
 
-		Messenger.InitializeDefaultSystem(system);
+			_defaultQueue = new MessagingQueue(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
+
+			return _defaultQueue;
+		}
 	}
 }

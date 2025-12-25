@@ -1,4 +1,5 @@
-﻿using Renderite.Shared;
+﻿using System.Runtime;
+using Renderite.Shared;
 
 namespace InterprocessLib;
 
@@ -7,15 +8,7 @@ namespace InterprocessLib;
 /// </summary>
 public class Messenger : IDisposable
 {
-	private static MessagingSystem? _defaultSystem;
-
-	private MessagingSystem? _customSystem;
-
-	private MessagingSystem? CurrentSystem => _customSystem ?? _defaultSystem;
-
-	private bool IsInitialized => CurrentSystem?.IsInitialized ?? false;
-
-	internal static bool DefaultInitStarted = false;
+	private MessagingQueue _currentQueue;
 
 	/// <summary>
 	/// Called when the interprocess queue has a critical error
@@ -32,13 +25,7 @@ public class Messenger : IDisposable
 	/// </summary>
 	public static event Action<string>? OnDebug;
 
-	private static List<Action>? _defaultPostInitActions = new();
-
-	private static List<Action>? _defaultPreInitActions = new();
-
 	private string _ownerId;
-
-	internal static readonly object LockObj = new();
 
 	private DateTime _lastPingTime;
 
@@ -57,8 +44,8 @@ public class Messenger : IDisposable
 			throw new ArgumentNullException(nameof(ownerId));
 
 		_ownerId = ownerId;
-
-		DefaultInit();
+		_currentQueue = Defaults.DefaultQueue;
+		InitQueue();
 	}
 
 	/// <summary>
@@ -73,34 +60,8 @@ public class Messenger : IDisposable
 			throw new ArgumentNullException(nameof(ownerId));
 
 		_ownerId = ownerId;
-
-		DefaultInit();
-	}
-
-	private void DefaultInit()
-	{
-		if (_defaultSystem is null)
-		{
-			DefaultRunPreInit(Register);
-
-			if (!DefaultInitStarted)
-			{
-				DefaultInitStarted = true;
-				var initType = Type.GetType("InterprocessLib.Initializer");
-				if (initType is not null)
-				{
-					initType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-				}
-				else
-				{
-					throw new EntryPointNotFoundException("Could not find default InterprocessLib initialization type!");
-				}
-			}
-		}
-		else
-		{
-			Register();
-		}
+		_currentQueue = Defaults.DefaultQueue;
+		InitQueue();
 	}
 
 	/// <summary>
@@ -118,53 +79,26 @@ public class Messenger : IDisposable
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
+		_ownerId = ownerId;
+
 		if (queueName is null)
 			throw new ArgumentNullException(nameof(queueName));
 
-		IMemoryPackerEntityPool? actualPool = pool;
-		if (actualPool is null)
+		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingSystem)
 		{
-			var frooxEnginePoolType = Type.GetType("InterprocessLib.FrooxEnginePool");
-			if (frooxEnginePoolType is not null)
-			{
-				actualPool = (IMemoryPackerEntityPool)frooxEnginePoolType.GetField("Instance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-			}
-			else
-			{
-				var unityPoolType = Type.GetType("Renderite.Unity.PackerMemoryPool");
-				if (unityPoolType is not null)
-				{
-					actualPool = (IMemoryPackerEntityPool)unityPoolType.GetField("Instance", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.GetValue(null)!;
-				}
-				else
-				{
-					actualPool = FallbackPool.Instance;
-				}
-			}
-		}
-
-		if (MessagingSystem.TryGetRegisteredSystem(queueName) is not MessagingSystem existingSystem)
-		{
-			_customSystem = new MessagingSystem(isAuthority, queueName, queueCapacity, actualPool, OnFailure, OnWarning, OnDebug);
+			_currentQueue = new MessagingQueue(isAuthority, queueName, queueCapacity, pool ?? Defaults.DefaultPool, OnFailure, OnWarning, OnDebug);
 		}
 		else
 		{
-			_customSystem = existingSystem;
+			_currentQueue = existingSystem;
 		}
 
-		_ownerId = ownerId;
+		InitQueue();
+	}
 
-		Register();
-
-		if (!_customSystem.IsConnected)
-		{
-			_customSystem.Connect();
-		}
-
-		if (!_customSystem!.IsInitialized)
-		{
-			_customSystem.Initialize();
-		}
+	private void InitQueue()
+	{
+		_currentQueue.RegisterOwner(_ownerId);
 	}
 
 	internal static void WarnHandler(string str)
@@ -182,98 +116,14 @@ public class Messenger : IDisposable
 		OnDebug?.Invoke(str);
 	}
 
-	internal static void InitializeDefaultSystem(MessagingSystem system)
-	{
-		lock (LockObj)
-		{
-			_defaultSystem = system;
-
-			foreach (var act in _defaultPreInitActions!)
-			{
-				try
-				{
-					act();
-				}
-				catch (Exception ex)
-				{
-					WarnHandler($"Exception running pre-init action:\n{ex}");
-				}
-			}
-			_defaultPreInitActions = null;
-			
-			system.Connect();
-			system.Initialize();
-
-			foreach (var act in _defaultPostInitActions!)
-			{
-				try
-				{
-					act();
-				}
-				catch (Exception ex)
-				{
-					WarnHandler($"Exception running post-init action:\n{ex}");
-				}
-			}
-			_defaultPostInitActions = null;
-		}
-	}
-
-	private void DefaultRunPostInit(Action act)
-	{
-		lock (LockObj)
-		{
-			if (IsInitialized)
-				act();
-			else
-				_defaultPostInitActions!.Add(act);
-		}
-	}
-
-	private void DefaultRunPreInit(Action act)
-	{
-		lock (LockObj)
-		{
-			if (IsInitialized)
-				act();
-			else
-				_defaultPreInitActions!.Add(act);
-		}
-	}
-
-	private void Register()
-	{
-		if (CurrentSystem!.HasOwner(_ownerId))
-			WarnHandler($"Owner {_ownerId} has already been registered!");
-		else
-			CurrentSystem.RegisterOwner(_ownerId);
-
-		// CurrentSystem.RegisterCallback<ValueCommand<bool>>(_ownerId, "Ping", (ping) =>
-		// {
-		// 	if (!ping.Value)
-		// 	{
-		// 		ping.Value = true;
-		// 		CurrentSystem.SendPackable(ping);
-		// 	}
-		// });
-	}
-
 	public void SendValue<T>(string id, T value) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendValue(id, value));
-			return;
-		}
-
 		var command = new ValueCommand<T>();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Value = value;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	[Obsolete("Use SendValueCollection instead.")]
@@ -293,17 +143,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendValueCollection<C, T>(id, collection));
-			return;
-		}
-
 		var command = new ValueCollectionCommand<C, T>();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Values = collection;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void SendValueArray<T>(string id, T[]? array) where T : unmanaged
@@ -311,17 +153,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendValueArray(id, array));
-			return;
-		}
-
 		var command = new ValueArrayCommand<T>();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Values = array;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void SendString(string id, string? str)
@@ -329,17 +163,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendString(id, str));
-			return;
-		}
-
 		var command = new StringCommand();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.String = str;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	[Obsolete("Use SendStringCollection instead.")]
@@ -353,17 +179,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendStringCollection<C>(id, collection));
-			return;
-		}
-
 		var command = new StringCollectionCommand<C>();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Strings = collection;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void SendStringArray(string id, string?[]? array)
@@ -371,17 +189,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendStringArray(id, array));
-			return;
-		}
-
 		var command = new StringArrayCommand();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Strings = array;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void SendEmptyCommand(string id)
@@ -389,16 +199,8 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendEmptyCommand(id));
-			return;
-		}
-
 		var command = new EmptyCommand();
-		command.Owner = _ownerId;
-		command.Id = id;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void SendObject<T>(string id, T? obj) where T : class?, IMemoryPackable?, new()
@@ -406,18 +208,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendObject(id, obj));
-			return;
-		}
-
 		var command = new ObjectCommand<T>();
 		command.Object = obj;
-		command.Owner = _ownerId;
-		command.Id = id;
 
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	[Obsolete("Use SendObjectCollection instead.")]
@@ -431,17 +225,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendObjectCollection<C, T>(id, collection));
-			return;
-		}
-
 		var command = new ObjectCollectionCommand<C, T>();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Objects = collection;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void SendObjectArray<T>(string id, T[]? array) where T : class?, IMemoryPackable?, new()
@@ -449,17 +235,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendObjectArray(id, array));
-			return;
-		}
-
 		var command = new ObjectArrayCommand<T>();
-		command.Owner = _ownerId;
-		command.Id = id;
 		command.Objects = array;
-		CurrentSystem!.SendPackable(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
 	}
 
 	public void ReceiveValue<T>(string id, Action<T>? callback) where T : unmanaged
@@ -467,13 +245,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveValue(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<ValueCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Value));
+		_currentQueue.RegisterCallback<ValueCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Value));
 	}
 
 	[Obsolete("Use ReceiveValueCollection instead.")]
@@ -493,13 +265,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveValueCollection<C, T>(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<ValueCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values!));
+		_currentQueue.RegisterCallback<ValueCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values!));
 	}
 
 	public void ReceiveValueArray<T>(string id, Action<T[]?>? callback) where T : unmanaged
@@ -507,13 +273,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveValueArray(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<ValueArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values));
+		_currentQueue.RegisterCallback<ValueArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values));
 	}
 
 	public void ReceiveString(string id, Action<string?>? callback)
@@ -521,13 +281,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveString(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<StringCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.String));
+		_currentQueue.RegisterCallback<StringCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.String));
 	}
 
 	[Obsolete("Use ReceiveStringCollection instead.")]
@@ -541,13 +295,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveStringCollection(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<StringCollectionCommand<C>>(_ownerId, id, (cmd) => callback?.Invoke((C)cmd.Strings!));
+		_currentQueue.RegisterCallback<StringCollectionCommand<C>>(_ownerId, id, (cmd) => callback?.Invoke((C)cmd.Strings!));
 	}
 
 	public void ReceiveStringArray(string id, Action<string?[]?>? callback)
@@ -555,13 +303,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveStringArray(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<StringArrayCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Strings));
+		_currentQueue.RegisterCallback<StringArrayCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Strings));
 	}
 
 	public void ReceiveEmptyCommand(string id, Action? callback)
@@ -569,13 +311,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveEmptyCommand(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<EmptyCommand>(_ownerId, id, (cmd) => callback?.Invoke());
+		_currentQueue.RegisterCallback<EmptyCommand>(_ownerId, id, (cmd) => callback?.Invoke());
 	}
 
 	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
@@ -583,13 +319,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveObject(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<ObjectCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Object!));
+		_currentQueue.RegisterCallback<ObjectCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Object!));
 	}
 
 	[Obsolete("Use ReceiveObjectCollection instead.")]
@@ -603,13 +333,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveObjectCollection<C, T>(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<ObjectCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
+		_currentQueue.RegisterCallback<ObjectCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
 	}
 
 	public void ReceiveObjectArray<T>(string id, Action<T[]>? callback) where T : class?, IMemoryPackable?, new()
@@ -617,13 +341,7 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceiveObjectArray(id, callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<ObjectArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
+		_currentQueue.RegisterCallback<ObjectArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
 	}
 
 	/// <summary>
@@ -633,17 +351,9 @@ public class Messenger : IDisposable
 	/// </summary>
 	public void SendPing()
 	{
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => SendPing());
-			return;
-		}
-
-		var cmd = new PingCommand();
-		cmd.Owner = _ownerId;
-		cmd.Id = "Ping";
+		var cmd = new EmptyCommand();
 		_lastPingTime = DateTime.UtcNow;
-		CurrentSystem!.SendPackable(cmd);
+		_currentQueue.SendPackable(_ownerId, "Ping", cmd);
 	}
 
 	/// <summary>
@@ -653,17 +363,11 @@ public class Messenger : IDisposable
 	/// <param name="callback">The delegate to be called when the ping response gets received</param>
 	public void ReceivePing(Action<TimeSpan> callback)
 	{
-		if (!IsInitialized)
-		{
-			DefaultRunPostInit(() => ReceivePing(callback));
-			return;
-		}
-
-		CurrentSystem!.RegisterCallback<PingCommand>(_ownerId, "Ping", (ping) => callback?.Invoke(DateTime.UtcNow - _lastPingTime));
+		_currentQueue.RegisterCallback<EmptyCommand>(_ownerId, "Ping", (ping) => callback?.Invoke(DateTime.UtcNow - _lastPingTime));
 	}
 
     public void Dispose()
     {
-        CurrentSystem?.UnregisterOwner(_ownerId);
+        _currentQueue.UnregisterOwner(_ownerId);
     }
 }

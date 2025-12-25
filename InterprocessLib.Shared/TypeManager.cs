@@ -23,17 +23,15 @@ internal class TypeManager
 
 	private static readonly MethodInfo _borrowMethod = typeof(TypeManager).GetMethod(nameof(Borrow), BindingFlags.Instance | BindingFlags.NonPublic, null, [], null) ?? throw new MissingMethodException(nameof(Borrow));
 	private static readonly MethodInfo _returnMethod = typeof(TypeManager).GetMethod(nameof(Return), BindingFlags.Instance | BindingFlags.NonPublic, null, [typeof(IMemoryPackable)], null) ?? throw new MissingMethodException(nameof(Return));
-
-	// These are types that will be assumed to be already registered in the other process
 	private static readonly List<Type> _coreTypes =
 	[
-		typeof(MessengerReadyCommand),
+		typeof(QueueOwnerInitCommand),
 		typeof(TypeRegistrationCommand),
-		typeof(EmptyCommand),
-		typeof(StringCommand),
-		typeof(StringArrayCommand),
-		typeof(TypeCommand),
-		typeof(PingCommand),
+		//typeof(EmptyCommand),
+		//typeof(StringCommand),
+		//typeof(StringArrayCommand),
+		//typeof(TypeCommand),
+		//typeof(PingCommand),
 	];
 
 	private Action<Type>? _onRegisteredCallback;
@@ -63,7 +61,7 @@ internal class TypeManager
 	{
 		if (_initializedCoreTypes) return;
 
-		PushNewTypes(_coreTypes);
+		_coreTypes.ForEach(InvokeRegisterType);
 
 		_initializedCoreTypes = true;
 	}
@@ -71,6 +69,11 @@ internal class TypeManager
 	internal Type GetTypeFromIndex(int index)
 	{
 		return _newTypes[index];
+	}
+
+	internal IMemoryPackable BorrowByTypeIndex(int index)
+	{
+		return _borrowers[index]();
 	}
 
 	internal int GetTypeIndex(Type type)
@@ -92,7 +95,13 @@ internal class TypeManager
 	{
 		var type = typeof(T);
 
-		PushNewTypes([type]);
+		_newTypes.Add(type);
+		_borrowers.Add((Func<IMemoryPackable>)_borrowMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Func<IMemoryPackable>), this));
+		_returners.Add((Action<IMemoryPackable>)_returnMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Action<IMemoryPackable>), this));
+		_typeToIndex[type] = _newTypes.Count - 1;
+
+		if (!_coreTypes.Contains(type))
+			_onRegisteredCallback?.Invoke(type);
 	}
 
 	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()
@@ -113,19 +122,5 @@ internal class TypeManager
 	internal void Return(Type type, IMemoryPackable obj)
 	{
 		_returners[_typeToIndex[type]](obj);
-	}
-
-	private void PushNewTypes(List<Type> types)
-	{
-		foreach (var type in types)
-		{
-			_newTypes.Add(type);
-			_borrowers.Add((Func<IMemoryPackable>)_borrowMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Func<IMemoryPackable>), this));
-			_returners.Add((Action<IMemoryPackable>)_returnMethod!.MakeGenericMethod(type).CreateDelegate(typeof(Action<IMemoryPackable>), this));
-			_typeToIndex[type] = _newTypes.Count - 1;
-
-			if (!_coreTypes.Contains(type))
-				_onRegisteredCallback?.Invoke(type);
-		}
 	}
 }

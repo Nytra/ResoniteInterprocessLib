@@ -6,69 +6,78 @@ namespace InterprocessLib;
 // IMPORTANT:
 // RendererCommand derived classes MUST NOT have constructors because it breaks Unity for some reason
 
-internal abstract class IdentifiableCommand : IMemoryPackable
-{
-	public string? Owner;
-	public string? Id;
+// internal abstract class IdentifiableCommand : IMemoryPackable
+// {
+// 	//public string? Owner;
+// 	public string? Id;
 
-	public virtual void Pack(ref MemoryPacker packer)
-	{
-		packer.Write(Owner!);
-		packer.Write(Id!);
-	}
+// 	public virtual void Pack(ref MemoryPacker packer)
+// 	{
+// 		//packer.Write(Owner!);
+// 		packer.Write(Id!);
+// 	}
 
-	public virtual void Unpack(ref MemoryUnpacker unpacker)
-	{
-		unpacker.Read(ref Owner!);
-		unpacker.Read(ref Id!);
-	}
+// 	public virtual void Unpack(ref MemoryUnpacker unpacker)
+// 	{
+// 		//unpacker.Read(ref Owner!);
+// 		unpacker.Read(ref Id!);
+// 	}
 
-	public override string ToString()
-	{
-		return $"IdentifiableCommand:{Owner}:{Id}";
-	}
-}
+// 	public override string ToString()
+// 	{
+// 		return $"IdentifiableCommand:{Id}";
+// 	}
+// }
 
-internal abstract class CollectionCommand : IdentifiableCommand
+internal abstract class CollectionCommand : IMemoryPackable
 {
 	public abstract IEnumerable? UntypedCollection { get; }
-	public abstract int? Count { get; }
+	public abstract int? Length { get; }
 	public abstract Type StoredType { get; }
 	public abstract Type CollectionType { get; }
-
-	public override string ToString()
+	public abstract void Pack(ref MemoryPacker packer);
+	public abstract void Unpack(ref MemoryUnpacker unpacker);
+    public override string ToString()
 	{
-		return $"CollectionCommand:{CollectionType.Name}<{StoredType.Name}>:{Owner}:{Id}:Count={Count?.ToString() ?? "NULL"}";
+		return $"CollectionCommand:{CollectionType.Name}<{StoredType.Name}>:Length={Length?.ToString() ?? "NULL"}";
 	}
 }
 
-internal abstract class ValueCommand : IdentifiableCommand
+internal abstract class ValueCommand : IMemoryPackable
 {
 	public abstract object UntypedValue { get; }
 	public abstract Type ValueType { get; }
-
-	public override string ToString()
+	public abstract void Pack(ref MemoryPacker packer);
+	public abstract void Unpack(ref MemoryUnpacker unpacker);
+    public override string ToString()
 	{
-		return $"ValueCommand<{ValueType.Name}>:{Owner}:{Id}:{UntypedValue}";
+		return $"ValueCommand<{ValueType.Name}>:{UntypedValue}";
 	}
 }
 
-internal abstract class ObjectCommand : IdentifiableCommand
+internal abstract class ObjectCommand : IMemoryPackable
 {
 	public abstract object? UntypedObject { get; }
 	public abstract Type ObjectType { get; }
-
+	public abstract void Pack(ref MemoryPacker packer);
+	public abstract void Unpack(ref MemoryUnpacker unpacker);
 	public override string ToString()
 	{
-		return $"ObjectCommand<{ObjectType.Name}>:{Owner}:{Id}:{UntypedObject?.ToString() ?? "NULL"}";
+		return $"ObjectCommand<{ObjectType.Name}>:{UntypedObject?.ToString() ?? "NULL"}";
 	}
 }
 
-internal sealed class EmptyCommand : IdentifiableCommand
+internal sealed class EmptyCommand : IMemoryPackable
 {
+    public void Pack(ref MemoryPacker packer)
+    {
+    }
+    public void Unpack(ref MemoryUnpacker unpacker)
+    {
+    }
 	public override string ToString()
 	{
-		return $"EmptyCommand:{Owner}:{Id}";
+		return $"EmptyCommand";
 	}
 }
 
@@ -76,7 +85,7 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 {
 	public C? Values;
 
-    public override int? Count => Values?.Count;
+    public override int? Length => Values?.Count;
 
 	public override IEnumerable? UntypedCollection => Values;
 
@@ -86,7 +95,6 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		var len = Values?.Count ?? -1;
 		packer.Write(len);
 		if (Values != null)
@@ -100,7 +108,6 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		int len = 0;
 		unpacker.Read(ref len);
 		if (len == -1)
@@ -118,11 +125,11 @@ internal sealed class ValueCollectionCommand<C, T> : CollectionCommand where C :
 	}
 }
 
-internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanaged
+internal sealed class ValueArrayCommand<T> : CollectionCommand, IMemoryPackable where T : unmanaged
 {
 	public T[]? Values;
 
-	public override int? Count => Values?.Length;
+	public override int? Length => Values?.Length;
 
 	public override IEnumerable? UntypedCollection => Values;
 
@@ -132,7 +139,6 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		var len = Values?.Length ?? -1;
 		packer.Write(len);
 		if (Values != null)
@@ -144,7 +150,6 @@ internal sealed class ValueArrayCommand<T> : CollectionCommand where T : unmanag
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		int len = 0;
 		unpacker.Read(ref len);
 		if (len == -1)
@@ -278,7 +283,7 @@ internal sealed class StringArrayCommand : CollectionCommand
 {
 	public string?[]? Strings;
 
-	public override int? Count => Strings?.Length;
+	public override int? Length => Strings?.Length;
 
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
@@ -286,7 +291,6 @@ internal sealed class StringArrayCommand : CollectionCommand
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		if (Strings is null)
 		{
 			packer.Write(-1);
@@ -302,7 +306,6 @@ internal sealed class StringArrayCommand : CollectionCommand
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		int len = 0;
 		unpacker.Read(ref len);
 		if (len == -1)
@@ -321,14 +324,13 @@ internal sealed class StringArrayCommand : CollectionCommand
 internal sealed class StringCollectionCommand<C> : CollectionCommand where C : ICollection<string>?, new()
 {
 	public IReadOnlyCollection<string?>? Strings; // IReadOnlyCollection is required for covariance of string? and string
-	public override int? Count => Strings?.Count;
+	public override int? Length => Strings?.Count;
 	public override IEnumerable? UntypedCollection => Strings;
 	public override Type StoredType => typeof(string);
 	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		if (Strings is null)
 		{
 			packer.Write(-1);
@@ -344,7 +346,6 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		int len = 0;
 		unpacker.Read(ref len);
 		if (len == -1)
@@ -366,14 +367,13 @@ internal sealed class StringCollectionCommand<C> : CollectionCommand where C : I
 internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 {
 	public C? Objects;
-	public override int? Count => Objects?.Count;
+	public override int? Length => Objects?.Count;
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
 	public override Type CollectionType => typeof(C);
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		if (Objects is null)
 		{
 			packer.Write(-1);
@@ -393,7 +393,6 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		int len = 0;
 		unpacker.Read(ref len);
 		if (len == -1)
@@ -418,7 +417,7 @@ internal sealed class ObjectCollectionCommand<C, T> : CollectionCommand where C 
 internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?, IMemoryPackable?, new()
 {
 	public T[]? Objects;
-	public override int? Count => Objects?.Length;
+	public override int? Length => Objects?.Length;
 
 	public override IEnumerable? UntypedCollection => Objects;
 	public override Type StoredType => typeof(T);
@@ -426,7 +425,6 @@ internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		if (Objects is null)
 		{
 			packer.Write(-1);
@@ -446,7 +444,6 @@ internal sealed class ObjectArrayCommand<T> : CollectionCommand where T : class?
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		int len = 0;
 		unpacker.Read(ref len);
 		if (len == -1)
@@ -475,7 +472,6 @@ internal sealed class ObjectCommand<T> : ObjectCommand where T : class?, IMemory
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 #pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
 #pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
         packer.WriteObject(Object);
@@ -485,7 +481,6 @@ internal sealed class ObjectCommand<T> : ObjectCommand where T : class?, IMemory
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 #pragma warning disable CS8631 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match constraint type.
 #pragma warning disable CS8634 // The type cannot be used as type parameter in the generic type or method. Nullability of type argument doesn't match 'class' constraint.
         unpacker.ReadObject(ref Object);
@@ -503,40 +498,36 @@ internal sealed class ValueCommand<T> : ValueCommand where T : unmanaged
 
 	public override void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		packer.Write(Value);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		unpacker.Read(ref Value);
 	}
 }
 
-internal sealed class StringCommand : IdentifiableCommand
+internal sealed class StringCommand : IMemoryPackable
 {
 	public string? String;
 
-	public override void Pack(ref MemoryPacker packer)
+	public void Pack(ref MemoryPacker packer)
 	{
-		base.Pack(ref packer);
 		packer.Write(String!);
 	}
 
-	public override void Unpack(ref MemoryUnpacker unpacker)
+	public void Unpack(ref MemoryUnpacker unpacker)
 	{
-		base.Unpack(ref unpacker);
 		unpacker.Read(ref String!);
 	}
 
 	public override string ToString()
 	{
-		return $"StringCommand:{Owner}:{Id}:{String ?? "NULL"}";
+		return $"StringCommand:{String ?? "NULL"}";
 	}
 }
 
-internal sealed class MessengerReadyCommand : IMemoryPackable
+internal sealed class QueueOwnerInitCommand : IMemoryPackable
 {
 	public void Pack(ref MemoryPacker packer)
 	{
@@ -547,27 +538,12 @@ internal sealed class MessengerReadyCommand : IMemoryPackable
 	}
 }
 
-internal sealed class PingCommand : IdentifiableCommand
-{
-	public bool Received;
-	public override void Pack(ref MemoryPacker packer)
-	{
-		base.Pack(ref packer);
-		packer.Write(Received);
-	}
-
-	public override void Unpack(ref MemoryUnpacker unpacker)
-	{
-		base.Unpack(ref unpacker);
-		unpacker.Read(ref Received);
-	}
-}
-
 internal sealed class WrapperCommand : RendererCommand
 {
 	public int TypeIndex;
-	public string? QueueName;
 	public IMemoryPackable? Packable;
+	internal MessagingQueue.OwnerData? OwnerData;
+	public string? Id;
 
 	public static void InitNewTypes(List<Type> types)
 	{
@@ -577,32 +553,34 @@ internal sealed class WrapperCommand : RendererCommand
 	public override void Pack(ref MemoryPacker packer)
 	{
 		if (Packable is null) throw new ArgumentNullException(nameof(Packable));
+		if (Id is null) throw new ArgumentNullException(nameof(Id));
+		if (OwnerData is null) throw new ArgumentNullException(nameof(OwnerData));
 
-		if (QueueName is null) throw new ArgumentNullException(nameof(QueueName));
+		packer.Write(OwnerData.Id!);
 
-		var system = MessagingSystem.TryGetRegisteredSystem(QueueName!);
+		packer.Write(Id!);
 
-		if (system is null) throw new InvalidOperationException($"MessagingSystem with QueueName: {QueueName} is not registered.");
-
-		var packedType = Packable.GetType();
-		packer.Write(system.OutgoingTypeManager.GetTypeIndex(packedType));
-		packer.Write(QueueName!);
-		Packable.Pack(ref packer);
-		system.OutgoingTypeManager.Return(packedType, Packable);
+		packer.Write(TypeIndex);
+		
+		Packable!.Pack(ref packer);
+		OwnerData.OutgoingTypeManager.Return(Packable.GetType(), Packable);
 	}
 
 	public override void Unpack(ref MemoryUnpacker unpacker)
 	{
+		var queue = (MessagingQueue)unpacker.Pool; // dirty hack
+
+		string? ownerId = null;
+		unpacker.Read(ref ownerId!);
+		if (!queue.HasOwner(ownerId)) throw new InvalidDataException($"Cannot unpack for unregistered owner: {ownerId}"); // No reason to throw an exception for this
+
+		OwnerData = queue.GetOwnerData(ownerId);
+
+		unpacker.Read(ref Id!);
+
 		unpacker.Read(ref TypeIndex);
 
-		unpacker.Read(ref QueueName!);
-
-		var backend = MessagingSystem.TryGetRegisteredSystem(QueueName);
-
-		if (backend is null) throw new InvalidDataException($"MessagingSystem with QueueName: {QueueName} is not registered.");
-
-		var type = backend!.IncomingTypeManager.GetTypeFromIndex(TypeIndex);
-		Packable = backend.IncomingTypeManager.Borrow(type);
+		Packable = OwnerData.IncomingTypeManager.BorrowByTypeIndex(TypeIndex);
 		Packable.Unpack(ref unpacker);
 	}
 }

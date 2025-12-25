@@ -3,14 +3,29 @@ using System.Reflection;
 
 namespace InterprocessLib;
 
-internal class MessagingSystem : IDisposable
+internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 {
-	private struct OwnerData
+	internal class OwnerData
 	{
 		public readonly Dictionary<Type, Dictionary<string, object?>> TypedCallbacks = new();
-
-		public OwnerData()
+		public TypeManager OutgoingTypeManager;
+		public TypeManager IncomingTypeManager;
+		public readonly string Id;
+		public bool Initialized;
+		public MessagingQueue Queue {get; private set;}
+		public OwnerData(string id, MessagingQueue queue)
 		{
+			Id = id;
+			Queue = queue;
+			OutgoingTypeManager = new(queue.Pool, OnOutgoingTypeRegistered);
+			IncomingTypeManager = new(queue.Pool, null);
+			
+		}
+		public void OnOutgoingTypeRegistered(Type type)
+		{
+			var typeRegCommand = new TypeRegistrationCommand();
+			typeRegCommand.Type = type;
+			Queue.SendPackable(Id, "", typeRegCommand);
 		}
 	}
 	public bool IsAuthority { get; }
@@ -19,13 +34,17 @@ internal class MessagingSystem : IDisposable
 
 	public long QueueCapacity { get; }
 
-	public bool IsConnected { get; private set; }
+	public int ReceivedMessages => _primary.ReceivedMessages;
+
+	public int SentMessages => _primary.SentMessages;
 
 	public bool IsInitialized { get; private set; }
 
-	private MessagingManager? _primary;
+	public bool IsDisposed { get; private set; }
 
-	private static readonly MethodInfo _handlePackableMethod = typeof(MessagingSystem).GetMethod(nameof(HandlePackable), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandlePackable));
+	private MessagingManager _primary;
+
+	private static readonly MethodInfo _handlePackableMethod = typeof(MessagingQueue).GetMethod(nameof(HandlePackable), BindingFlags.Instance | BindingFlags.NonPublic) ?? throw new MissingMethodException(nameof(HandlePackable));
 
 	private Action<string>? _onWarning;
 
@@ -35,54 +54,14 @@ internal class MessagingSystem : IDisposable
 
 	private readonly Dictionary<string, OwnerData> _ownerData = new();
 
-	internal TypeManager OutgoingTypeManager; 
+	private static readonly Dictionary<string, MessagingQueue> _registeredQueues = new();
 
-	internal TypeManager IncomingTypeManager; 
+	public IMemoryPackerEntityPool Pool;
 
-	private static readonly Dictionary<string, MessagingSystem> _registeredSystems = new();
-
-	private readonly IMemoryPackerEntityPool _pool;
-
-	private bool _messengerReadyCommandReceived = false;
-
-	private string LogPrefix
+	public void RegisterOwner(string ownerId)
 	{
-		get
-		{
-#if DEBUG
-			return $"{QueueName}: ";
-#else
-			return "";
-#endif
-		}
-	}
-
-	public void Connect()
-	{
-		if (IsConnected)
-			throw new InvalidOperationException("Already connected!");
-
-		_primary!.Connect(QueueName, IsAuthority, QueueCapacity);
-
-		IsConnected = true;
-	}
-
-	public void Initialize()
-	{
-		if (!IsConnected)
-			throw new InvalidOperationException("Not connected!");
-
-		if (IsInitialized)
-			throw new InvalidOperationException("Already initialized!");
-
-		SendPackable(new MessengerReadyCommand());
-
-		IsInitialized = true;
-	}
-
-	public void RegisterOwner(string ownerName)
-	{
-		_ownerData.Add(ownerName, new());
+		_ownerData.Add(ownerId, new(ownerId, this));
+		SendPackable(ownerId, "", new QueueOwnerInitCommand());
 	}
 
 	public bool HasOwner(string ownerName)
@@ -90,7 +69,12 @@ internal class MessagingSystem : IDisposable
 		return _ownerData.ContainsKey(ownerName);
 	}
 
-	public void RegisterCallback<T>(string owner, string id, Action<T>? callback) where T : IdentifiableCommand
+	public OwnerData GetOwnerData(string ownerId)
+	{
+		return _ownerData[ownerId];
+	}
+
+	public void RegisterCallback<T>(string owner, string id, Action<T>? callback) where T : IMemoryPackable
 	{
 		if(!_ownerData[owner].TypedCallbacks.ContainsKey(typeof(T)))
 			_ownerData[owner].TypedCallbacks.Add(typeof(T), new());
@@ -98,7 +82,7 @@ internal class MessagingSystem : IDisposable
 		_ownerData[owner].TypedCallbacks[typeof(T)][id] = callback;
 	}
 
-	public MessagingSystem(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null)
+	public MessagingQueue(bool isAuthority, string queueName, long queueCapacity, IMemoryPackerEntityPool pool, Action<Exception>? failhandler = null, Action<string>? warnHandler = null, Action<string>? debugHandler = null)
 	{
 		if (queueName is null) throw new ArgumentNullException(nameof(queueName));
 		if (pool is null) throw new ArgumentNullException(nameof(pool));
@@ -111,17 +95,12 @@ internal class MessagingSystem : IDisposable
 		_onWarning = warnHandler;
 		_onFailure = failhandler;
 
-		_pool = pool;
+		Pool = pool;
 
-		OutgoingTypeManager = new(_pool, OnOutgoingTypeRegistered);
-		IncomingTypeManager = new(_pool, null);
-
-		_primary = new MessagingManager(pool);
+		_primary = new MessagingManager(this);
 		_primary.CommandHandler = CommandHandler;
 		_primary.FailureHandler = (ex) =>
 		{
-			if (ex is OperationCanceledException) return; // this happens when you call Dispose
-			Dispose();
 			_onFailure?.Invoke(ex);
 		};
 		_primary.WarningHandler = (msg) =>
@@ -129,133 +108,108 @@ internal class MessagingSystem : IDisposable
 			_onWarning?.Invoke(msg);
 		};
 
-		_registeredSystems.Add(QueueName, this);
+		_registeredQueues.Add(QueueName, this);
+
+		_primary.Connect(QueueName, IsAuthority, QueueCapacity);
 	}
 
 	public void Dispose()
 	{
-		_primary?.Dispose();
-		_primary = null;
-		IsConnected = false;
+		_primary.Dispose();
+		IsDisposed = true;
 	}
 
-	internal static MessagingSystem? TryGetRegisteredSystem(string queueName)
+	internal static MessagingQueue? TryGetRegisteredQueue(string queueName)
 	{
-		if (_registeredSystems.TryGetValue(queueName, out var system)) return system;
+		if (_registeredQueues.TryGetValue(queueName, out var queue)) return queue;
 		return null;
 	}
 
-	private void HandlePackable<T>(string owner, string id, T obj) where T : class, IMemoryPackable, new()
+	private void HandlePackable<T>(string ownerId, string id, T obj) where T : class, IMemoryPackable, new()
 	{
-		if (_ownerData[owner].TypedCallbacks.TryGetValue(typeof(T), out var data) && data.ContainsKey(id))
+		if (_ownerData[ownerId].TypedCallbacks.TryGetValue(typeof(T), out var data) && data.ContainsKey(id))
 		{
 			var callback = (Action<T>?)data[id];
 			callback?.Invoke(obj);
 		}
 		else
 		{
-			_onWarning?.Invoke($"{LogPrefix}Packable of type {typeof(T)} is not registered to receive a callback!");
+			_onWarning?.Invoke($"{QueueName}:{ownerId} Packable of type {typeof(T)} with Id {id} is not registered to receive a callback!");
 		}
 	}
 
 	private void CommandHandler(RendererCommand command, int messageSize)
 	{
-		//while (!IsInitialized)
-			//Thread.Sleep(1);
-
 		if (command is WrapperCommand wrapperCommand)
 		{
-			IMemoryPackable packable = wrapperCommand.Packable!;
-			_onDebug?.Invoke($"{LogPrefix}Received {packable}");
+			var ownerData = wrapperCommand.OwnerData!;
 
-			if (packable is PingCommand ping)
+			IMemoryPackable packable = wrapperCommand.Packable!;
+			_onDebug?.Invoke($"{QueueName}:{ownerData.Id} Received {packable}");
+
+			if (packable is QueueOwnerInitCommand)
 			{
-				if (!ping.Received)
+				if (ownerData.Initialized)
 				{
-					ping.Received = true;
-					SendPackable(ping);
-				}
-				HandlePackable(ping.Owner!, ping.Id!, ping);
-			}
-			else if (packable is MessengerReadyCommand)
-			{
-				if (_messengerReadyCommandReceived)
-				{
-					_onDebug?.Invoke($"{LogPrefix}Received additional MessengerReadyCommand! Registered types will be reset!");
-					OutgoingTypeManager = new(_pool, OnOutgoingTypeRegistered);
-					IncomingTypeManager = new(_pool, null);
+					_onWarning?.Invoke($"{QueueName}:{ownerData.Id} Received additional QueueOwnerInitCommand! Registered types will be reset!");
+					ownerData.OutgoingTypeManager = new(this, ownerData.OnOutgoingTypeRegistered);
+					ownerData.IncomingTypeManager = new(this, null);
 				}
 				else
 				{
-					_messengerReadyCommandReceived = true;
+					ownerData.Initialized = true;
 				}
 			}
-			else if (!_messengerReadyCommandReceived)
+			else if (!ownerData.Initialized)
 			{
-				throw new InvalidDataException("MessengerReadyCommand needs to be first!");
+				throw new InvalidDataException("QueueOwnerInitCommand needs to be first!");
 			}
 			else if (packable is TypeRegistrationCommand typeRegCommand)
 			{
 				if (typeRegCommand.Type is not null)
 				{
-					_onDebug?.Invoke($"{LogPrefix}* Registering incoming type: {typeRegCommand.Type.Name}<{string.Join(",", (IEnumerable<Type>)typeRegCommand.Type.GenericTypeArguments)}>");
-					IncomingTypeManager.InvokeRegisterType(typeRegCommand.Type);
+					_onDebug?.Invoke($"{QueueName}:{ownerData.Id} * Registering incoming type: {typeRegCommand.Type.Name}<{string.Join(",", (IEnumerable<Type>)typeRegCommand.Type.GenericTypeArguments)}>");
+					_ownerData[ownerData.Id!].IncomingTypeManager.InvokeRegisterType(typeRegCommand.Type);
 				}
 				else
 				{
 					throw new InvalidDataException("Other process tried to register a type that could not be found in this process!");
 				}
 			}
-			else if (packable is IdentifiableCommand identifiableCommand)
-			{
-				if (identifiableCommand.Owner is null) throw new InvalidDataException("Received IdentifiableCommand with null Owner!");
-				if (identifiableCommand.Id is null) throw new InvalidDataException("Received IdentifiableCommand with null Id!");
-				if (_ownerData.TryGetValue(identifiableCommand.Owner, out var data))
-				{
-					_handlePackableMethod.MakeGenericMethod(identifiableCommand.GetType()).Invoke(this, [identifiableCommand.Owner, identifiableCommand.Id, identifiableCommand]);
-				}
-				else
-				{
-					_onWarning?.Invoke($"{LogPrefix}Owner \"{identifiableCommand.Owner}\" is not registered in this process!");
-				}
-			}
 			else
 			{
-				_onWarning?.Invoke($"{LogPrefix}Received a packable that can't be identified! {packable}");
+				_handlePackableMethod.MakeGenericMethod(packable.GetType()).Invoke(this, [ownerData.Id, wrapperCommand.Id, packable]);
 			}
 		}
 		else
 		{
-			_onWarning?.Invoke($"{LogPrefix}Received an unexpected RendererCommand! {command}");
+			_onWarning?.Invoke($"{QueueName} Received an unexpected RendererCommand! {command}");
 		}
 	}
 
-	public void SendPackable<T>(T packable) where T : class, IMemoryPackable, new()
+	public void SendPackable<T>(string ownerId, string id, T packable) where T : class, IMemoryPackable, new()
 	{
 		if (packable is null) throw new ArgumentNullException(nameof(packable));
 
-		if (!IsConnected) throw new InvalidOperationException("Not connected!");
+		if (ownerId is null) throw new ArgumentNullException(nameof(ownerId));
 
-		_onDebug?.Invoke($"{LogPrefix}Sending: {packable}");
+		_onDebug?.Invoke($"{QueueName}:{ownerId} Sending: {packable}");
 
-		if (!OutgoingTypeManager.IsTypeRegistered<T>())
+		var ownerData = _ownerData[ownerId];
+
+		if (!ownerData.OutgoingTypeManager.IsTypeRegistered<T>())
 		{
-			_onDebug?.Invoke($"{LogPrefix}* Registering outgoing type: {typeof(T).Name}<{string.Join(",", (IEnumerable<Type>)typeof(T).GenericTypeArguments)}>");
-			OutgoingTypeManager.RegisterType<T>();
+			_onDebug?.Invoke($"{QueueName}:{ownerId} * Registering outgoing type: {typeof(T).Name}<{string.Join(",", (IEnumerable<Type>)typeof(T).GenericTypeArguments)}>");
+			ownerData.OutgoingTypeManager.RegisterType<T>();
 		}
 
 		var wrapper = new WrapperCommand();
-		wrapper.QueueName = QueueName;
+		wrapper.TypeIndex = ownerData.OutgoingTypeManager.GetTypeIndex(typeof(T));
+		wrapper.OwnerData = ownerData;
+		wrapper.Id = id;
 		wrapper.Packable = packable;
 
-		_primary!.SendCommand(wrapper);
-	}
-
-	private void OnOutgoingTypeRegistered(Type type)
-	{
-		var typeRegCommand = new TypeRegistrationCommand();
-		typeRegCommand.Type = type;
-		SendPackable(typeRegCommand);
+		_primary.SendCommand(wrapper);
 	}
 
 	public void UnregisterOwner(string ownerId)
@@ -266,11 +220,21 @@ internal class MessagingSystem : IDisposable
 		}
 		else
 		{
-			_onWarning?.Invoke($"{LogPrefix}Tried to unregister owner that was not registered: {ownerId}");
+			_onWarning?.Invoke($"{QueueName} Tried to unregister owner that was not registered: {ownerId}");
 		}
 		if (_ownerData.Count == 0)
 		{
 			Dispose();
 		}
 	}
+
+    T IMemoryPackerEntityPool.Borrow<T>()
+    {
+        return Pool.Borrow<T>();
+    }
+
+    void IMemoryPackerEntityPool.Return<T>(T value)
+    {
+        Pool.Return(value);
+    }
 }
