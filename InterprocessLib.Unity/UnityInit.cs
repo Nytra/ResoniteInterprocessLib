@@ -23,8 +23,6 @@ internal static class Initializer
 		};
 #endif
 
-		//UnityEngine.Debug.Log("Init");
-
 		var args = Environment.GetCommandLineArgs();
 		string? fullQueueName = null;
 		for (int i = 0; i < args.Length; i++)
@@ -46,11 +44,8 @@ internal static class Initializer
 		else
 		{
 			system = new MessagingSystem(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
-			system.Connect();
 		}
 
 		Messenger.InitializeDefaultSystem(system);
-
-		//UnityEngine.Debug.Log("DONE");
 	}
 }

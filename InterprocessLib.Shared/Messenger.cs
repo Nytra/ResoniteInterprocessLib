@@ -224,6 +224,7 @@ public class Messenger : IDisposable
 			}
 			_defaultPreInitActions = null;
 			
+			system.Connect();
 			system.Initialize();
 
 			foreach (var act in _defaultPostInitActions!)

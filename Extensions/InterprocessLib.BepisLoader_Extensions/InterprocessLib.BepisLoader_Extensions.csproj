@@ -5,10 +5,6 @@
     <Authors>Nytra</Authors>
     <TargetFramework>net10.0</TargetFramework>
     <Langversion>14</Langversion>
-    <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.BepisLoader_Extensions</PackageId>
-    <Product>InterprocessLib.BepisLoader_Extensions</Product>
-    <RootNamespace>InterprocessLib</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Deterministic>true</Deterministic>

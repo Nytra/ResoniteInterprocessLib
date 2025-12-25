@@ -58,7 +58,6 @@ internal static class Initializer
 		else
 		{
 			system = new MessagingSystem(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
-			system.Connect();
 		}
 
 		Messenger.InitializeDefaultSystem(system);
@@ -66,6 +65,6 @@ internal static class Initializer
 		while (Engine.Current is null)
 			await Task.Delay(1);
 
-		Engine.Current.OnShutdown += system.Dispose;
+		Engine.Current.OnShutdown += system.Dispose; // This is important- as the authority process we need to dispose of the queue on shutdown, otherwise the shared memory files don't get deleted (at least on Linux)
 	}
 }
