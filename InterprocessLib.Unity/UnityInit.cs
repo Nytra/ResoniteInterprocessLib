@@ -1,9 +1,6 @@
 using Renderite.Shared;
 using Renderite.Unity;
-
-#if DEBUG
 using UnityEngine;
-#endif
 
 namespace InterprocessLib;
 
