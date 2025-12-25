@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <Version>3.0.0</Version>
+    <Authors>Nytra</Authors>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -15,9 +17,11 @@
   <ItemGroup>
     <Reference Include="InterprocessLib.Standalone">
       <HintPath>..\..\out\InterprocessLib.Standalone.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="Renderite.Shared">
       <HintPath>$(GamePath)Renderer/Renderite.Renderer_Data/Managed/Renderite.Shared.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   

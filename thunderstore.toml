@@ -14,7 +14,6 @@ containsNsfwContent = false
 # List any dependencies your mod has here, in the format "namespace-modname" = "version-constraint"
 [package.dependencies] 
 ResoniteModding-BepisLoader = "1.4.1"
-ResoniteModding-BepisResoniteWrapper = "1.0.0"
 ResoniteModding-RenderiteHook = "1.1.0"
 
 [build]
@@ -28,7 +27,15 @@ source = "./out/InterprocessLib.FrooxEngine.dll"
 target = "plugins/InterprocessLib.BepisLoader/"
 
 [[build.copy]]
+source = "./out/InterprocessLib.FrooxEngine.pdb"
+target = "plugins/InterprocessLib.BepisLoader/"
+
+[[build.copy]]
 source = "./out/InterprocessLib.BepisLoader_Extensions.dll"
+target = "plugins/InterprocessLib.BepisLoader/"
+
+[[build.copy]]
+source = "./out/InterprocessLib.BepisLoader_Extensions.pdb"
 target = "plugins/InterprocessLib.BepisLoader/"
 
 [[build.copy]]
@@ -36,7 +43,15 @@ source = "./out/InterprocessLib.Unity.dll"
 target = "Renderer/BepInEx/plugins/InterprocessLib.BepInEx/"
 
 [[build.copy]]
+source = "./out/InterprocessLib.Unity.pdb"
+target = "Renderer/BepInEx/plugins/InterprocessLib.BepInEx/"
+
+[[build.copy]]
 source = "./out/InterprocessLib.BepInEx_Extensions.dll"
+target = "Renderer/BepInEx/plugins/InterprocessLib.BepInEx/"
+
+[[build.copy]]
+source = "./out/InterprocessLib.BepInEx_Extensions.pdb"
 target = "Renderer/BepInEx/plugins/InterprocessLib.BepInEx/"
 
 # Uncomment the following lines to include CHANGELOG file in your mod package. https://wiki.thunderstore.io/mods/updating-a-package#changelog
