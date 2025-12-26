@@ -578,7 +578,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 		unpacker.Read(ref TypeIndex);
 
-		Packable = ownerData.IncomingTypeManager.BorrowByTypeIndex(TypeIndex);
+		Packable = ownerData.IncomingTypeManager.Borrow(TypeIndex);
 		Packable.Unpack(ref unpacker);
 	}
 }

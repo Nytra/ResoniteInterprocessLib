@@ -38,6 +38,7 @@ public class Plugin : BasePlugin
 	private static void SpawnProcess()
 	{
 		_customProcess?.Kill();
+		_customMessenger?.Dispose();
 		_customQueueName = $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
 		_customMessenger = new Messenger("InterprocessLib.Tests", true, _customQueueName);

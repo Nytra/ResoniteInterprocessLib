@@ -45,7 +45,7 @@ public class Messenger : IDisposable
 
 		_ownerId = ownerId;
 		_currentQueue = Defaults.DefaultQueue;
-		InitQueue();
+		Init();
 	}
 
 	/// <summary>
@@ -61,7 +61,7 @@ public class Messenger : IDisposable
 
 		_ownerId = ownerId;
 		_currentQueue = Defaults.DefaultQueue;
-		InitQueue();
+		Init();
 	}
 
 	/// <summary>
@@ -73,7 +73,6 @@ public class Messenger : IDisposable
 	/// <param name="pool">Custom pool for borrowing and returning memory-packable types.</param>
 	/// <param name="queueCapacity">Capacity for the custom queue in bytes.</param>
 	/// <exception cref="ArgumentNullException"></exception>
-	/// <exception cref="EntryPointNotFoundException"></exception>
 	public Messenger(string ownerId, bool isAuthority, string queueName, IMemoryPackerEntityPool? pool = null, long queueCapacity = 1024*1024)
 	{
 		if (ownerId is null)
@@ -84,19 +83,19 @@ public class Messenger : IDisposable
 		if (queueName is null)
 			throw new ArgumentNullException(nameof(queueName));
 
-		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingSystem)
+		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingQueue)
 		{
 			_currentQueue = new MessagingQueue(isAuthority, queueName, queueCapacity, pool ?? Defaults.DefaultPool, OnFailure, OnWarning, OnDebug);
 		}
 		else
 		{
-			_currentQueue = existingSystem;
+			_currentQueue = existingQueue;
 		}
 
-		InitQueue();
+		Init();
 	}
 
-	private void InitQueue()
+	private void Init()
 	{
 		_currentQueue.RegisterOwner(_ownerId);
 	}
@@ -249,13 +248,13 @@ public class Messenger : IDisposable
 	}
 
 	[Obsolete("Use ReceiveValueCollection instead.")]
-	public void ReceiveValueList<T>(string id, Action<List<T>?>? callback) where T : unmanaged
+	public void ReceiveValueList<T>(string id, Action<List<T>>? callback) where T : unmanaged
 	{
 		ReceiveValueCollection<List<T>, T>(id, callback);
 	}
 
 	[Obsolete("Use ReceiveValueCollection instead.")]
-	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>?>? callback) where T : unmanaged
+	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>>? callback) where T : unmanaged
 	{
 		ReceiveValueCollection<HashSet<T>, T>(id, callback);
 	}
@@ -323,7 +322,7 @@ public class Messenger : IDisposable
 	}
 
 	[Obsolete("Use ReceiveObjectCollection instead.")]
-	public void ReceiveObjectList<T>(string id, Action<List<T>?>? callback) where T : class?, IMemoryPackable?, new()
+	public void ReceiveObjectList<T>(string id, Action<List<T>>? callback) where T : class?, IMemoryPackable?, new()
 	{
 		ReceiveObjectCollection<List<T>, T>(id, callback);
 	}

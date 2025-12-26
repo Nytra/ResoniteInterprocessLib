@@ -71,11 +71,6 @@ internal class TypeManager
 		return _newTypes[index];
 	}
 
-	internal IMemoryPackable BorrowByTypeIndex(int index)
-	{
-		return _borrowers[index]();
-	}
-
 	internal int GetTypeIndex(Type type)
 	{
 		return _typeToIndex[type];
@@ -104,7 +99,7 @@ internal class TypeManager
 			_onRegisteredCallback?.Invoke(type);
 	}
 
-	private IMemoryPackable? Borrow<T>() where T : class, IMemoryPackable, new()
+	private IMemoryPackable Borrow<T>() where T : class, IMemoryPackable, new()
 	{
 		return _pool.Borrow<T>();
 	}
@@ -122,5 +117,15 @@ internal class TypeManager
 	internal void Return(Type type, IMemoryPackable obj)
 	{
 		_returners[_typeToIndex[type]](obj);
+	}
+
+	internal IMemoryPackable Borrow(int index)
+	{
+		return _borrowers[index]();
+	}
+
+	internal void Return(int index, IMemoryPackable obj)
+	{
+		_returners[index](obj);
 	}
 }

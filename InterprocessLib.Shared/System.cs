@@ -17,9 +17,8 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 		{
 			Id = id;
 			Queue = queue;
-			OutgoingTypeManager = new(queue.Pool, OnOutgoingTypeRegistered);
-			IncomingTypeManager = new(queue.Pool, null);
-			
+			OutgoingTypeManager = new(Queue._pool, OnOutgoingTypeRegistered);
+			IncomingTypeManager = new(Queue._pool, null);
 		}
 		public void OnOutgoingTypeRegistered(Type type)
 		{
@@ -56,7 +55,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 
 	private static readonly Dictionary<string, MessagingQueue> _registeredQueues = new();
 
-	public IMemoryPackerEntityPool Pool;
+	private IMemoryPackerEntityPool _pool;
 
 	public void RegisterOwner(string ownerId)
 	{
@@ -95,7 +94,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 		_onWarning = warnHandler;
 		_onFailure = failhandler;
 
-		Pool = pool;
+		_pool = pool;
 
 		_primary = new MessagingManager(this);
 		_primary.CommandHandler = CommandHandler;
@@ -232,11 +231,11 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 
     T IMemoryPackerEntityPool.Borrow<T>()
     {
-        return Pool.Borrow<T>();
+        return _pool.Borrow<T>();
     }
 
     void IMemoryPackerEntityPool.Return<T>(T value)
     {
-        Pool.Return(value);
+        _pool.Return(value);
     }
 }
