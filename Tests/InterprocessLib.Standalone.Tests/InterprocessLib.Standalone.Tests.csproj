@@ -17,11 +17,9 @@
   <ItemGroup>
     <Reference Include="InterprocessLib.Standalone">
       <HintPath>..\..\out\InterprocessLib.Standalone.dll</HintPath>
-      <Private>False</Private>
     </Reference>
     <Reference Include="Renderite.Shared">
       <HintPath>$(GamePath)Renderer/Renderite.Renderer_Data/Managed/Renderite.Shared.dll</HintPath>
-      <Private>False</Private>
     </Reference>
   </ItemGroup>
   

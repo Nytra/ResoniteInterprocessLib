@@ -1,4 +1,5 @@
 ﻿using ResoniteModLoader;
+using System.Runtime.CompilerServices;
 
 namespace InterprocessLib.Tests;
 
@@ -28,6 +29,7 @@ public class RML_Tests : ResoniteMod
 	private static ModConfigurationKey<double> LatencyMilliseconds = new ModConfigurationKey<double>("LatencyMilliseconds", "LatencyMilliseconds:", () => -1.0);
 
 	public static Messenger? _messenger;
+	private static DateTime _lastPingTime;
 
 	public override void OnEngineInit()
 	{
@@ -35,11 +37,12 @@ public class RML_Tests : ResoniteMod
 
 		Tests.RunTests(_messenger, Msg);
 
-		_messenger.ReceivePing((latency) =>
+		_messenger.ReceiveEmptyCommand("Ping", () =>
 		{
-			LatencyMilliseconds.Value = latency.TotalMilliseconds;
+			LatencyMilliseconds.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
 		});
-		_messenger.SendPing();
+		_lastPingTime = DateTime.UtcNow;
+		_messenger.SendEmptyCommand("Ping");
 
 		_messenger.SyncConfigEntry(SyncTest);
 
@@ -58,7 +61,8 @@ public class RML_Tests : ResoniteMod
 		};
 		CheckLatencyToggle.OnChanged += (object? newValue) =>
 		{
-			_messenger.SendPing();
+			_lastPingTime = DateTime.UtcNow;
+			_messenger.SendEmptyCommand("Ping");
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) =>
 		{

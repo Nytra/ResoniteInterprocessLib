@@ -343,28 +343,6 @@ public class Messenger : IDisposable
 		_currentQueue.RegisterCallback<ObjectArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
 	}
 
-	/// <summary>
-	/// Send a ping message which will be received and then sent back by the other process
-	/// Can be used to check if the other process is active, or to check the latency of the connection
-	/// Register a ping callback with <see cref="ReceivePing"/> first.
-	/// </summary>
-	public void SendPing()
-	{
-		var cmd = new EmptyCommand();
-		_lastPingTime = DateTime.UtcNow;
-		_currentQueue.SendPackable(_ownerId, "Ping", cmd);
-	}
-
-	/// <summary>
-	/// Register a delegate to be called when this process gets a ping
-	/// Calling <see cref="SendPing"/> will then result in the delegate being called shortly after if the other process is active
-	/// </summary>
-	/// <param name="callback">The delegate to be called when the ping response gets received</param>
-	public void ReceivePing(Action<TimeSpan> callback)
-	{
-		_currentQueue.RegisterCallback<EmptyCommand>(_ownerId, "Ping", (ping) => callback?.Invoke(DateTime.UtcNow - _lastPingTime));
-	}
-
     public void Dispose()
     {
         _currentQueue.UnregisterOwner(_ownerId);

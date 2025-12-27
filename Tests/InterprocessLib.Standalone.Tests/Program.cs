@@ -1,9 +1,22 @@
 ﻿using InterprocessLib;
 using InterprocessLib.Tests;
+using Renderite.Shared;
 
 namespace InterprocessLibStandaloneTest
 {
-	internal class Program
+    internal class Pool : IMemoryPackerEntityPool
+    {
+        T IMemoryPackerEntityPool.Borrow<T>()
+        {
+            return new T();
+        }
+
+        void IMemoryPackerEntityPool.Return<T>(T value)
+        {
+        }
+    }
+
+    internal class Program
     {
 		private static CancellationTokenSource _cancel = new();
 
@@ -36,11 +49,11 @@ namespace InterprocessLibStandaloneTest
 			};
 #endif
 			
-			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!);
+			var messenger = new Messenger("InterprocessLib.Tests", false, queueName!, new Pool());
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			messenger.ReceivePing((latency) =>
+			messenger.ReceiveEmptyCommand("Ping", () =>
 			{
 				_cancel.CancelAfter(5000);
 			});
@@ -51,7 +64,7 @@ namespace InterprocessLibStandaloneTest
 			{
 				while (!_cancel.IsCancellationRequested)
 				{
-					messenger.SendPing();
+					messenger.SendEmptyCommand("Ping");
 					await Task.Delay(2500);
 				}
 			}).Wait();

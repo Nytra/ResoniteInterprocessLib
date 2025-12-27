@@ -23,12 +23,13 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? ResetToggle;
 	public static ConfigEntry<bool>? CheckLatencyToggle;
 	public static ConfigEntry<double>? UnityLatencyMilliseconds;
+	private static DateTime _lastPingTime;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
 	public static ConfigEntry<bool>? SpawnProcessToggle;
 	public static ConfigEntry<DateTime>? LastChildProcessPing;
-	public static ConfigEntry<double>? ChildProcessLatencyMilliseconds;
+	//public static ConfigEntry<double>? ChildProcessLatencyMilliseconds;
 	private static Random _rand = new();
 	private static string? _customQueueName;
 	private static Process? _customProcess;
@@ -42,10 +43,10 @@ public class Plugin : BasePlugin
 		_customQueueName = $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
 		_customMessenger = new Messenger("InterprocessLib.Tests", true, _customQueueName);
-		_customMessenger.ReceivePing((latency) =>
+		_customMessenger.ReceiveEmptyCommand("Ping", () =>
 		{
 			LastChildProcessPing!.Value = DateTime.Now;
-			ChildProcessLatencyMilliseconds!.Value = latency.TotalMilliseconds;
+			//ChildProcessLatencyMilliseconds!.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
 		});
 		_customProcess = new Process();
 
@@ -89,7 +90,7 @@ public class Plugin : BasePlugin
 			SpawnProcess();
 		};
 		LastChildProcessPing = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
-		ChildProcessLatencyMilliseconds = Config.Bind("General", "ChildProcessLatencyMilliseconds", -1.0);
+		//ChildProcessLatencyMilliseconds = Config.Bind("General", "ChildProcessLatencyMilliseconds", -1.0);
 		SpawnProcess();
 #endif
 
@@ -103,11 +104,12 @@ public class Plugin : BasePlugin
 		UnityLatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
 		CheckLatencyToggle = Config.Bind("General", "CheckLatencyToggle", false);
 
-		_messenger.ReceivePing((latency) =>
+		_messenger.ReceiveEmptyCommand("Ping", () =>
 		{
-			UnityLatencyMilliseconds.Value = latency.TotalMilliseconds;
+			UnityLatencyMilliseconds.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
 		});
-		_messenger.SendPing();
+		_lastPingTime = DateTime.UtcNow;
+		_messenger.SendEmptyCommand("Ping");
 
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
@@ -131,7 +133,8 @@ public class Plugin : BasePlugin
 		};
 		CheckLatencyToggle!.SettingChanged += (sender, args) =>
 		{
-			_messenger.SendPing();
+			_lastPingTime = DateTime.UtcNow;
+			_messenger.SendEmptyCommand("Ping");
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) => 
 		{ 
