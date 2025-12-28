@@ -68,7 +68,6 @@ public class Plugin : BasePlugin
 
 		customProcess.StartInfo.Arguments = $"{testProgramPath} {_customQueueName}";
 		customProcess.StartInfo.RedirectStandardOutput = true;
-		//psi.UseShellExecute = false;
 		customProcess.OutputDataReceived += (sender, args) => Log.LogInfo($"Received from custom process: {args.Data}");
 		customProcess.Start();
 		customProcess.BeginOutputReadLine();
