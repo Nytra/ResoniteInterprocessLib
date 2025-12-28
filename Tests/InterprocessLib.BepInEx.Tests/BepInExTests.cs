@@ -31,5 +31,9 @@ public class UnityPlugin : BaseUnityPlugin
 			SyncTest.Value = 0;
 		});
 		Tests.RunTests(_messenger, Log!.LogInfo);
+		_messenger.ReceiveValue<DateTime>("Ping", (time) =>
+		{
+			_messenger.SendValue("Ping", time);
+		});
 	}
 }

@@ -1,0 +1,27 @@
+<Project>
+
+  <PropertyGroup>
+    <Version>3.0.0</Version>
+    <Authors>Nytra</Authors>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>Nullable</WarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
+    <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
+    <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
+    <GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
+    <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
+    <GamePath Condition="Exists('/media/linux_data/Steam/steamapps/common/Resonite/')">/media/linux_data/Steam/steamapps/common/Resonite/</GamePath>
+  </PropertyGroup>
+  
+  <!-- <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <ItemGroup>
+      <PluginFiles Include="$(TargetPath)" />
+      <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+    </ItemGroup>
+  
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
+    <Message Text="Copied files to out dir" Importance="high" />
+  </Target> -->
+</Project>

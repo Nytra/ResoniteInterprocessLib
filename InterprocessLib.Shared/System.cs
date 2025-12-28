@@ -109,6 +109,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 
 		_registeredQueues.Add(QueueName, this);
 
+		new WrapperCommand(); // Initialize WrapperCommand static constructor (very important)
 		_primary.Connect(QueueName, IsAuthority, QueueCapacity);
 	}
 
@@ -144,7 +145,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 			var ownerData = _ownerData[wrapperCommand.Owner!];
 
 			IMemoryPackable packable = wrapperCommand.Packable!;
-			_onDebug?.Invoke($"{QueueName}:{ownerData.Id} Received {packable}");
+			_onDebug?.Invoke($"{QueueName}:{ownerData.Id} Received {wrapperCommand.Id} {packable}");
 
 			if (packable is QueueOwnerInitCommand)
 			{
@@ -192,7 +193,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 		if (ownerId is null) throw new ArgumentNullException(nameof(ownerId));
 		if (id is null) throw new ArgumentNullException(nameof(id));
 
-		_onDebug?.Invoke($"{QueueName}:{ownerId} Sending: {packable}");
+		_onDebug?.Invoke($"{QueueName}:{ownerId} Sending: {id} {packable}");
 
 		var ownerData = _ownerData[ownerId];
 

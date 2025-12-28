@@ -23,13 +23,12 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? ResetToggle;
 	public static ConfigEntry<bool>? CheckLatencyToggle;
 	public static ConfigEntry<double>? UnityLatencyMilliseconds;
-	private static DateTime _lastPingTime;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
 	public static ConfigEntry<bool>? SpawnProcessToggle;
 	public static ConfigEntry<DateTime>? LastChildProcessPing;
-	//public static ConfigEntry<double>? ChildProcessLatencyMilliseconds;
+	public static ConfigEntry<double>? ChildProcessLatencyMilliseconds;
 	private static Random _rand = new();
 	private static string? _customQueueName;
 	private static Process? _customProcess;
@@ -43,10 +42,11 @@ public class Plugin : BasePlugin
 		_customQueueName = $"MyCustomQueue{_rand.Next()}";
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
 		_customMessenger = new Messenger("InterprocessLib.Tests", true, _customQueueName);
-		_customMessenger.ReceiveEmptyCommand("Ping", () =>
+		_customMessenger.ReceiveValue<DateTime>("Ping", (time) =>
 		{
 			LastChildProcessPing!.Value = DateTime.Now;
-			//ChildProcessLatencyMilliseconds!.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
+			ChildProcessLatencyMilliseconds!.Value = (DateTime.UtcNow - time).TotalMilliseconds;
+			_customMessenger.SendValue("Ping", time);
 		});
 		_customProcess = new Process();
 
@@ -64,7 +64,7 @@ public class Plugin : BasePlugin
 			_customProcess.StartInfo.FileName = @$"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/{projectConfiguration}/net10.0/InterprocessLib.Standalone.Tests";
 
 		_customProcess.StartInfo.Arguments = $"{_customQueueName}";
-		//_customProcess.StartInfo.UseShellExecute = true; // Run in a new window
+		_customProcess.StartInfo.UseShellExecute = true; // Run in a new window
 		_customProcess.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
 		_customProcess.Start();
 		Tests.RunTests(_customMessenger, Log!.LogInfo);
@@ -90,7 +90,7 @@ public class Plugin : BasePlugin
 			SpawnProcess();
 		};
 		LastChildProcessPing = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
-		//ChildProcessLatencyMilliseconds = Config.Bind("General", "ChildProcessLatencyMilliseconds", -1.0);
+		ChildProcessLatencyMilliseconds = Config.Bind("General", "ChildProcessLatencyMilliseconds", -1.0);
 		SpawnProcess();
 #endif
 
@@ -104,24 +104,16 @@ public class Plugin : BasePlugin
 		UnityLatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
 		CheckLatencyToggle = Config.Bind("General", "CheckLatencyToggle", false);
 
-		_messenger.ReceiveEmptyCommand("Ping", () =>
+		_messenger.ReceiveValue<DateTime>("Ping", (time) =>
 		{
-			UnityLatencyMilliseconds.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
+			UnityLatencyMilliseconds.Value = (DateTime.UtcNow - time).TotalMilliseconds;
 		});
-		_lastPingTime = DateTime.UtcNow;
-		_messenger.SendEmptyCommand("Ping");
+		_messenger.SendValue("Ping", DateTime.UtcNow);
 
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
 			_messenger!.SendEmptyCommand("RunTests");
 			Tests.RunTests(_messenger, Log!.LogInfo);
-
-#if TEST_SPAWN_PROCESS
-			if (_customMessenger is not null && _customProcess != null && !_customProcess.HasExited)
-			{
-				Tests.RunTests(_customMessenger, Log!.LogInfo);
-			}
-#endif
 		};
 		CheckSyncToggle!.SettingChanged += (sender, args) =>
 		{
@@ -133,8 +125,7 @@ public class Plugin : BasePlugin
 		};
 		CheckLatencyToggle!.SettingChanged += (sender, args) =>
 		{
-			_lastPingTime = DateTime.UtcNow;
-			_messenger.SendEmptyCommand("Ping");
+			_messenger.SendValue("Ping", DateTime.UtcNow);
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) => 
 		{ 

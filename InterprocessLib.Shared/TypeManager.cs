@@ -11,8 +11,6 @@ internal class TypeManager
 
 	private readonly List<Type> _newTypes = new();
 
-	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!  ?? throw new MissingFieldException("types");
-
 	private readonly List<Func<IMemoryPackable>> _borrowers = new();
 
 	private readonly List<Action<IMemoryPackable>> _returners = new();
@@ -35,20 +33,6 @@ internal class TypeManager
 	];
 
 	private Action<Type>? _onRegisteredCallback;
-
-	static TypeManager()
-	{
-		// Trigger RendererCommand static constructor
-		new WrapperCommand();
-
-		var list = new List<Type>();
-		list.AddRange(CurrentRendererCommandTypes);
-		var wrapperType = typeof(WrapperCommand);
-		if (!list.Contains(wrapperType))
-			list.Add(wrapperType);
-
-		WrapperCommand.InitNewTypes(list);
-	}
 
 	internal TypeManager(IMemoryPackerEntityPool pool, Action<Type>? onRegisteredCallback)
 	{

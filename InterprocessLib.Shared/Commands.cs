@@ -1,5 +1,6 @@
 using Renderite.Shared;
 using System.Collections;
+using System.Reflection;
 
 namespace InterprocessLib;
 
@@ -545,9 +546,15 @@ internal sealed class WrapperCommand : RendererCommand
 	public string? Owner;
 	public string? Id;
 
-	public static void InitNewTypes(List<Type> types)
+	private static List<Type> CurrentRendererCommandTypes => (List<Type>)typeof(PolymorphicMemoryPackableEntity<RendererCommand>).GetField("types", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!  ?? throw new MissingFieldException("types");
+
+	static WrapperCommand()
 	{
-		InitTypes(types);
+		new RendererInitData();
+		var list = new List<Type>();
+		list.AddRange(CurrentRendererCommandTypes);
+		list.Add(typeof(WrapperCommand));
+		InitTypes(list);
 	}
 
 	public override void Pack(ref MemoryPacker packer)

@@ -1,4 +1,5 @@
-﻿using InterprocessLib;
+﻿using System.Reflection;
+using InterprocessLib;
 using InterprocessLib.Tests;
 using Renderite.Shared;
 
@@ -53,7 +54,7 @@ namespace InterprocessLibStandaloneTest
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			messenger.ReceiveEmptyCommand("Ping", () =>
+			messenger.ReceiveValue<DateTime>("Ping", (time) =>
 			{
 				_cancel.CancelAfter(5000);
 			});
@@ -64,10 +65,12 @@ namespace InterprocessLibStandaloneTest
 			{
 				while (!_cancel.IsCancellationRequested)
 				{
-					messenger.SendEmptyCommand("Ping");
+					messenger.SendValue<DateTime>("Ping", DateTime.UtcNow);
 					await Task.Delay(2500);
 				}
 			}).Wait();
+
+			Console.WriteLine("Exited.");
 		}
     }
 }

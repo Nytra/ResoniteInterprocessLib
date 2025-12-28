@@ -27,8 +27,6 @@ public class Messenger : IDisposable
 
 	private string _ownerId;
 
-	private DateTime _lastPingTime;
-
 	/// <summary>
 	/// Creates an instance with a unique owner
 	/// </summary>
