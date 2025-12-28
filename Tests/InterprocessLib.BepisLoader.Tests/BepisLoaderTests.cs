@@ -52,7 +52,21 @@ public class Plugin : BasePlugin
 
 		var customProcess = new Process();
 		customProcess.StartInfo.FileName = "dotnet";
-		customProcess.StartInfo.Arguments = $"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/Debug/net10.0/InterprocessLib.Standalone.Tests.dll {_customQueueName}";
+
+		string projectConfiguration, testProgramPath;
+
+#if DEBUG
+		projectConfiguration = "Debug";
+#else
+		projectConfiguration = "Release";
+#endif
+
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+			testProgramPath = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net10.0\InterprocessLib.Standalone.Tests.dll";
+		else
+			testProgramPath = @$"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/{projectConfiguration}/net10.0/InterprocessLib.Standalone.Tests.dll";
+
+		customProcess.StartInfo.Arguments = $"{testProgramPath} {_customQueueName}";
 		customProcess.StartInfo.RedirectStandardOutput = true;
 		//psi.UseShellExecute = false;
 		customProcess.OutputDataReceived += (sender, args) => Log.LogInfo($"Received from custom process: {args.Data}");
