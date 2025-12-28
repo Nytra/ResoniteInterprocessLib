@@ -1,4 +1,5 @@
-﻿using System.Runtime;
+﻿using System.Diagnostics;
+using System.Runtime;
 using Renderite.Shared;
 
 namespace InterprocessLib;
@@ -28,13 +29,13 @@ public class Messenger : IDisposable
 	private string _ownerId;
 
 	/// <summary>
-	/// Creates an instance with a unique owner
+	/// Creates an instance with a unique owner using the default queue (If using the standalone version of the library this will throw an error because there is no default queue!)
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
 	/// <param name="additionalObjectTypes">Unused parameter kept for backwards compatibility.</param>
 	/// <param name="additionalValueTypes">Unused parameter kept for backwards compatibility.</param>
 	/// <exception cref="ArgumentNullException"></exception>
-	/// <exception cref="EntryPointNotFoundException"></exception>
+	/// <exception cref="NotImplementedException"></exception>
 	[Obsolete("Use the other constructors that don't take Type lists", false)]
 	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
 	{
@@ -47,11 +48,11 @@ public class Messenger : IDisposable
 	}
 
 	/// <summary>
-	/// Creates an instance with a unique owner
+	/// Creates an instance with a unique owner using the default queue (If using the standalone version of the library this will throw an error because there is no default queue!)
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
 	/// <exception cref="ArgumentNullException"></exception>
-	/// <exception cref="EntryPointNotFoundException"></exception>
+	/// <exception cref="NotImplementedException"></exception>
 	public Messenger(string ownerId)
 	{
 		if (ownerId is null)
@@ -63,7 +64,7 @@ public class Messenger : IDisposable
 	}
 
 	/// <summary>
-	/// Creates an instance with a unique owner and connects to a custom queue so you can talk to any process
+	/// Creates an instance with a unique owner and connects to a custom queue so you can talk to any process. You must remember to call Dispose after using it!
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
 	/// <param name="isAuthority">Does this process have authority over the other process? The authority process should always be started first.</param>

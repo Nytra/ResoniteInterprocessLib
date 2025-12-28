@@ -4,6 +4,8 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
+using Elements.Core;
+using FrooxEngine;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -23,50 +25,40 @@ public class Plugin : BasePlugin
 	public static ConfigEntry<bool>? ResetToggle;
 	public static ConfigEntry<bool>? CheckLatencyToggle;
 	public static ConfigEntry<double>? UnityLatencyMilliseconds;
+	private static DateTime _lastPingTime;
 
 #if TEST_SPAWN_PROCESS
 	public static Messenger? _customMessenger;
-	public static ConfigEntry<bool>? SpawnProcessToggle;
-	public static ConfigEntry<DateTime>? LastChildProcessPing;
-	public static ConfigEntry<double>? ChildProcessLatencyMilliseconds;
+	public static ConfigEntry<bool>? CreateCustomQueueToggle;
+	public static ConfigEntry<DateTime>? LastCustomQueuePing;
+	public static ConfigEntry<string>? CustomQueueName;
 	private static Random _rand = new();
 	private static string? _customQueueName;
-	private static Process? _customProcess;
 #endif
 
 #if TEST_SPAWN_PROCESS
 	private static void SpawnProcess()
 	{
-		_customProcess?.Kill();
 		_customMessenger?.Dispose();
 		_customQueueName = $"MyCustomQueue{_rand.Next()}";
+		CustomQueueName!.Value = _customQueueName;
 		Log!.LogInfo("Child process queue name: " + _customQueueName);
 		_customMessenger = new Messenger("InterprocessLib.Tests", true, _customQueueName);
-		_customMessenger.ReceiveValue<DateTime>("Ping", (time) =>
+		_customMessenger.ReceiveEmptyCommand("Ping", () =>
 		{
-			LastChildProcessPing!.Value = DateTime.Now;
-			ChildProcessLatencyMilliseconds!.Value = (DateTime.UtcNow - time).TotalMilliseconds;
-			_customMessenger.SendValue("Ping", time);
+			LastCustomQueuePing!.Value = DateTime.Now;
+			_customMessenger.SendEmptyCommand("Ping");
 		});
-		_customProcess = new Process();
 
-		string projectConfiguration;
-
-#if DEBUG
-		projectConfiguration = "Debug";
-#else
-		projectConfiguration = "Release";
-#endif
-
-		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-			_customProcess.StartInfo.FileName = @$"S:\Projects\ResoniteModDev\_THUNDERSTORE\InterprocessLib\Tests\InterprocessLib.Standalone.Tests\bin\{projectConfiguration}\net10.0\InterprocessLib.Standalone.Tests.exe";
-		else
-			_customProcess.StartInfo.FileName = @$"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/{projectConfiguration}/net10.0/InterprocessLib.Standalone.Tests";
-
-		_customProcess.StartInfo.Arguments = $"{_customQueueName}";
-		_customProcess.StartInfo.UseShellExecute = true; // Run in a new window
-		_customProcess.StartInfo.WindowStyle = ProcessWindowStyle.Normal;
-		_customProcess.Start();
+		var customProcess = new Process();
+		customProcess.StartInfo.FileName = "dotnet";
+		customProcess.StartInfo.Arguments = $"/home/nytra/code/ResoniteInterprocessLib/Tests/InterprocessLib.Standalone.Tests/bin/Debug/net10.0/InterprocessLib.Standalone.Tests.dll {_customQueueName}";
+		customProcess.StartInfo.RedirectStandardOutput = true;
+		//psi.UseShellExecute = false;
+		customProcess.OutputDataReceived += (sender, args) => Log.LogInfo($"Received from custom process: {args.Data}");
+		customProcess.Start();
+		customProcess.BeginOutputReadLine();
+		
 		Tests.RunTests(_customMessenger, Log!.LogInfo);
 	}
 #endif
@@ -84,14 +76,15 @@ public class Plugin : BasePlugin
 		Tests.RunTests(_messenger, Log!.LogInfo);
 
 #if TEST_SPAWN_PROCESS
-		SpawnProcessToggle = Config.Bind("General", "SpawnChildProcess", false);
-		SpawnProcessToggle.SettingChanged += (sender, args) =>
+		CreateCustomQueueToggle = Config.Bind("General", "SpawnChildProcess", false);
+		CreateCustomQueueToggle.SettingChanged += (sender, args) =>
 		{
 			SpawnProcess();
 		};
-		LastChildProcessPing = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
-		ChildProcessLatencyMilliseconds = Config.Bind("General", "ChildProcessLatencyMilliseconds", -1.0);
+		LastCustomQueuePing = Config.Bind("General", "LastProcessHeartbeat", DateTime.MinValue);
+		CustomQueueName = Config.Bind("General", "CustomQueueName", "");
 		SpawnProcess();
+		BepisResoniteWrapper.ResoniteHooks.OnEngineReady += () => Engine.Current.OnShutdown += () => _customMessenger?.Dispose();
 #endif
 
 		MyValue = Config.Bind("General", "SyncTest", 34);
@@ -104,11 +97,10 @@ public class Plugin : BasePlugin
 		UnityLatencyMilliseconds = Config.Bind("General", "LatencyMilliseconds", -1.0);
 		CheckLatencyToggle = Config.Bind("General", "CheckLatencyToggle", false);
 
-		_messenger.ReceiveValue<DateTime>("Ping", (time) =>
+		_messenger.ReceiveEmptyCommand("Ping", () =>
 		{
-			UnityLatencyMilliseconds.Value = (DateTime.UtcNow - time).TotalMilliseconds;
+			UnityLatencyMilliseconds.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
 		});
-		_messenger.SendValue("Ping", DateTime.UtcNow);
 
 		RunTestsToggle!.SettingChanged += (sender, args) =>
 		{
@@ -125,7 +117,8 @@ public class Plugin : BasePlugin
 		};
 		CheckLatencyToggle!.SettingChanged += (sender, args) =>
 		{
-			_messenger.SendValue("Ping", DateTime.UtcNow);
+			_lastPingTime = DateTime.UtcNow;
+			_messenger.SendEmptyCommand("Ping");
 		};
 		_messenger.ReceiveValue<int>("SyncTestOutput", (val) => 
 		{ 

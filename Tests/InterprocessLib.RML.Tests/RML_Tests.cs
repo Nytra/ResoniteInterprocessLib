@@ -1,4 +1,5 @@
 ﻿using ResoniteModLoader;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace InterprocessLib.Tests;
@@ -41,8 +42,6 @@ public class RML_Tests : ResoniteMod
 		{
 			LatencyMilliseconds.Value = (DateTime.UtcNow - _lastPingTime).TotalMilliseconds;
 		});
-		_lastPingTime = DateTime.UtcNow;
-		_messenger.SendEmptyCommand("Ping");
 
 		_messenger.SyncConfigEntry(SyncTest);
 

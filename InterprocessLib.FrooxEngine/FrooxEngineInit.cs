@@ -25,7 +25,7 @@ internal class FrooxEnginePool : IMemoryPackerEntityPool
 internal static class Defaults
 {
 	private static MessagingQueue? _defaultQueue;
-    public static MessagingQueue DefaultQueue
+	public static MessagingQueue DefaultQueue
 	{
 		get
 		{
@@ -69,7 +69,7 @@ internal static class Defaults
 				while (Engine.Current is null)
 					await Task.Delay(1);
 
-				Engine.Current.OnShutdown += _defaultQueue.Dispose; // This is important- as the authority process we need to dispose of the queue on shutdown, otherwise the shared memory files don't get deleted (at least on Linux)
+				Engine.Current.OnShutdown += _defaultQueue.Dispose;
 			});
 
 			return _defaultQueue;

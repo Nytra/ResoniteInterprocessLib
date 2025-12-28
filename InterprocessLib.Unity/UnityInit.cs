@@ -46,6 +46,8 @@ internal class Defaults
 
 			_defaultQueue = new MessagingQueue(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
 
+			Application.quitting += _defaultQueue.Dispose;
+
 			return _defaultQueue;
 		}
 	}

@@ -550,7 +550,7 @@ internal sealed class WrapperCommand : RendererCommand
 
 	static WrapperCommand()
 	{
-		new RendererInitData();
+		new RendererInitData(); // Trigger RendererCommand static constructor
 		var list = new List<Type>();
 		list.AddRange(CurrentRendererCommandTypes);
 		list.Add(typeof(WrapperCommand));
@@ -577,7 +577,7 @@ internal sealed class WrapperCommand : RendererCommand
 		var queue = (MessagingQueue)unpacker.Pool; // dirty hack
 
 		unpacker.Read(ref Owner!);
-		if (!queue.HasOwner(Owner)) throw new InvalidDataException($"Cannot unpack for unregistered owner: {Owner}"); // No reason to throw an exception for this
+		if (!queue.HasOwner(Owner)) throw new InvalidDataException($"Cannot unpack for unregistered owner: {Owner}");
 
 		var ownerData = queue.GetOwnerData(Owner);
 

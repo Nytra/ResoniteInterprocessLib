@@ -54,7 +54,7 @@ namespace InterprocessLibStandaloneTest
 
 			Tests.RunTests(messenger, Console.WriteLine);
 
-			messenger.ReceiveValue<DateTime>("Ping", (time) =>
+			messenger.ReceiveEmptyCommand("Ping", () =>
 			{
 				_cancel.CancelAfter(5000);
 			});
@@ -65,11 +65,12 @@ namespace InterprocessLibStandaloneTest
 			{
 				while (!_cancel.IsCancellationRequested)
 				{
-					messenger.SendValue<DateTime>("Ping", DateTime.UtcNow);
+					messenger.SendEmptyCommand("Ping");
 					await Task.Delay(2500);
 				}
 			}).Wait();
 
+			messenger.Dispose();
 			Console.WriteLine("Exited.");
 		}
     }
