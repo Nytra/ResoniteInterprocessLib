@@ -37,7 +37,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 
 	public int SentMessages => _primary.SentMessages;
 
-	public bool IsInitialized { get; private set; }
+	public bool IsConnected { get; private set; }
 
 	public bool IsDisposed { get; private set; }
 
@@ -60,7 +60,6 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 	public void RegisterOwner(string ownerId)
 	{
 		_ownerData.Add(ownerId, new(ownerId, this));
-		SendPackable(ownerId, "", new QueueOwnerInitCommand());
 	}
 
 	public bool HasOwner(string ownerName)
@@ -108,9 +107,15 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 		};
 
 		_registeredQueues.Add(QueueName, this);
+	}
+
+	public void Connect()
+	{
+		if (IsConnected) throw new InvalidOperationException("Already connected!");
 
 		new WrapperCommand(); // Initialize WrapperCommand static constructor (very important)
 		_primary.Connect(QueueName, IsAuthority, QueueCapacity);
+		IsConnected = true;
 	}
 
 	public void Dispose()
@@ -222,7 +227,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 		}
 		else
 		{
-			_onWarning?.Invoke($"{QueueName} Tried to unregister owner that was not registered: {ownerId}");
+			throw new InvalidOperationException("Cannot unregister an owner who is not registered!");
 		}
 		if (_ownerData.Count == 0)
 		{

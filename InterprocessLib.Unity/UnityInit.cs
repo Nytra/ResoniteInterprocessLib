@@ -6,28 +6,15 @@ namespace InterprocessLib;
 
 internal class Defaults
 {
-	private static MessagingQueue? _defaultQueue;
+	public static bool DefaultIsAuthority => false;
 	public static IMemoryPackerEntityPool DefaultPool => PackerMemoryPool.Instance;
-	public static MessagingQueue DefaultQueue
+
+	private static string? _defaultQueuePrefix;
+	public static string DefaultQueuePrefix
 	{
 		get
 		{
-			if (_defaultQueue is not null) return _defaultQueue;
-
-			Messenger.OnWarning += (msg) =>
-			{
-				Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
-			};
-			Messenger.OnFailure += (ex) =>
-			{
-				Debug.LogError($"[InterprocessLib] [ERROR] {ex}");
-			};
-	#if DEBUG
-			Messenger.OnDebug += (msg) => 
-			{
-				Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
-			};
-	#endif
+			if (_defaultQueuePrefix is not null) return _defaultQueuePrefix;
 
 			var args = Environment.GetCommandLineArgs();
 			string? fullQueueName = null;
@@ -42,13 +29,31 @@ internal class Defaults
 
 			if (fullQueueName is null) throw new InvalidDataException("QueueName argument is null!");
 
-			var engineSharedMemoryPrefix = fullQueueName.Substring(0, fullQueueName.IndexOf('_'));
+			_defaultQueuePrefix = fullQueueName.Substring(0, fullQueueName.IndexOf('_'));
 
-			_defaultQueue = new MessagingQueue(false, $"InterprocessLib-{engineSharedMemoryPrefix}", MessagingManager.DEFAULT_CAPACITY, PackerMemoryPool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
-
-			Application.quitting += _defaultQueue.Dispose;
-
-			return _defaultQueue;
+			return _defaultQueuePrefix;
 		}
+	}
+	public static void Init()
+	{
+		// This only exists so it can be called to trigger the static constructor
+	}
+	static Defaults()
+	{
+		Messenger.OnWarning += (msg) =>
+		{
+			Debug.LogWarning($"[InterprocessLib] [WARN] {msg}");
+		};
+		Messenger.OnFailure += (ex) =>
+		{
+			Debug.LogError($"[InterprocessLib] [ERROR] {ex}");
+		};
+#if DEBUG
+		Messenger.OnDebug += (msg) => 
+		{
+			Debug.Log($"[InterprocessLib] [DEBUG] {msg}");
+		};
+#endif
+		Application.quitting += Messenger.Shutdown;
 	}
 }

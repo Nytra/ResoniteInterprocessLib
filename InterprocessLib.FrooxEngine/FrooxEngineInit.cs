@@ -24,56 +24,57 @@ internal class FrooxEnginePool : IMemoryPackerEntityPool
 
 internal static class Defaults
 {
-	private static MessagingQueue? _defaultQueue;
-	public static MessagingQueue DefaultQueue
+	public static bool DefaultIsAuthority => true;
+
+	public static string DefaultQueuePrefix
 	{
 		get
 		{
-			if (_defaultQueue is not null) return _defaultQueue;
+			if (field is not null) return field;
 
 			var args = Environment.GetCommandLineArgs();
-			string? queueName = null;
 			for (int i = 0; i < args.Length; i++)
 			{
 				if (args[i].Equals("-shmprefix", StringComparison.InvariantCultureIgnoreCase))
 				{
-					queueName = args[i + 1];
+					field = args[i + 1];
 					break;
 				}
 			}
 
-			if (queueName is null)
-			{
-				throw new InvalidDataException("Could not get default FrooxEngine queue name! If this is a headless, you need to use the other Messenger constructor to manually specify a queue name.");
-			}
+			if (field is null)
+				throw new InvalidDataException("Could not get default FrooxEngine queue prefix! If this is a headless, you need to use the other Messenger constructor to manually specify a queue name.");
 
-			Messenger.OnWarning += (msg) =>
-			{
-				UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
-			};
-			Messenger.OnFailure += (ex) =>
-			{
-				UniLog.Error($"[InterprocessLib] [ERROR] {ex}");
-			};
-	#if DEBUG
-			Messenger.OnDebug += (msg) => 
-			{
-				UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
-			};
-	#endif
-
-			_defaultQueue = new MessagingQueue(true, $"InterprocessLib-{queueName}", MessagingManager.DEFAULT_CAPACITY, FrooxEnginePool.Instance, Messenger.FailHandler, Messenger.WarnHandler, Messenger.DebugHandler);
-
-			Task.Run(async () =>
-			{
-				while (Engine.Current is null)
-					await Task.Delay(1);
-
-				Engine.Current.OnShutdown += _defaultQueue.Dispose;
-			});
-
-			return _defaultQueue;
+			return field;
 		}
+	}
+	public static void Init()
+	{
+		// This only exists so it can be called to trigger the static constructor
+	}
+	static Defaults()
+	{
+		Messenger.OnWarning += (msg) =>
+		{
+			UniLog.Warning($"[InterprocessLib] [WARN] {msg}");
+		};
+		Messenger.OnFailure += (ex) =>
+		{
+			UniLog.Error($"[InterprocessLib] [ERROR] {ex}");
+		};
+#if DEBUG
+		Messenger.OnDebug += (msg) => 
+		{
+			UniLog.Log($"[InterprocessLib] [DEBUG] {msg}");
+		};
+#endif
+		Task.Run(async () =>
+		{
+			while (Engine.Current is null)
+				await Task.Delay(1);
+
+			Engine.Current.OnShutdown += Messenger.Shutdown;
+		});
 	}
     public static IMemoryPackerEntityPool DefaultPool => FrooxEnginePool.Instance;
 }

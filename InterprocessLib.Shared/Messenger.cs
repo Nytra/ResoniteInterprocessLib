@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime;
-using Renderite.Shared;
+﻿using Renderite.Shared;
 
 namespace InterprocessLib;
 
@@ -26,7 +24,14 @@ public class Messenger : IDisposable
 	/// </summary>
 	public static event Action<string>? OnDebug;
 
+	internal static event Action? OnShutdown;
+
 	private string _ownerId;
+
+	static Messenger()
+	{
+		Defaults.Init();
+	}
 
 	/// <summary>
 	/// Creates an instance with a unique owner using the default queue (If using the standalone version of the library this will throw an error because there is no default queue!)
@@ -37,14 +42,8 @@ public class Messenger : IDisposable
 	/// <exception cref="ArgumentNullException"></exception>
 	/// <exception cref="NotImplementedException"></exception>
 	[Obsolete("Use the other constructors that don't take Type lists", false)]
-	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
+	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null) : this(ownerId)
 	{
-		if (ownerId is null)
-			throw new ArgumentNullException(nameof(ownerId));
-
-		_ownerId = ownerId;
-		_currentQueue = Defaults.DefaultQueue;
-		Init();
 	}
 
 	/// <summary>
@@ -59,7 +58,15 @@ public class Messenger : IDisposable
 			throw new ArgumentNullException(nameof(ownerId));
 
 		_ownerId = ownerId;
-		_currentQueue = Defaults.DefaultQueue;
+		var queueName = $"{ownerId}-{Defaults.DefaultQueuePrefix}";
+		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingQueue)
+		{
+			_currentQueue = new MessagingQueue(Defaults.DefaultIsAuthority, queueName, MessagingManager.DEFAULT_CAPACITY, Defaults.DefaultPool, OnFailure, OnWarning, OnDebug);
+		}
+		else
+		{
+			_currentQueue = existingQueue;
+		}
 		Init();
 	}
 
@@ -94,9 +101,21 @@ public class Messenger : IDisposable
 		Init();
 	}
 
+	internal static void Shutdown()
+	{
+		OnShutdown?.Invoke();
+	}
+
 	private void Init()
 	{
 		_currentQueue.RegisterOwner(_ownerId);
+
+		if (!_currentQueue.IsConnected)
+			_currentQueue.Connect();
+
+		_currentQueue.SendPackable(_ownerId, "", new QueueOwnerInitCommand());
+
+		OnShutdown += _currentQueue.Dispose;
 	}
 
 	internal static void WarnHandler(string str)
