@@ -172,7 +172,7 @@ internal sealed class TypeRegistrationCommand : TypeCommand
 	}
 }
 
-public class TypeCommand : IMemoryPackable
+internal class TypeCommand : IMemoryPackable
 {
 	public Type? Type;
 	private static Dictionary<string, Type> _typeCache = new();

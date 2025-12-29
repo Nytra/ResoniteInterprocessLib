@@ -37,11 +37,11 @@ public static class Tests
 
 	static void TestTypeCommand()
 	{
-		_messenger!.ReceiveObject<TypeCommand>("TestTypeCommand", (cmd) =>
+		_messenger!.ReceiveType("TestTypeCommand", (type) =>
 		{
-			_logCallback!($"TestTypeCommand: {cmd?.Type?.FullName ?? "NULL"}");
+			_logCallback!($"TestTypeCommand: {type?.FullName ?? "NULL"}");
 		});
-		_messenger!.SendObject<TypeCommand>("TestTypeCommand", new() { Type = typeof(Dictionary<LinkedList<float>, float>) });
+		_messenger!.SendType("TestTypeCommand", typeof(Dictionary<LinkedList<float>, float>));
 	}
 
 	static void TestValueArray()

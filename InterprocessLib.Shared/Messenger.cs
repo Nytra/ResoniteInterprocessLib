@@ -256,6 +256,17 @@ public class Messenger : IDisposable
 		_pool.Return(command);
 	}
 
+	public void SendType(string id, Type type)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		var command = _pool.Borrow<TypeCommand>();
+		command.Type = type;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
+	}
+
 	public void ReceiveValue<T>(string id, Action<T>? callback) where T : unmanaged
 	{
 		if (id is null)
@@ -358,6 +369,14 @@ public class Messenger : IDisposable
 			throw new ArgumentNullException(nameof(id));
 
 		_currentQueue.RegisterCallback<ObjectArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
+	}
+
+	public void ReceiveType(string id, Action<Type?> callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<TypeCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Type));
 	}
 
     public void Dispose()
