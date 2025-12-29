@@ -42,11 +42,11 @@ var list = new List<float>();
 list.Add(2f);
 list.Add(7f);
 list.Add(21f);
-messenger.SendValueList("TestValueList", list);
+messenger.SendValueCollection<List<float>, float>("TestValueList", list);
 ```
 
 ```
-messenger.ReceiveValueList<float>("TestValueList", (list) => 
+messenger.ReceiveValueCollection<List<float>, float>("TestValueList", (list) => 
 {
 	Log($"TestValueList: {string.Join(",", list!)}");
 });
@@ -78,6 +78,8 @@ https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib
 https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.BepisLoader.Tests/BepisLoaderTests.cs
 
 https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.RML.Tests/RML_Tests.cs
+
+https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.Standalone.Tests/Program.cs
 
 ## Installation (BepisLoader/BepInEx) (Manual)
 1. Install [BepisLoader](https://thunderstore.io/c/resonite/p/ResoniteModding/BepisLoader/) and [BepInExRenderer](https://thunderstore.io/c/resonite/p/ResoniteModding/BepInExRenderer/) and [RenderiteHook](https://thunderstore.io/c/resonite/p/ResoniteModding/RenderiteHook/) for Resonite.
