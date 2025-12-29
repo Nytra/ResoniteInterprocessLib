@@ -1,144 +1,126 @@
 ﻿using Renderite.Shared;
-using System.Runtime.InteropServices;
 
 namespace InterprocessLib;
 
 /// <summary>
 /// Simple interprocess messaging API.
 /// </summary>
-public class Messenger
+public class Messenger : IDisposable
 {
-	internal static MessagingHost? Host;
+	private MessagingQueue _currentQueue;
 
 	/// <summary>
-	/// If true the messenger will send commands immediately, otherwise commands will wait in a queue until the authority process sends the <see cref="MessengerReadyCommand"/>.
+	/// Called when the interprocess queue has a critical error
 	/// </summary>
-	public static bool IsInitialized => Host is not null && _postInitActions is null;
+	public static event Action<Exception>? OnFailure;
 
 	/// <summary>
-	/// Does this process have authority over the other process.
+	/// Called when something potentially bad/unexpected happens
 	/// </summary>
-	public static bool IsAuthority { get; internal set; }
+	public static event Action<string>? OnWarning;
 
-	internal static bool InitStarted = false;
+	/// <summary>
+	/// Called with debugging information
+	/// </summary>
+	public static event Action<string>? OnDebug;
 
-	internal static Action<Exception>? OnFailure;
-
-	internal static Action<string>? OnWarning;
-
-#pragma	warning disable CS0649
-	internal static Action<string>? OnDebug;
-#pragma warning restore
-
-	private static List<Action>? _postInitActions = new();
+	internal static event Action? OnShutdown;
 
 	private string _ownerId;
 
-	private static HashSet<string> _registeredOwnerIds = new();
+	private IMemoryPackerEntityPool _pool;
 
-	private List<Type>? _additionalObjectTypes;
-
-	private List<Type>? _additionalValueTypes;
+	static Messenger()
+	{
+		Defaults.Init();
+	}
 
 	/// <summary>
-	/// Creates an instance with a unique owner
+	/// Creates an instance with a unique owner using the default queue (If using the standalone version of the library this will throw an error because there is no default queue!)
 	/// </summary>
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
-	/// <param name="additionalObjectTypes">Optional list of additional <see cref="IMemoryPackable"/> class types you want to be able to send or receieve. Types you want to use that are vanilla go in here too.</param>
-	/// <param name="additionalValueTypes">Optional list of additional unmanaged types you want to be able to send or receieve.</param>
+	/// <param name="additionalObjectTypes">Unused parameter kept for backwards compatibility.</param>
+	/// <param name="additionalValueTypes">Unused parameter kept for backwards compatibility.</param>
 	/// <exception cref="ArgumentNullException"></exception>
-	/// <exception cref="ArgumentException"></exception>
-	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null)
+	/// <exception cref="NotImplementedException"></exception>
+	[Obsolete("Use the other constructors that don't take Type lists", false)]
+	public Messenger(string ownerId, List<Type>? additionalObjectTypes = null, List<Type>? additionalValueTypes = null) : this(ownerId)
+	{
+	}
+
+	/// <summary>
+	/// Creates an instance with a unique owner using the default queue (If using the standalone version of the library this will throw an error because there is no default queue!)
+	/// </summary>
+	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
+	/// <exception cref="ArgumentNullException"></exception>
+	/// <exception cref="NotImplementedException"></exception>
+	public Messenger(string ownerId) : this(ownerId, Defaults.DefaultIsAuthority, $"{Defaults.DefaultQueuePrefix}-{ownerId}")
+	{
+	}
+
+	/// <summary>
+	/// Creates an instance with a unique owner and connects to a custom queue so you can talk to any process. You must remember to call Dispose after using it!
+	/// </summary>
+	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
+	/// <param name="isAuthority">Does this process have authority over the other process? The authority process should always be started first.</param>
+	/// <param name="queueName">Custom queue name. Should match the other process.</param>
+	/// <param name="pool">Custom pool for borrowing and returning memory-packable types.</param>
+	/// <param name="queueCapacity">Capacity for the custom queue in bytes.</param>
+	/// <exception cref="ArgumentNullException"></exception>
+	public Messenger(string ownerId, bool isAuthority, string queueName, IMemoryPackerEntityPool? pool = null, long queueCapacity = 1024*1024)
 	{
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
+		if (queueName is null)
+			throw new ArgumentNullException(nameof(queueName));
+
 		_ownerId = ownerId;
 
-		_additionalObjectTypes = additionalObjectTypes;
+		_pool = pool ?? Defaults.DefaultPool;
 
-		_additionalValueTypes = additionalValueTypes;
-
-		if (_additionalObjectTypes is not null)
+		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingQueue)
 		{
-			TypeManager.InitObjectTypeList(_additionalObjectTypes.Where(t => !TypeManager.IsObjectTypeInitialized(t)).ToList());
-		}
-		if (_additionalValueTypes is not null)
-		{
-			TypeManager.InitValueTypeList(_additionalValueTypes.Where(t => !TypeManager.IsValueTypeInitialized(t)).ToList());
-		}
-
-		if (!_registeredOwnerIds.Contains(ownerId))
-		{
-			_registeredOwnerIds.Add(ownerId);
-
-			if (IsInitialized)
-				Register();
-			else
-				RunPostInit(Register);
+			_currentQueue = new MessagingQueue(isAuthority, queueName, queueCapacity, _pool, OnFailure, OnWarning, OnDebug);
+			OnShutdown += _currentQueue.Dispose;
 		}
 		else
 		{
-			OnWarning?.Invoke($"A messenger with id {ownerId} has already been created in this process!");
+			_currentQueue = existingQueue;
 		}
 
-		if (Host is null && !InitStarted)
-		{
-			InitStarted = true;
-
-			var frooxEngineInitType = Type.GetType("InterprocessLib.FrooxEngineInit");
-			if (frooxEngineInitType is not null)
-			{
-				frooxEngineInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-			}
-			else
-			{
-				var unityInitType = Type.GetType("InterprocessLib.UnityInit");
-				if (unityInitType is not null)
-				{
-					unityInitType.GetMethod("Init", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public)!.Invoke(null, null);
-				}
-				else
-				{
-					throw new EntryPointNotFoundException("Could not find InterprocessLib initialization type!");
-				}
-			}
-		}
+		Init();
 	}
 
-	private void Register()
+	// On the FrooxEngine and Unity versions of the library, this will shutdown every messaging queue created by the Messenger class
+	internal static void Shutdown()
 	{
-		Host!.RegisterOwner(_ownerId);
+		OnShutdown?.Invoke();
 	}
 
-	internal static void FinishInitialization()
+	private void Init()
 	{
-		if (IsAuthority)
-			Host!.SendCommand(new MessengerReadyCommand());
+		_currentQueue.RegisterOwner(_ownerId);
 
-		var actions = _postInitActions!.ToArray();
-		_postInitActions = null;
-		foreach (var action in actions)
-		{
-			try
-			{
-				action();
-			}
-			catch (Exception ex)
-			{
-				OnWarning?.Invoke($"Exception running post-init action:\n{ex}");
-			}
-		}
+		if (!_currentQueue.IsConnected)
+			_currentQueue.Connect();
+
+		_currentQueue.SendPackable(_ownerId, "", new QueueOwnerInitCommand());
 	}
 
-	private static void RunPostInit(Action act)
+	internal static void WarnHandler(string str)
 	{
-		if (!IsInitialized)
-		{
-			_postInitActions!.Add(act);
-		}
-		else
-			throw new InvalidOperationException("Already initialized!");
+		OnWarning?.Invoke(str);
+	}
+
+	internal static void FailHandler(Exception ex)
+	{
+		OnFailure?.Invoke(ex);
+	}
+
+	internal static void DebugHandler(string str)
+	{
+		OnDebug?.Invoke(str);
 	}
 
 	public void SendValue<T>(string id, T value) where T : unmanaged
@@ -146,98 +128,83 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendValue(id, value));
-			return;
-		}
-
-		if (!TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {value.GetType().Name} needs to be registered first!");
-
-		var command = new ValueCommand<T>();
-		command.Owner = _ownerId;
-		command.Id = id;
+		var command = _pool.Borrow<ValueCommand<T>>();
 		command.Value = value;
-		Host!.SendCommand(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void SendValueList<T>(string id, List<T> list) where T : unmanaged
+	[Obsolete("Use SendValueCollection instead.")]
+	public void SendValueList<T>(string id, List<T>? list) where T : unmanaged
+	{
+		SendValueCollection<List<T>, T>(id, list);
+	}
+
+	[Obsolete("Use SendValueCollection instead.")]
+	public void SendValueHashSet<T>(string id, HashSet<T>? hashSet) where T : unmanaged
+	{
+		SendValueCollection<HashSet<T>, T>(id, hashSet);
+	}
+
+	public void SendValueCollection<C, T>(string id, C? collection) where C : ICollection<T>?, new() where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendValueList(id, list));
-			return;
-		}
-
-		if (!TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		var command = new ValueCollectionCommand<List<T>, T>();
-		command.Owner = _ownerId;
-		command.Id = id;
-		command.Values = list;
-		Host!.SendCommand(command);
+		var command = _pool.Borrow<ValueCollectionCommand<C, T>>();
+		command.Values = collection;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void SendValueHashSet<T>(string id, HashSet<T> hashSet) where T : unmanaged
+	public void SendValueArray<T>(string id, T[]? array) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendValueHashSet(id, hashSet));
-			return;
-		}
-
-		if (!TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		var command = new ValueCollectionCommand<HashSet<T>, T>();
-		command.Owner = _ownerId;
-		command.Id = id;
-		command.Values = hashSet;
-		Host!.SendCommand(command);
+		var command = _pool.Borrow<ValueArrayCommand<T>>();
+		command.Values = array;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void SendString(string id, string str)
+	public void SendString(string id, string? str)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendString(id, str));
-			return;
-		}
-
-		var command = new StringCommand();
-		command.Owner = _ownerId;
-		command.Id = id;
+		var command = _pool.Borrow<StringCommand>();
 		command.String = str;
-		Host!.SendCommand(command);
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void SendStringList(string id, List<string> list)
+	[Obsolete("Use SendStringCollection instead.")]
+	public void SendStringList(string id, List<string>? list)
+	{
+		SendStringCollection<List<string>>(id, list);
+	}
+
+	public void SendStringCollection<C>(string id, IReadOnlyCollection<string?>? collection) where C : ICollection<string>?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendStringList(id, list));
-			return;
-		}
+		var command = _pool.Borrow<StringCollectionCommand<C>>();
+		command.Strings = collection;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
+	}
 
-		var command = new StringListCommand();
-		command.Owner = _ownerId;
-		command.Id = id;
-		command.Values = list;
-		Host!.SendCommand(command);
+	public void SendStringArray(string id, string?[]? array)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		var command = _pool.Borrow<StringArrayCommand>();
+		command.Strings = array;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendEmptyCommand(string id)
@@ -245,185 +212,175 @@ public class Messenger
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendEmptyCommand(id));
-			return;
-		}
-
-		var command = new EmptyCommand();
-		command.Owner = _ownerId;
-		command.Id = id;
-		Host!.SendCommand(command);
+		var command = _pool.Borrow<EmptyCommand>();
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void SendObject<T>(string id, T? obj) where T : class, IMemoryPackable, new()
+	public void SendObject<T>(string id, T? obj) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendObject(id, obj));
-			return;
-		}
-
-		if (!TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		var wrapper = new ObjectCommand<T>();
-		wrapper.Object = obj;
-		wrapper.Owner = _ownerId;
-		wrapper.Id = id;
-
-		Host!.SendCommand(wrapper);
+		var command = _pool.Borrow<ObjectCommand<T>>();
+		command.Object = obj;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void SendObjectList<T>(string id, List<T> list) where T : class, IMemoryPackable, new()
+	[Obsolete("Use SendObjectCollection instead.")]
+	public void SendObjectList<T>(string id, List<T>? list) where T : class?, IMemoryPackable?, new()
+	{
+		SendObjectCollection<List<T>, T>(id, list);
+	}
+
+	public void SendObjectCollection<C, T>(string id, C? collection) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => SendObjectList(id, list));
-			return;
-		}
-
-		if (!TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		var command = new ObjectListCommand<T>();
-		command.Owner = _ownerId;
-		command.Id = id;
-		command.Values = list;
-		Host!.SendCommand(command);
+		var command = _pool.Borrow<ObjectCollectionCommand<C, T>>();
+		command.Objects = collection;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void ReceiveValue<T>(string id, Action<T> callback) where T : unmanaged
+	public void SendObjectArray<T>(string id, T[]? array) where T : class?, IMemoryPackable?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveValue(id, callback));
-			return;
-		}
-
-		if (!TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		Host!.RegisterValueCallback(_ownerId, id, callback);
+		var command = _pool.Borrow<ObjectArrayCommand<T>>();
+		command.Objects = array;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void ReceiveValueList<T>(string id, Action<List<T>> callback) where T : unmanaged
+	public void SendType(string id, Type type)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveValueList(id, callback));
-			return;
-		}
-
-		if (!TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		Host!.RegisterValueCollectionCallback<List<T>, T>(_ownerId, id, callback);
+		var command = _pool.Borrow<TypeCommand>();
+		command.Type = type;
+		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
-	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>> callback) where T : unmanaged
+	public void ReceiveValue<T>(string id, Action<T>? callback) where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveValueHashSet(id, callback));
-			return;
-		}
-
-		if (!TypeManager.IsValueTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		Host!.RegisterValueCollectionCallback<HashSet<T>, T>(_ownerId, id, callback);
+		_currentQueue.RegisterCallback<ValueCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Value));
 	}
 
-	public void ReceiveString(string id, Action<string?> callback)
+	[Obsolete("Use ReceiveValueCollection instead.")]
+	public void ReceiveValueList<T>(string id, Action<List<T>>? callback) where T : unmanaged
+	{
+		ReceiveValueCollection<List<T>, T>(id, callback);
+	}
+
+	[Obsolete("Use ReceiveValueCollection instead.")]
+	public void ReceiveValueHashSet<T>(string id, Action<HashSet<T>>? callback) where T : unmanaged
+	{
+		ReceiveValueCollection<HashSet<T>, T>(id, callback);
+	}
+
+	public void ReceiveValueCollection<C, T>(string id, Action<C>? callback) where C : ICollection<T>?, new() where T : unmanaged
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveString(id, callback));
-			return;
-		}
-
-		Host!.RegisterStringCallback(_ownerId, id, callback);
+		_currentQueue.RegisterCallback<ValueCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values!));
 	}
 
+	public void ReceiveValueArray<T>(string id, Action<T[]?>? callback) where T : unmanaged
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<ValueArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Values));
+	}
+
+	public void ReceiveString(string id, Action<string?>? callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<StringCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.String));
+	}
+
+	[Obsolete("Use ReceiveStringCollection instead.")]
 	public void ReceiveStringList(string id, Action<List<string>?>? callback)
 	{
-		if (id is null)
-			throw new ArgumentNullException(nameof(id));
-
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveStringList(id, callback));
-			return;
-		}
-
-		Host!.RegisterStringListCallback(_ownerId, id, callback);
+		ReceiveStringCollection(id, callback);
 	}
 
-	public void ReceiveEmptyCommand(string id, Action callback)
+	public void ReceiveStringCollection<C>(string id, Action<C>? callback) where C : ICollection<string>?, new()
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveEmptyCommand(id, callback));
-			return;
-		}
-
-		Host!.RegisterEmptyCallback(_ownerId, id, callback);
+		_currentQueue.RegisterCallback<StringCollectionCommand<C>>(_ownerId, id, (cmd) => callback?.Invoke((C)cmd.Strings!));
 	}
 
-	public void ReceiveObject<T>(string id, Action<T> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveStringArray(string id, Action<string?[]?>? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveObject(id, callback));
-			return;
-		}
-
-		if (!TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		Host!.RegisterObjectCallback(_ownerId, id, callback);
+		_currentQueue.RegisterCallback<StringArrayCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Strings));
 	}
 
-	public void ReceiveObjectList<T>(string id, Action<List<T>> callback) where T : class, IMemoryPackable, new()
+	public void ReceiveEmptyCommand(string id, Action? callback)
 	{
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		if (!IsInitialized)
-		{
-			RunPostInit(() => ReceiveObjectList(id, callback));
-			return;
-		}
-
-		if (!TypeManager.IsObjectTypeInitialized<T>())
-			throw new InvalidOperationException($"Type {typeof(T).Name} needs to be registered first!");
-
-		Host!.RegisterObjectListCallback(_ownerId, id, callback);
+		_currentQueue.RegisterCallback<EmptyCommand>(_ownerId, id, (cmd) => callback?.Invoke());
 	}
+
+	public void ReceiveObject<T>(string id, Action<T>? callback) where T : class?, IMemoryPackable?, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<ObjectCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Object!));
+	}
+
+	[Obsolete("Use ReceiveObjectCollection instead.")]
+	public void ReceiveObjectList<T>(string id, Action<List<T>>? callback) where T : class?, IMemoryPackable?, new()
+	{
+		ReceiveObjectCollection<List<T>, T>(id, callback);
+	}
+
+	public void ReceiveObjectCollection<C, T>(string id, Action<C>? callback) where C : ICollection<T>?, new() where T : class?, IMemoryPackable?, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<ObjectCollectionCommand<C, T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
+	}
+
+	public void ReceiveObjectArray<T>(string id, Action<T[]>? callback) where T : class?, IMemoryPackable?, new()
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<ObjectArrayCommand<T>>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Objects!));
+	}
+
+	public void ReceiveType(string id, Action<Type?> callback)
+	{
+		if (id is null)
+			throw new ArgumentNullException(nameof(id));
+
+		_currentQueue.RegisterCallback<TypeCommand>(_ownerId, id, (cmd) => callback?.Invoke(cmd.Type));
+	}
+
+    public void Dispose()
+    {
+        _currentQueue.UnregisterOwner(_ownerId);
+    }
 }

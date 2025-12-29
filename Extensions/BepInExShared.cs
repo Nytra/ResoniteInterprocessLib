@@ -8,28 +8,24 @@ public static class BepInExExtensions
 
 	public static void SyncConfigEntry<T>(this Messenger messenger, ConfigEntry<T> configEntry) where T : unmanaged
 	{
+		messenger.ReceiveConfigEntry<T>(configEntry);
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
-			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
 				messenger.SendConfigEntry<T>(configEntry);
 		};
-		messenger.ReceiveConfigEntry<T>(configEntry);
 	}
 
 	public static void SyncConfigEntry(this Messenger messenger, ConfigEntry<string> configEntry)
 	{
+		messenger.ReceiveConfigEntry(configEntry);
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
-			messenger.SendConfigEntry(configEntry);
 		configEntry.SettingChanged += (sender, args) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
 				messenger.SendConfigEntry(configEntry);
 		};
-		messenger.ReceiveConfigEntry(configEntry);
 	}
 
 	public static void SendConfigEntry<T>(this Messenger messenger, ConfigEntry<T> configEntry) where T : unmanaged

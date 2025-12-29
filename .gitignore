@@ -428,5 +428,5 @@ FodyWeavers.xsd
 *.msp
 
 Build/
-
+build/
 out/

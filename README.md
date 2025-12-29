@@ -4,7 +4,7 @@ A library for [Resonite](https://resonite.com/) that allows mods to send data to
 
 The library only depends on `Renderite.Shared`, meaning it could work with other mod loaders e.g. MonkeyLoader.
 
-BepisLoader, BepInEx and RML example projects are included in the Tests folder.
+BepisLoader, BepInEx, RML and Standalone example projects are included in the Tests folder.
 
 ## Usage
 
@@ -16,13 +16,11 @@ After including the library in your project, all you have to do is create your o
 var messenger = new Messenger("PluginName");
 ```
 
-From here you can use the object to send data or to register callbacks to receive data. If you use the object before Resonite starts, the commands will get queued up.
+From here you can use the messenger to send data or receive data.
 
 ```
 messenger.SendValue<int>("TestValue", 637);
 ```
-
-Here's how to receive a value in the other process.
 
 ```
 messenger.ReceiveValue<int>("TestValue", (val) =>
@@ -31,13 +29,13 @@ messenger.ReceiveValue<int>("TestValue", (val) =>
 });
 ```
 
-For BepisLoader and BepInEx, if you have a ConfigEntry/ModConfigurationKey in both processes with the same type and name, you can sync them like this:
+For BepisLoader, BepInEx and RML, if you have a config entry in both processes with the same type and name, you can sync them like this:
 
 ```
 messenger.SyncConfigEntry(MyConfigEntry);
 ```
 
-You can also work with lists.
+You can also work with lists:
 
 ```
 var list = new List<float>();
@@ -54,15 +52,7 @@ messenger.ReceiveValueList<float>("TestValueList", (list) =>
 });
 ```
 
-If you want to send more complex data such as custom memory-packable structs and classes, you must register the types when you instantiate the messenger.
-
-There are two lists that can be provided: the first is for `IMemoryPackable` class types, and the second is for `unmanaged` value types.
-
-```
-var messenger = new Messenger("UsingCustomTypes", [typeof(TestCommand), typeof(TestNestedPackable), typeof(TestPackable), typeof(RendererInitData)], [typeof(TestStruct), typeof(TestNestedStruct)]);
-```
-
-After doing this you can now send and receive those custom types.
+You can send any class type that has the IMemoryPackable interface:
 
 ```
 var cmd = new TestCommand();
@@ -72,8 +62,6 @@ cmd.Time = DateTime.Now;
 messenger.SendObject("TestCustomRendererCommand", cmd);
 ```
 
-and to receive:
-
 ```
 messenger.ReceiveObject<TestCommand>("TestCustomRendererCommand", (recvCmd) =>
 {
@@ -81,7 +69,7 @@ messenger.ReceiveObject<TestCommand>("TestCustomRendererCommand", (recvCmd) =>
 });
 ```
 
-For more examples you can check the tests files: 
+For more examples, you can check the tests files: 
 
 https://github.com/Nytra/ResoniteInterprocessLib/blob/main/InterprocessLib.Shared/Tests.cs
 
@@ -91,10 +79,17 @@ https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib
 
 https://github.com/Nytra/ResoniteInterprocessLib/blob/main/Tests/InterprocessLib.RML.Tests/RML_Tests.cs
 
-## Installation (Manual)
+## Installation (BepisLoader/BepInEx) (Manual)
 1. Install [BepisLoader](https://thunderstore.io/c/resonite/p/ResoniteModding/BepisLoader/) and [BepInExRenderer](https://thunderstore.io/c/resonite/p/ResoniteModding/BepInExRenderer/) and [RenderiteHook](https://thunderstore.io/c/resonite/p/ResoniteModding/RenderiteHook/) for Resonite.
 2. Download the latest release ZIP file (e.g., `Nytra-InterprocessLib-1.0.0.zip`) from the [Releases](https://github.com/Nytra/ResoniteInterprocessLib/releases) page.
 3. Extract the ZIP and copy the `plugins` folder to your BepInEx folder in your Resonite installation directory and the renderer directory:
    - **Default location:** `C:\Program Files (x86)\Steam\steamapps\common\Resonite\BepInEx\`
    - **Renderer default location:** `C:\Program Files (x86)\Steam\steamapps\common\Resonite\Renderer\BepInEx\`
 4. Start the game. If you want to verify that the mod is working you can check your BepInEx logs.
+
+## Installation (RML) (Manual)
+1. Install [ResoniteModLoader](https://github.com/resonite-modding-group/ResoniteModLoader) for Resonite.
+2. Download the latest release file `InterprocessLib.FrooxEngine.dll` and optionally the RML extensions `InterprocessLib.RML_Extensions.dll` from the [Releases](https://github.com/Nytra/ResoniteInterprocessLib/releases) page.
+3. Put those downloaded files into your 'rml_libs' folder in your Resonite installation directory:
+   - **Default location:** `C:\Program Files (x86)\Steam\steamapps\common\Resonite\rml_libs\`
+4. Start the game. If you want to verify that the mod is working you can check your Resonite logs.

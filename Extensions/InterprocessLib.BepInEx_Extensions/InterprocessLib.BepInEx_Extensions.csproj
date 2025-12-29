@@ -1,57 +1,49 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0</Version>
-    <Authors>Nytra</Authors>
     <TargetFramework>net472</TargetFramework>
-	<LangVersion>12</LangVersion>
-    <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.BepInEx_Extensions</PackageId>
-    <Product>InterprocessLib.BepInEx_Extensions</Product>
-    <RootNamespace>InterprocessLib</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <Deterministic>true</Deterministic>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
-    <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
-    <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
-  <GamePath Condition="Exists('$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/snap/steam/common/.local/share/Steam/steamapps/common/Resonite/</GamePath>
-    <Configurations>Debug;Release;Tests</Configurations>
+    <LangVersion>12</LangVersion>
   </PropertyGroup>
   
   <ItemGroup>
-	<Reference Include="0Harmony">
+    <Reference Include="0Harmony">
       <HintPath>$(GamePath)Renderer\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="BepInEx">
       <HintPath>$(GamePath)Renderer\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="InterprocessLib.Unity">
       <HintPath>..\..\out\InterprocessLib.Unity.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="Renderite.Unity">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Unity.dll</HintPath>
+      <Private>False</Private>
     </Reference>
-	<Reference Include="Renderite.Shared">
+    <Reference Include="Renderite.Shared">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\Renderite.Shared.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GamePath)Renderer\Renderite.Renderer_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
     </Reference>
-	<Compile Include="../BepInExShared.cs" />
+    <Compile Include="../BepInExShared.cs" />
   </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
+      <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
     </ItemGroup>
     
-	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
     <Message Text="Copied plugin files to out dir" Importance="high" />
   </Target>
   

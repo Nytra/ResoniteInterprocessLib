@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.0] - x
+
+- ToDo: complete this
+
 ## [2.0.1] - 28-10-2025
 
 - Fixed folder structure of the Thunderstore package

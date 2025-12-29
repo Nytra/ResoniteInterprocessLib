@@ -8,28 +8,24 @@ public static class RML_Extensions
 
 	public static void SyncConfigEntry<T>(this Messenger messenger, ModConfigurationKey<T> configEntry) where T : unmanaged
 	{
+		messenger.ReceiveConfigEntry<T>(configEntry);
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
-			messenger.SendConfigEntry<T>(configEntry);
 		configEntry.OnChanged += (object? newValue) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
 				messenger.SendConfigEntry<T>(configEntry);
 		};
-		messenger.ReceiveConfigEntry<T>(configEntry);
 	}
 
 	public static void SyncConfigEntry(this Messenger messenger, ModConfigurationKey<string> configEntry)
 	{
+		messenger.ReceiveConfigEntry(configEntry);
 		_syncStates[configEntry] = true;
-		if (Messenger.IsAuthority)
-			messenger.SendConfigEntry(configEntry);
 		configEntry.OnChanged += (object? newValue) =>
 		{
 			if (_syncStates.TryGetValue(configEntry, out bool value) && value == true)
 				messenger.SendConfigEntry(configEntry);
 		};
-		messenger.ReceiveConfigEntry(configEntry);
 	}
 
 	public static void SendConfigEntry<T>(this Messenger messenger, ModConfigurationKey<T> configEntry) where T : unmanaged

@@ -1,24 +1,17 @@
-//#define TEST_COMPILATION
-
 using Renderite.Shared;
-using System.Reflection;
 
 namespace InterprocessLib.Tests;
 
 public static class Tests
 {
 	private static Messenger? _messenger;
-	private static Messenger? _unknownMessenger;
 	private static Action<string>? _logCallback;
 
-	public static void RunTests(Messenger messenger, Messenger unknownMessenger, Action<string> logCallback)
+	public static void RunTests(Messenger messenger, Action<string> logCallback)
 	{
 		_messenger = messenger;
-		_unknownMessenger = unknownMessenger;
 		_logCallback = logCallback;
 
-		TestUnknownMessenger();
-		TestUnknownCommandId();
 		TestNullString();
 		TestEmptyCommand();
 		TestString();
@@ -30,52 +23,55 @@ public static class Tests
 		TestNestedStruct();
 		TestValueList();
 		TestValueHashSet();
-		TestStringList();
+		TestStringCollection();
 		TestObjectList();
 		TestVanillaObject();
 		TestVanillaStruct();
 		TestVanillaEnum();
+		TestValueArray();
+		TestObjectArray();
+		TestObjectHashSet();
+		TestStringArray();
+		TestTypeCommand();
+	}
 
-		try
+	static void TestTypeCommand()
+	{
+		_messenger!.ReceiveType("TestTypeCommand", (type) =>
 		{
-			TestUnregisteredCommand();
-		}
-		catch (Exception ex) 
+			_logCallback!($"TestTypeCommand: {type?.FullName ?? "NULL"}");
+		});
+		_messenger!.SendType("TestTypeCommand", typeof(Dictionary<LinkedList<float>, float>));
+	}
+
+	static void TestValueArray()
+	{
+		_messenger!.ReceiveValueArray<int>("TestValueArray", (arr) => 
 		{
-			logCallback($"TestUnregisteredCommand threw an exception: {ex.Message}");
-		}
-		try
+			_logCallback!($"TestValueArray: {string.Join(",", arr!)}");
+		});
+		var arr = new int[3];
+		arr[0] = 4;
+		arr[1] = 7;
+		arr[2] = -8;
+		_messenger.SendValueArray<int>("TestValueArray", arr);
+	}
+
+	static void TestObjectArray()
+	{
+		_messenger!.ReceiveObjectArray<TestCommand?>("TestObjectArray", (arr) =>
 		{
-			TestUnregisteredPackable();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredPackable threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredStruct();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredStruct threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredVanillaObject();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredVanillaObject threw an exception: {ex.Message}");
-		}
-		try
-		{
-			TestUnregisteredVanillaValue();
-		}
-		catch (Exception ex)
-		{
-			logCallback($"TestUnregisteredVanillaValue threw an exception: {ex.Message}");
-		}
+			_logCallback!($"TestObjectArray: {string.Join<TestCommand?>(",", arr)}");
+		});
+		var arr = new TestCommand?[3];
+		arr[0] = new TestCommand();
+		arr[0]!.Value = 64;
+		arr[0]!.Text = "Pizza";
+		arr[0]!.Time = DateTime.Now;
+		arr[1] = null;
+		arr[2] = new TestCommand();
+		arr[2]!.Value = 247;
+		_messenger.SendObjectArray("TestObjectArray", arr);
 	}
 
 	static void TestVanillaStruct()
@@ -104,27 +100,6 @@ public static class Tests
 		_messenger.SendValue<ShadowType>("TestVanillaEnum", val);
 	}
 
-	static void TestUnregisteredVanillaValue()
-	{
-		_messenger!.ReceiveValue<Chirality>("TestUnregisteredVanillaValue", (val) =>
-		{
-			_logCallback!($"TestUnregisteredVanillaValue: {val}");
-
-		});
-		var val = Chirality.Right;
-		_messenger.SendValue<Chirality>("TestUnregisteredVanillaValue", val);
-	}
-
-	static void TestUnknownMessenger()
-	{
-		_unknownMessenger!.SendEmptyCommand("UnknownMessengerTest");
-	}
-
-	static void TestUnknownCommandId()
-	{
-		_messenger!.SendEmptyCommand("UnknownIdTest");
-	}
-
 	static void TestNullString()
 	{
 		_messenger!.ReceiveString("NullStr", (str) =>
@@ -132,7 +107,7 @@ public static class Tests
 			_logCallback!($"NullStr: {str}");
 
 		});
-		_messenger.SendString("NullStr", null!);
+		_messenger.SendString("NullStr", null);
 	}
 
 	static void TestEmptyCommand()
@@ -235,42 +210,9 @@ public static class Tests
 		_messenger!.SendValue("TestNestedStruct", testNestedSruct);
 	}
 
-	static void TestUnregisteredCommand()
-	{
-		_messenger!.ReceiveObject<UnregisteredCommand>("UnregisteredCommand", (recv) =>
-		{
-			_logCallback!($"UnregisteredCommand");
-		});
-
-		var unregistered = new UnregisteredCommand();
-		_messenger.SendObject("UnregisteredCommand", unregistered);
-	}
-
-	static void TestUnregisteredPackable()
-	{
-		_messenger!.ReceiveValue<UnregisteredPackable>("UnregisteredPackable", (recv) =>
-		{
-			_logCallback!($"UnregisteredPackable");
-		});
-
-		var unregistered = new UnregisteredPackable();
-		_messenger.SendValue("UnregisteredPackable", unregistered);
-	}
-
-	static void TestUnregisteredStruct()
-	{
-		_messenger!.ReceiveValue<UnregisteredStruct>("UnregisteredStruct", (recv) =>
-		{
-			_logCallback!($"UnregisteredStruct");
-		});
-
-		var unregistered = new UnregisteredStruct();
-		_messenger.SendValue("UnregisteredStruct", unregistered);
-	}
-
 	static void TestValueList()
 	{
-		_messenger!.ReceiveValueList<float>("TestValueList", (list) => 
+		_messenger!.ReceiveValueCollection<List<float>, float>("TestValueList", (list) => 
 		{
 			_logCallback!($"TestValueList: {string.Join(",", list!)}");
 		});
@@ -279,12 +221,12 @@ public static class Tests
 		list.Add(2f);
 		list.Add(7f);
 		list.Add(21f);
-		_messenger.SendValueList("TestValueList", list);
+		_messenger.SendValueCollection<List<float>, float>("TestValueList", list);
 	}
 
 	static void TestValueHashSet()
 	{
-		_messenger!.ReceiveValueHashSet<float>("TestValueHashSet", (list) =>
+		_messenger!.ReceiveValueCollection<HashSet<float>, float>("TestValueHashSet", (list) =>
 		{
 			_logCallback!($"TestValueHashSet: {string.Join(",", list!)}");
 		});
@@ -293,28 +235,42 @@ public static class Tests
 		set.Add(99.92f);
 		set.Add(127.2f);
 		set.Add(-4.32f);
-		_messenger.SendValueHashSet("TestValueHashSet", set);
+		_messenger.SendValueCollection<HashSet<float>, float>("TestValueHashSet", set);
 	}
 
 	static void TestObjectList()
 	{
-		_messenger!.ReceiveObjectList<TestPackable>("TestObjectList", (list) =>
+		_messenger!.ReceiveObjectCollection<List<TestPackable>, TestPackable>("TestObjectList", (list) =>
 		{
-			_logCallback!($"TestObjectList: {string.Join(",", list)}");
+			_logCallback!($"TestObjectList: {string.Join(",", list!)}");
 		});
 
 		var list = new List<TestPackable>();
 		list.Add(new() { Value = 7 });
 		list.Add(new() { Value = 15 });
 		list.Add(new() { Value = 83 });
-		_messenger.SendObjectList("TestObjectList", list);
+		_messenger.SendObjectCollection<List<TestPackable>, TestPackable>("TestObjectList", list);
 	}
 
-	static void TestStringList()
+	static void TestObjectHashSet()
 	{
-		_messenger!.ReceiveStringList("TestStringList", (list) =>
+		_messenger!.ReceiveObjectCollection<HashSet<TestCommand?>, TestCommand?>("TestObjectHashSet", (list) =>
 		{
-			_logCallback!($"TestStringList: {string.Join(",", list!.Select(s => s ?? "NULL"))}");
+			_logCallback!($"TestObjectHashSet: {string.Join(",", list!)}");
+		});
+
+		var set = new HashSet<TestCommand?>();
+		set.Add(new TestCommand());
+		set.Add(null);
+		set.Add(new TestCommand() { Value = 9 });
+		_messenger.SendObjectCollection<HashSet<TestCommand?>, TestCommand?>("TestObjectHashSet", set);
+	}
+
+	static void TestStringCollection()
+	{
+		_messenger!.ReceiveStringCollection<List<string>>("TestStringCollection", (list) =>
+		{
+			_logCallback!($"TestStringCollection: {string.Join(",", list!.Select(s => s ?? "NULL"))}");
 		});
 
 		var list = new List<string>();
@@ -323,62 +279,37 @@ public static class Tests
 		list.Add("owo");
 		list.Add(null!);
 		list.Add("x3");
-		_messenger.SendStringList("TestStringList", list);
+		_messenger.SendStringCollection<List<string>>("TestStringCollection", list);
+	}
+
+	static void TestStringArray()
+	{
+		_messenger!.ReceiveStringArray("TestStringArray", (arr) =>
+		{
+			_logCallback!($"TestStringArray: {string.Join(",", arr!.Select(s => s ?? "NULL"))}");
+		});
+
+		var arr = new string?[]
+		{
+			"Hello",
+			"World",
+			"owo",
+			null,
+			"x3"
+		};
+		_messenger.SendStringArray("TestStringArray", arr);
 	}
 
 	static void TestVanillaObject()
 	{
 		_messenger!.ReceiveObject<RendererInitData>("TestVanillaObject", (recv) =>
 		{
-			_logCallback!($"TestVanillaObject: {recv.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice} {recv.setWindowIcon} {recv.splashScreenOverride}");
+			_logCallback!($"TestVanillaObject: {recv!.sharedMemoryPrefix} {recv.uniqueSessionId} {recv.mainProcessId} {recv.debugFramePacing} {recv.outputDevice} {recv.setWindowIcon} {recv.splashScreenOverride}");
 		});
 
 		var obj = new RendererInitData();
 		_messenger.SendObject("TestVanillaObject", obj);
 	}
-
-	static void TestUnregisteredVanillaObject()
-	{
-		_messenger!.ReceiveObject<QualityConfig>("TestUnregisteredVanillaObject", (recv) =>
-		{
-			_logCallback!($"TestUnregisteredVanillaObject: {recv.perPixelLights} {recv.shadowCascades} {recv.shadowResolution} {recv.shadowDistance} {recv.skinWeightMode}");
-		});
-
-		var obj = new QualityConfig();
-		_messenger.SendObject("TestUnregisteredVanillaObject", obj);
-	}
-
-#if TEST_COMPILATION
-	//Won't compile
-	static void TestInvalidType()
-	{
-		_messenger!.ReceiveObject<InvalidType>("InvalidType", (recvInvalidType) =>
-		{
-			_logCallback!($"InvalidType: {recvInvalidType?.Exception}");
-		});
-
-		var invalid = new InvalidType();
-
-		invalid.Exception = new Exception();
-
-		_messenger!.SendObject("InvalidType", invalid);
-	}
-
-	// Won't compile
-	static void TestInvalidStruct()
-	{
-		_messenger!.ReceiveValue<StructWithObject>("StructWithObject", (recvStructWithObject) =>
-		{
-			_logCallback!($"StructWithObject: {recvStructWithObject.Assembly}");
-		});
-
-		var invalid = new StructWithObject();
-
-		invalid.Assembly = Assembly.GetExecutingAssembly();
-
-		_messenger!.SendValue("StructWithObject", invalid);
-	}
-#endif
 }
 
 public class TestCommand : RendererCommand
@@ -398,6 +329,11 @@ public class TestCommand : RendererCommand
 		unpacker.Read(ref Value);
 		unpacker.Read(ref Text);
 		unpacker.Read(ref Time);
+	}
+
+	public override string ToString()
+	{
+		return $"TestCommand: {Value}, {Text}, {Time}";
 	}
 }
 
@@ -447,41 +383,4 @@ public struct TestStruct
 public struct TestNestedStruct
 {
 	public TestStruct Nested;
-}
-
-public class InvalidType
-{
-	public Exception? Exception;
-}
-
-public struct StructWithObject
-{
-	public Assembly Assembly;
-}
-
-public struct UnregisteredPackable : IMemoryPackable
-{
-	public void Pack(ref MemoryPacker packer)
-	{
-	}
-
-	public void Unpack(ref MemoryUnpacker unpacker)
-	{
-	}
-}
-
-public class UnregisteredCommand : RendererCommand
-{
-	public override void Pack(ref MemoryPacker packer)
-	{
-	}
-
-	public override void Unpack(ref MemoryUnpacker unpacker)
-	{
-	}
-}
-
-public struct UnregisteredStruct
-{
-	public byte Value;
 }

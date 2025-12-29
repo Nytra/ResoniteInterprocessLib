@@ -1,35 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.0.0</Version>
-    <Authors>Nytra</Authors>
-    <TargetFramework>net9.0</TargetFramework>
-	<Langversion>13</Langversion>
-    <RepositoryUrl>https://github.com/Nytra/ResoniteInterprocessLib</RepositoryUrl>
-    <PackageId>Nytra.InterprocessLib.BepisLoader_Extensions</PackageId>
-    <Product>InterprocessLib.BepisLoader_Extensions</Product>
-    <RootNamespace>InterprocessLib</RootNamespace>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <Deterministic>true</Deterministic>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
-    <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
-    <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-	<GamePath Condition="Exists('G:\SteamLibrary\steamapps\common\Resonite\')">G:\SteamLibrary\steamapps\common\Resonite\</GamePath>
+    <TargetFramework>net10.0</TargetFramework>
+    <Langversion>14</Langversion>
     <RestoreAdditionalProjectSources>
       https://nuget-modding.resonite.net/v3/index.json;
     </RestoreAdditionalProjectSources>
-    <Configurations>Debug;Release;Tests</Configurations>
   </PropertyGroup>
 
-  <!-- Modding dependencies -->
   <ItemGroup>
     <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
   </ItemGroup>
   
   <ItemGroup Condition="!Exists('$(GamePath)')">
-    <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
+    <PackageReference Include="Resonite.GameLibs" Version="2025.*" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- Local game references -->
@@ -49,21 +33,23 @@
   </ItemGroup>
   
   <ItemGroup>
-	<Compile Include="../BepInExShared.cs" />
+    <Compile Include="../BepInExShared.cs" />
   </ItemGroup>
   
   <ItemGroup>
     <Reference Include="InterprocessLib.FrooxEngine">
       <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
+      <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
     </ItemGroup>
-	
-	<Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+  
+  <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
     <Message Text="Copied files to out dir" Importance="high" />
   </Target>
 

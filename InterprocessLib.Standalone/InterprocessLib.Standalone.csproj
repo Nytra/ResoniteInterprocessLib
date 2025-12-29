@@ -11,38 +11,23 @@
 
   <!-- Local game references -->
   <ItemGroup Condition="Exists('$(GamePath)')">
-    <Reference Include="FrooxEngine">
-      <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Elements.Core">
-      <HintPath>$(GamePath)Elements.Core.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="Renderite.Shared">
       <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-  <Reference Include="ResoniteModLoader">
-      <HintPath>$(GamePath)Libraries/ResoniteModLoader.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
   
   <ItemGroup>
-    <Reference Include="InterprocessLib.FrooxEngine">
-      <HintPath>..\..\out\InterprocessLib.FrooxEngine.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
+    <Compile Include="../InterprocessLib.Shared/*.cs" />
   </ItemGroup>
-
+  
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
     <ItemGroup>
       <PluginFiles Include="$(TargetPath)" />
       <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
     </ItemGroup>
   
-    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\..\out\" />
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="..\out\" />
     <Message Text="Copied files to out dir" Importance="high" />
   </Target>
 </Project>

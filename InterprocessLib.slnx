@@ -1,0 +1,43 @@
+<Solution>
+
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+
+  <Project Path="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
+  <Project Path="InterprocessLib.Standalone/InterprocessLib.Standalone.csproj" />
+  <Project Path="InterprocessLib.Unity/InterprocessLib.Unity.csproj" />
+
+  <Folder Name="/Extensions/">
+    <Project Path="Extensions/InterprocessLib.BepInEx_Extensions/InterprocessLib.BepInEx_Extensions.csproj">
+      <BuildDependency Project="InterprocessLib.Unity/InterprocessLib.Unity.csproj" />
+    </Project>
+    <Project Path="Extensions/InterprocessLib.RML_Extensions/InterprocessLib.RML_Extensions.csproj">
+      <BuildDependency Project="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
+    </Project>
+    <Project Path="Extensions/InterprocessLib.BepisLoader_Extensions/InterprocessLib.BepisLoader_Extensions.csproj">
+      <BuildDependency Project="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
+    </Project>
+  </Folder>
+
+  <Folder Name="/Tests/">
+    <Project Path="Tests/InterprocessLib.BepInEx.Tests/InterprocessLib.BepInEx.Tests.csproj">
+      <BuildDependency Project="Extensions/InterprocessLib.BepInEx_Extensions/InterprocessLib.BepInEx_Extensions.csproj" />
+      <BuildDependency Project="InterprocessLib.Unity/InterprocessLib.Unity.csproj" />
+    </Project>
+    <Project Path="Tests/InterprocessLib.BepisLoader.Tests/InterprocessLib.BepisLoader.Tests.csproj">
+      <BuildDependency Project="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
+      <BuildDependency Project="Extensions/InterprocessLib.BepisLoader_Extensions/InterprocessLib.BepisLoader_Extensions.csproj" />
+    </Project>
+    <Project Path="Tests/InterprocessLib.RML.Tests/InterprocessLib.RML.Tests.csproj">
+      <BuildDependency Project="Extensions/InterprocessLib.RML_Extensions/InterprocessLib.RML_Extensions.csproj" />
+      <BuildDependency Project="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
+    </Project>
+    <Project Path="Tests/InterprocessLib.Standalone.Tests/InterprocessLib.Standalone.Tests.csproj">
+      <BuildDependency Project="InterprocessLib.Standalone/InterprocessLib.Standalone.csproj" />
+    </Project>
+  </Folder>
+  
+</Solution>
