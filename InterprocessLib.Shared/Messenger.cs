@@ -28,6 +28,8 @@ public class Messenger : IDisposable
 
 	private string _ownerId;
 
+	private IMemoryPackerEntityPool _pool;
+
 	static Messenger()
 	{
 		Defaults.Init();
@@ -52,22 +54,8 @@ public class Messenger : IDisposable
 	/// <param name="ownerId">Unique identifier for this instance in this process. Should match the other process.</param>
 	/// <exception cref="ArgumentNullException"></exception>
 	/// <exception cref="NotImplementedException"></exception>
-	public Messenger(string ownerId)
+	public Messenger(string ownerId) : this(ownerId, Defaults.DefaultIsAuthority, $"{Defaults.DefaultQueuePrefix}-{ownerId}")
 	{
-		if (ownerId is null)
-			throw new ArgumentNullException(nameof(ownerId));
-
-		_ownerId = ownerId;
-		var queueName = $"{ownerId}-{Defaults.DefaultQueuePrefix}";
-		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingQueue)
-		{
-			_currentQueue = new MessagingQueue(Defaults.DefaultIsAuthority, queueName, MessagingManager.DEFAULT_CAPACITY, Defaults.DefaultPool, OnFailure, OnWarning, OnDebug);
-		}
-		else
-		{
-			_currentQueue = existingQueue;
-		}
-		Init();
 	}
 
 	/// <summary>
@@ -84,14 +72,17 @@ public class Messenger : IDisposable
 		if (ownerId is null)
 			throw new ArgumentNullException(nameof(ownerId));
 
-		_ownerId = ownerId;
-
 		if (queueName is null)
 			throw new ArgumentNullException(nameof(queueName));
 
+		_ownerId = ownerId;
+
+		_pool = pool ?? Defaults.DefaultPool;
+
 		if (MessagingQueue.TryGetRegisteredQueue(queueName) is not MessagingQueue existingQueue)
 		{
-			_currentQueue = new MessagingQueue(isAuthority, queueName, queueCapacity, pool ?? Defaults.DefaultPool, OnFailure, OnWarning, OnDebug);
+			_currentQueue = new MessagingQueue(isAuthority, queueName, queueCapacity, _pool, OnFailure, OnWarning, OnDebug);
+			OnShutdown += _currentQueue.Dispose;
 		}
 		else
 		{
@@ -101,6 +92,7 @@ public class Messenger : IDisposable
 		Init();
 	}
 
+	// On the FrooxEngine and Unity versions of the library, this will shutdown every messaging queue created by the Messenger class
 	internal static void Shutdown()
 	{
 		OnShutdown?.Invoke();
@@ -114,8 +106,6 @@ public class Messenger : IDisposable
 			_currentQueue.Connect();
 
 		_currentQueue.SendPackable(_ownerId, "", new QueueOwnerInitCommand());
-
-		OnShutdown += _currentQueue.Dispose;
 	}
 
 	internal static void WarnHandler(string str)
@@ -138,9 +128,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new ValueCommand<T>();
+		var command = _pool.Borrow<ValueCommand<T>>();
 		command.Value = value;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	[Obsolete("Use SendValueCollection instead.")]
@@ -160,9 +151,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new ValueCollectionCommand<C, T>();
+		var command = _pool.Borrow<ValueCollectionCommand<C, T>>();
 		command.Values = collection;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendValueArray<T>(string id, T[]? array) where T : unmanaged
@@ -170,9 +162,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new ValueArrayCommand<T>();
+		var command = _pool.Borrow<ValueArrayCommand<T>>();
 		command.Values = array;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendString(string id, string? str)
@@ -180,9 +173,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new StringCommand();
+		var command = _pool.Borrow<StringCommand>();
 		command.String = str;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	[Obsolete("Use SendStringCollection instead.")]
@@ -196,9 +190,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new StringCollectionCommand<C>();
+		var command = _pool.Borrow<StringCollectionCommand<C>>();
 		command.Strings = collection;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendStringArray(string id, string?[]? array)
@@ -206,9 +201,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new StringArrayCommand();
+		var command = _pool.Borrow<StringArrayCommand>();
 		command.Strings = array;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendEmptyCommand(string id)
@@ -216,8 +212,9 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new EmptyCommand();
+		var command = _pool.Borrow<EmptyCommand>();
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendObject<T>(string id, T? obj) where T : class?, IMemoryPackable?, new()
@@ -225,10 +222,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new ObjectCommand<T>();
+		var command = _pool.Borrow<ObjectCommand<T>>();
 		command.Object = obj;
-
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	[Obsolete("Use SendObjectCollection instead.")]
@@ -242,9 +239,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new ObjectCollectionCommand<C, T>();
+		var command = _pool.Borrow<ObjectCollectionCommand<C, T>>();
 		command.Objects = collection;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void SendObjectArray<T>(string id, T[]? array) where T : class?, IMemoryPackable?, new()
@@ -252,9 +250,10 @@ public class Messenger : IDisposable
 		if (id is null)
 			throw new ArgumentNullException(nameof(id));
 
-		var command = new ObjectArrayCommand<T>();
+		var command = _pool.Borrow<ObjectArrayCommand<T>>();
 		command.Objects = array;
 		_currentQueue.SendPackable(_ownerId, id, command);
+		_pool.Return(command);
 	}
 
 	public void ReceiveValue<T>(string id, Action<T>? callback) where T : unmanaged

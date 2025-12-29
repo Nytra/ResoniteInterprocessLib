@@ -25,11 +25,6 @@ internal class TypeManager
 	[
 		typeof(QueueOwnerInitCommand),
 		typeof(TypeRegistrationCommand),
-		//typeof(EmptyCommand),
-		//typeof(StringCommand),
-		//typeof(StringArrayCommand),
-		//typeof(TypeCommand),
-		//typeof(PingCommand),
 	];
 
 	private Action<Type>? _onRegisteredCallback;

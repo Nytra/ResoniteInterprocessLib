@@ -208,7 +208,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 			ownerData.OutgoingTypeManager.RegisterType<T>();
 		}
 
-		var wrapper = new WrapperCommand();
+		var wrapper = _pool.Borrow<WrapperCommand>();
 		wrapper.TypeIndex = ownerData.OutgoingTypeManager.GetTypeIndex(typeof(T));
 		wrapper.Owner = ownerId;
 		wrapper.Id = id;
@@ -216,7 +216,7 @@ internal class MessagingQueue : IDisposable, IMemoryPackerEntityPool
 
 		_primary.SendCommand(wrapper);
 
-		ownerData.OutgoingTypeManager.Return(typeof(T), packable);
+		_pool.Return(wrapper);
 	}
 
 	public void UnregisterOwner(string ownerId)
