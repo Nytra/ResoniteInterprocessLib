@@ -29,7 +29,7 @@
     </Project>
     <Project Path="Tests/InterprocessLib.BepisLoader.Tests/InterprocessLib.BepisLoader.Tests.csproj">
       <BuildDependency Project="InterprocessLib.FrooxEngine/InterprocessLib.FrooxEngine.csproj" />
-      <BuildDependency Project="Extensions/InterprocessLib.BepInEx_Extensions/InterprocessLib.BepInEx_Extensions.csproj" />
+      <BuildDependency Project="Extensions/InterprocessLib.BepisLoader_Extensions/InterprocessLib.BepisLoader_Extensions.csproj" />
     </Project>
     <Project Path="Tests/InterprocessLib.RML.Tests/InterprocessLib.RML.Tests.csproj">
       <BuildDependency Project="Extensions/InterprocessLib.RML_Extensions/InterprocessLib.RML_Extensions.csproj" />

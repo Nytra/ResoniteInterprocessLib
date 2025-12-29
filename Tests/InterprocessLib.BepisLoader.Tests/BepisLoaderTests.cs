@@ -1,4 +1,4 @@
-﻿#define TEST_SPAWN_PROCESS
+﻿//#define TEST_SPAWN_PROCESS
 
 using BepInEx;
 using BepInEx.Configuration;
