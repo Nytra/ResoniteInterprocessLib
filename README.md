@@ -1,8 +1,8 @@
 # InterprocessLib
 
-A library for [Resonite](https://resonite.com/) that allows mods to send data to the renderer and back.
+A library for [Resonite](https://resonite.com/) that allows mods to send data to other processes such as the Unity renderer.
 
-The library only depends on `Renderite.Shared`, meaning it could work with other mod loaders e.g. MonkeyLoader.
+The library only depends on `Renderite.Shared`.
 
 BepisLoader, BepInEx, RML and Standalone example projects are included in the Tests folder.
 
@@ -52,7 +52,7 @@ messenger.ReceiveValueCollection<List<float>, float>("TestValueList", (list) =>
 });
 ```
 
-You can send any class type that has the IMemoryPackable interface:
+You can send any class or struct that has the IMemoryPackable interface:
 
 ```
 var cmd = new TestCommand();
