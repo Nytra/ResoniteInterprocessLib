@@ -1,8 +1,13 @@
 # Changelog
 
-## [3.0.0] - x
+## [3.0.0] - 29-12-2025
 
-- ToDo: complete this
+- Fixes occasional startup crashes
+- Big rewrite of the backend - adds on-demand type registering, so you don't need to register types in advance anymore. Also changes library initialization to happen immediately (no delay in sending messages on startup)
+- Adds standalone project and allows using a custom queue name to connect to other processes, not just Unity
+- Adds a way to send and receive Type
+- Adds ways to send generic collections and arrays
+- Performance optimizations and memory optimizations (Now 0.1 millisecond message latency on average)
 
 ## [2.0.1] - 28-10-2025
 
