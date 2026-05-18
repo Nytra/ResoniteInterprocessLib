@@ -26,14 +26,14 @@ internal class Defaults
 					break;
 				}
 				if (args1[i].StartsWith("ARGS="))
-                {
-                    var firstArg = args1[i].Substring("ARGS=".Length);
-                    if (firstArg.Equals("-QueueName", StringComparison.InvariantCultureIgnoreCase))
-				    {
-					    fullQueueName = args[i + 1];
-					    break;
-				    }
-                }
+				{
+					var firstArg = args1[i].Substring("ARGS=".Length);
+					if (firstArg.Equals("-QueueName", StringComparison.InvariantCultureIgnoreCase))
+					{
+						fullQueueName = args[i + 1];
+						break;
+					}
+				}
 			}
 
 			if (fullQueueName is null) throw new InvalidDataException("QueueName argument is null!");
