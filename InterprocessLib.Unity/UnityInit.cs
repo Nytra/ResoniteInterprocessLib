@@ -20,7 +20,7 @@ internal class Defaults
 			string? fullQueueName = null;
 			for (int i = 0; i < args.Length; i++)
 			{
-				if (args[i].Equals("-QueueName", StringComparison.InvariantCultureIgnoreCase))
+				if (args[i].EndsWith("QueueName", StringComparison.InvariantCultureIgnoreCase))
 				{
 					fullQueueName = args[i + 1];
 					break;
