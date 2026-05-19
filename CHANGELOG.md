@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.1] - 19-05-2026
+
+- Fix default queue name command line arg parsing for Unity
+
 ## [3.0.0] - 29-12-2025
 
 - Fixes occasional startup crashes
